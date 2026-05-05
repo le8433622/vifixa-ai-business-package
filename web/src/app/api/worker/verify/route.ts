@@ -3,7 +3,11 @@
 // Per Step 7: Trust & Quality - Task 3
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 // POST: Upload ID document and update verification status
 export async function POST(request: NextRequest) {

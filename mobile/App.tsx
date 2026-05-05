@@ -2,11 +2,10 @@
 // Per 15_CODEX_BUSINESS_CONTEXT.md - Mobile Stack
 
 import { StatusBar } from 'expo-status-bar';
-import { SQLiteProvider } from 'expo-sqlite';
 import { SupabaseProvider } from './src/contexts/SupabaseContext';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './src/lib/queryClient';
-import { RootLayout } from './src/app/_layout';
+import RootLayout from './src/app/_layout';
 
 export default function App() {
   return (

@@ -18,9 +18,9 @@ ADD COLUMN IF NOT EXISTS stripe_charges_enabled BOOLEAN DEFAULT FALSE;
 
 -- Create payouts table for tracking worker payouts
 CREATE TABLE IF NOT EXISTS payouts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-  worker_id UUID REFERENCES workers(id) ON DELETE CASCADE,
+  worker_id UUID REFERENCES workers(user_id) ON DELETE CASCADE,
   amount DECIMAL(10,2) NOT NULL,
   platform_fee DECIMAL(10,2) NOT NULL,
   stripe_transfer_id TEXT,

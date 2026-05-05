@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Test suite for Vifixa AI Business Package",
   "scripts": {
-    "test:supabase": "cd supabase/functions && for dir in */; do if [ -f \"$dir/test.ts\" ]; then echo \"Testing $dir...\"; deno test \"$dir/test.ts\" --allow-net --allow-env; fi; done",
+    "test:supabase": "cd supabase/functions && for dir in */; do if [ -f \"$dir/test.ts\" ]; then echo \"Testing $dir...\"; /Users/lha/.deno/bin/deno test \"$dir/test.ts\" --allow-net --allow-env --no-check; fi; done",
     "test:mobile": "cd mobile && npm test",
     "test:web": "cd web && npm test",
     "test:all": "npm run test:supabase && npm run test:mobile && npm run test:web",

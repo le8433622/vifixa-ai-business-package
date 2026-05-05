@@ -8,8 +8,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { StarIcon } from '@heroicons/react/24/solid';
-import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
 
 interface ReviewPageProps {
   params: { orderId: string };
@@ -146,13 +144,10 @@ export default function CustomerReviewPage({ params }: ReviewPageProps) {
                   onClick={() => setRating(star)}
                   onMouseEnter={() => setHoverRating(star)}
                   onMouseLeave={() => setHoverRating(0)}
-                  className="focus:outline-none"
+                  className="text-3xl focus:outline-none"
+                  style={{ color: star <= (hoverRating || rating) ? '#FBBF24' : '#D1D5DB' }}
                 >
-                  {star <= (hoverRating || rating) ? (
-                    <StarIcon className="h-8 w-8 text-yellow-400" />
-                  ) : (
-                    <StarOutlineIcon className="h-8 w-8 text-gray-300" />
-                  )}
+                  ★
                 </button>
               ))}
             </div>

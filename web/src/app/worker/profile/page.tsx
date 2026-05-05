@@ -76,7 +76,7 @@ export default function WebWorkerProfile() {
 
       const { error } = await supabase
         .from('workers')
-        .update({ skills, service_areas })
+        .update({ skills, service_areas: serviceAreas })
         .eq('user_id', session.user.id);
 
       if (error) throw error;
@@ -195,12 +195,12 @@ export default function WebWorkerProfile() {
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div 
                   className="bg-blue-600 h-2.5 rounded-full"
-                  style={{ width: `${profile?.trust_score || 50}%` }}
+                  style={{ width: `${profile?.trust_score ?? 50}%` }}
                 ></div>
               </div>
               <p className="text-sm text-gray-600 mt-2">
-                {profile?.trust_score >= 80 ? 'Excellent! High trust.' :
-                 profile?.trust_score >= 60 ? 'Good standing.' :
+                {profile?.trust_score && profile.trust_score >= 80 ? 'Excellent! High trust.' :
+                 profile?.trust_score && profile.trust_score >= 60 ? 'Good standing.' :
                  'Improve by completing more jobs and getting positive reviews.'}
               </p>
             </div>

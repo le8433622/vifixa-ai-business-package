@@ -1,7 +1,7 @@
 // Worker Earnings Page
 // Per 05_PRODUCT_SOLUTION.md - Worker flow: Track earnings
 
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';

@@ -313,13 +313,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    color: 'white',
-    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   backButtonText: {
     color: 'white',
     fontSize: 16,
-    marginTop: 16,
   },
   headerTitle: {
     fontSize: 20,
