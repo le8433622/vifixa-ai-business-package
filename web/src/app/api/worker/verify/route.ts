@@ -5,12 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, serviceRoleKey);
-
 // POST: Upload ID document and update verification status
 export async function POST(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
   try {
     const formData = await request.formData();
     const worker_id = formData.get('worker_id') as string;
@@ -81,6 +81,10 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Admin updates verification status (approve/reject)
 export async function PATCH(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
   try {
     const body = await request.json();
     const { worker_id, status, admin_notes } = body;
