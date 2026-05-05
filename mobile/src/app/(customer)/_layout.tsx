@@ -10,6 +10,7 @@ export default function CustomerLayout() {
       <Stack.Screen name="service-request" />
       <Stack.Screen name="orders" />
       <Stack.Screen name="orders/[id]" />
+      <Stack.Screen name="orders/[id]/review" />
       <Stack.Screen name="warranty" />
       <Stack.Screen name="complaint" />
     </Stack>

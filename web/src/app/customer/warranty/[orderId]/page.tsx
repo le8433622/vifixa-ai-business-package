@@ -85,7 +85,7 @@ export default function CustomerWarrantyPage() {
     },
     onSuccess: () => {
       alert('Yêu cầu bảo hành đã được gửi thành công! Chúng tôi sẽ xem xét và phản hồi sớm nhất.');
-      router.push('/customer/orders');
+      router.push('/customer');
     },
     onError: (error: any) => {
       setError(error.message);

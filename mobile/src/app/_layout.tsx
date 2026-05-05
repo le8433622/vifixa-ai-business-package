@@ -6,9 +6,11 @@ import { Stack } from 'expo-router';
 export default function RootLayout() {
   return (
     <Stack>
-      <Stack.Screen name="(customer)/_layout" options={{ headerShown: false }} />
-      <Stack.Screen name="(worker)/_layout" options={{ headerShown: false }} />
-      <Stack.Screen name="(admin)/_layout" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="(customer)" options={{ headerShown: false }} />
+      <Stack.Screen name="(worker)" options={{ headerShown: false }} />
+      <Stack.Screen name="(admin)" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -87,7 +87,7 @@ export default function CustomerReviewPage({ params }: ReviewPageProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', orderId] });
       alert('Cảm ơn bạn đã đánh giá!');
-      router.push('/customer/orders');
+      router.push('/customer');
     },
     onError: (error: any) => {
       setError(error.message);

@@ -103,7 +103,7 @@ export default function ServiceRequest() {
       if (error) throw error;
 
       Alert.alert('Thành công', 'Yêu cầu dịch vụ đã được tạo');
-      router.push(`/orders/${order.id}`);
+      router.push(`/(customer)/${order.id}`);
     } catch (error: any) {
       Alert.alert('Lỗi', error.message);
     } finally {
