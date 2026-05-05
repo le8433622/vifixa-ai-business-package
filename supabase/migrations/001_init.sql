@@ -2,165 +2,149 @@
 -- Based on 20_DATABASE_SCHEMA.md
 
 -- Enable UUID extension
-create extension if not exists "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Profiles table (linked to Supabase Auth)
-create table if not exists public.profiles (
-  id uuid references auth.users(id) on delete cascade not null primary key,
-  email text unique not null,
-  phone text unique,
-  role text not null check (role in ('customer', 'worker', 'admin')),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  phone TEXT UNIQUE,
+  role TEXT NOT NULL CHECK (role IN ('customer', 'worker', 'admin')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Workers table
-create table if not exists public.workers (
-  user_id uuid references public.profiles(id) on delete cascade not null primary key,
-  skills jsonb not null default '[]'::jsonb,
-  service_areas jsonb not null default '[]'::jsonb,
-  trust_score integer default 50,
-  is_verified boolean default false,
-  avg_earnings numeric default 0,
-  created_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.workers (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL PRIMARY KEY,
+  skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+  service_areas JSONB NOT NULL DEFAULT '[]'::jsonb,
+  trust_score INTEGER DEFAULT 50,
+  is_verified BOOLEAN DEFAULT FALSE,
+  avg_earnings NUMERIC DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Orders table
-create table if not exists public.orders (
-  id uuid default gen_random_uuid() primary key,
-  customer_id uuid references public.profiles(id) not null,
-  worker_id uuid references public.workers(user_id),
-  category text not null,
-  description text not null,
-  media_urls jsonb,
-  ai_diagnosis jsonb,
-  estimated_price numeric not null,
-  final_price numeric,
-  status text not null check (status in ('pending', 'matched', 'in_progress', 'completed', 'cancelled', 'disputed')),
-  before_media jsonb,
-  after_media jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.orders (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  customer_id UUID REFERENCES public.profiles(id) NOT NULL,
+  worker_id UUID REFERENCES public.workers(user_id),
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  media_urls JSONB,
+  ai_diagnosis JSONB,
+  estimated_price NUMERIC NOT NULL,
+  final_price NUMERIC,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'matched', 'in_progress', 'completed', 'cancelled', 'disputed')),
+  before_media JSONB,
+  after_media JSONB,
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+  review_comment TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- AI_Logs table
-create table if not exists public.ai_logs (
-  id uuid default gen_random_uuid() primary key,
-  order_id uuid references public.orders(id),
-  agent_type text not null check (agent_type in ('diagnosis', 'pricing', 'matching', 'quality', 'dispute', 'coach', 'fraud')),
-  input jsonb not null,
-  output jsonb not null,
-  created_at timestamptz default now()
-);
-
--- Trust_Scores table
-create table if not exists public.trust_scores (
-  user_id uuid references public.profiles(id) on delete cascade not null primary key,
-  score integer not null,
-  last_updated timestamptz default now(),
-  history jsonb default '[]'::jsonb
+CREATE TABLE IF NOT EXISTS public.ai_logs (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  order_id UUID REFERENCES public.orders(id),
+  agent_type TEXT NOT NULL CHECK (agent_type IN ('diagnosis', 'pricing', 'matching', 'quality', 'dispute', 'coach', 'fraud')),
+  input JSONB NOT NULL,
+  output JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable Row Level Security
-alter table public.profiles enable row level security;
-alter table public.workers enable row level security;
-alter table public.orders enable row level security;
-alter table public.ai_logs enable row level security;
-alter table public.trust_scores enable row level security;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.workers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
-create policy "Users can view own profile"
-  on public.profiles for select
-  using (auth.uid() = id);
+CREATE POLICY "Users can view own profile"
+  ON public.profiles FOR SELECT
+  USING (auth.uid() = id);
 
-create policy "Users can update own profile"
-  on public.profiles for update
-  using (auth.uid() = id);
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
 
-create policy "Workers can view customer profiles for assigned orders"
-  on public.profiles for select
-  using (
-    exists (
-      select 1 from public.orders
-      where orders.customer_id = profiles.id
-      and orders.worker_id = auth.uid()
+CREATE POLICY "Workers can view customer profiles for assigned orders"
+  ON public.profiles FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.orders
+      WHERE orders.customer_id = profiles.id
+      AND orders.worker_id = auth.uid()
     )
   );
 
-create policy "Admins can view all profiles"
-  on public.profiles for select
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+CREATE POLICY "Admins can view all profiles"
+  ON public.profiles FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for workers
-create policy "Workers can manage own worker profile"
-  on public.workers for all
-  using (auth.uid() = user_id);
+CREATE POLICY "Workers can manage own worker profile"
+  ON public.workers FOR ALL
+  USING (auth.uid() = user_id);
 
-create policy "Customers can view verified worker profiles"
-  on public.workers for select
-  using (is_verified = true);
+CREATE POLICY "Customers can view verified worker profiles"
+  ON public.workers FOR SELECT
+  USING (is_verified = true);
 
-create policy "Admins can manage all worker profiles"
-  on public.workers for all
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+CREATE POLICY "Admins can manage all worker profiles"
+  ON public.workers FOR ALL
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for orders
-create policy "Customers can view own orders"
-  on public.orders for select
-  using (auth.uid() = customer_id);
+CREATE POLICY "Customers can view own orders"
+  ON public.orders FOR SELECT
+  USING (auth.uid() = customer_id);
 
-create policy "Customers can create orders"
-  on public.orders for insert
-  with check (auth.uid() = customer_id);
+CREATE POLICY "Customers can create orders"
+  ON public.orders FOR INSERT
+  WITH CHECK (auth.uid() = customer_id);
 
-create policy "Workers can view assigned orders"
-  on public.orders for select
-  using (auth.uid() = worker_id);
+CREATE POLICY "Workers can view assigned orders"
+  ON public.orders FOR SELECT
+  USING (auth.uid() = worker_id);
 
-create policy "Workers can update assigned orders"
-  on public.orders for update
-  using (auth.uid() = worker_id);
+CREATE POLICY "Workers can update assigned orders"
+  ON public.orders FOR UPDATE
+  USING (auth.uid() = worker_id);
 
-create policy "Admins can manage all orders"
-  on public.orders for all
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+CREATE POLICY "Admins can manage all orders"
+  ON public.orders FOR ALL
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for ai_logs
-create policy "Only admins can view AI logs"
-  on public.ai_logs for select
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
-
--- RLS Policies for trust_scores
-create policy "Users can view own trust score"
-  on public.trust_scores for select
-  using (auth.uid() = user_id);
-
-create policy "Admins can manage trust scores"
-  on public.trust_scores for all
-  using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+CREATE POLICY "Only admins can view AI logs"
+  ON public.ai_logs FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- Indexes for performance
-create index if not exists idx_orders_customer_id on public.orders(customer_id);
-create index if not exists idx_orders_worker_id on public.orders(worker_id);
-create index if not exists idx_orders_status on public.orders(status);
-create index if not exists idx_ai_logs_order_id on public.ai_logs(order_id);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON public.orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_worker_id ON public.orders(worker_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_order_id ON public.ai_logs(order_id);
 
 -- Function to update updated_at timestamp
-create or replace function public.handle_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
-create trigger handle_profiles_updated_at
-  before update on public.profiles
-  for each row
-  execute function public.handle_updated_at();
+CREATE TRIGGER handle_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
 
-create trigger handle_orders_updated_at
-  before update on public.orders
-  for each row
-  execute function public.handle_updated_at();
+CREATE TRIGGER handle_orders_updated_at
+  BEFORE UPDATE ON public.orders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
