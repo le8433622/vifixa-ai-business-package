@@ -4,10 +4,13 @@
 
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import QueryProvider from '@/components/QueryProvider';
 
 const CATEGORIES = [
   { id: 'electricity', name: 'Điện lạnh', icon: '❄️' },
@@ -17,8 +20,15 @@ const CATEGORIES = [
 ];
 
 export default function WebServiceRequest() {
+  return (
+    <QueryProvider>
+      <ServiceRequestContent />
+    </QueryProvider>
+  );
+}
+
+function ServiceRequestContent() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   
   const [step, setStep] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -88,8 +98,6 @@ export default function WebServiceRequest() {
       setDiagnosis(data.ai_diagnosis);
       setEstimatedPrice(data.estimated_price);
       setStep(3);
-      
-      queryClient.invalidateQueries({ queryKey: ['web-customer-orders'] });
     } catch (error: any) {
       alert(`Error: ${error.message}`);
     } finally {
