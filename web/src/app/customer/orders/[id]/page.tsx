@@ -1,41 +1,51 @@
-// Web Customer Order Detail
-// Per 05_PRODUCT_SOLUTION.md - Customer flow: Track order with AI diagnosis
-// Per Step 6: Web Flows with TanStack Query
+// Customer Order Details Page with Review Button
+// Per 05_PRODUCT_SOLUTION.md - Customer flow
+// Per Step 7: Trust & Quality - Add review button after completion
 
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
-interface Order {
+interface OrderDetails {
   id: string;
   category: string;
   description: string;
-  status: 'pending' | 'matched' | 'in_progress' | 'completed' | 'cancelled' | 'disputed';
+  status: string;
   estimated_price: number;
   final_price?: number;
-  ai_diagnosis?: any;
-  before_media?: string[];
-  after_media?: string[];
+  rating?: number;
+  review_comment?: string;
   created_at: string;
-  workers?: { user_id: string; profiles?: { email: string } };
+  completed_at?: string;
+  ai_diagnosis?: any;
+  before_media?: any[];
+  after_media?: any[];
+  workers?: {
+    user_id: string;
+    profiles?: {
+      email: string;
+      phone?: string;
+    };
+  };
 }
 
-export default function WebCustomerOrderDetail() {
+export default function CustomerOrderDetailsPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const router = useRouter();
-  const params = useParams();
-  const orderId = params.id as string;
-  const queryClient = useQueryClient();
+  const orderId = params.id;
+  const [isWarrantyEligible, setIsWarrantyEligible] = useState(false);
 
-  const { data: order, isLoading, refetch } = useQuery({
-    queryKey: ['web-customer-order', orderId],
+  // Fetch order details
+  const { data: order, isLoading } = useQuery({
+    queryKey: ['order', orderId],
     queryFn: async () => {
-      if (!orderId) throw new Error('Order ID not found');
-      
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/login');
@@ -44,60 +54,36 @@ export default function WebCustomerOrderDetail() {
 
       const { data, error } = await supabase
         .from('orders')
-        .select('*, workers(user_id, profiles(email))')
+        .select(`
+          *,
+          workers:worker_id (
+            user_id,
+            profiles:user_id (email, phone)
+          )
+        `)
         .eq('id', orderId)
         .single();
 
       if (error) throw error;
-      return data as Order;
+      return data as OrderDetails;
     },
-    enabled: !!orderId,
   });
 
-  async function acceptPrice() {
-    if (!order) return;
-    
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'matched' })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['web-customer-order', orderId] });
-      alert('Price accepted! Worker will be assigned soon.');
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+  // Check warranty eligibility (30 days from completion)
+  useEffect(() => {
+    if (order?.status === 'completed' && order.completed_at) {
+      const completedDate = new Date(order.completed_at);
+      const thirtyDaysLater = new Date(completedDate);
+      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      const now = new Date();
+      setIsWarrantyEligible(now <= thirtyDaysLater);
     }
-  }
-
-  function getStatusMessage(status: string) {
-    switch (status) {
-      case 'pending': return order?.ai_diagnosis 
-        ? 'AI diagnosis complete. Waiting for your price confirmation...'
-        : 'Waiting for AI diagnosis...';
-      case 'matched': return 'Worker assigned! They will arrive soon.';
-      case 'in_progress': return 'Worker is handling your issue...';
-      case 'completed': return 'Job completed! Please confirm and rate.';
-      case 'disputed': return 'Dispute in progress. Admin will review.';
-      default: return 'Status unknown';
-    }
-  }
-
-  function getStatusColor(status: string) {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'disputed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  }
+  }, [order]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -106,160 +92,151 @@ export default function WebCustomerOrderDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">Order not found</p>
-          <button 
-            onClick={() => router.push('/customer')}
-            className="text-blue-600 hover:underline"
+          <h2 className="text-2xl font-bold text-gray-900">Không tìm thấy đơn hàng</h2>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            ← Back to Dashboard
+            Quay lại
           </button>
         </div>
       </div>
     );
   }
 
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      matched: 'bg-blue-100 text-blue-800',
+      in_progress: 'bg-purple-100 text-purple-800',
+      completed: 'bg-green-100 text-green-800',
+      cancelled: 'bg-gray-100 text-gray-800',
+      disputed: 'bg-red-100 text-red-800',
+    };
+    const labels: Record<string, string> = {
+      pending: 'Chờ xử lý',
+      matched: 'Đã ghép thợ',
+      in_progress: 'Đang thực hiện',
+      completed: 'Hoàn thành',
+      cancelled: 'Đã hủy',
+      disputed: 'Khiếu nại',
+    };
+    return (
+      <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || 'bg-gray-100'}`}>
+        {labels[status] || status}
+      </span>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-blue-600 text-white p-6">
-        <button 
-          onClick={() => router.back()}
-          className="text-white mb-2 hover:underline"
-        >
-          ← Quay lại
-        </button>
-        <h1 className="text-3xl font-bold">Chi tiết đơn hàng</h1>
-      </div>
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-3xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow p-6">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Chi tiết đơn hàng</h1>
+            {getStatusBadge(order.status)}
+          </div>
 
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Status */}
-        <div className={`inline-block px-4 py-2 rounded-lg mb-6 ${getStatusColor(order.status)}`}>
-          <p className="font-bold uppercase">{order.status}</p>
-          <p className="text-sm mt-1">{getStatusMessage(order.status)}</p>
-        </div>
-
-        {/* Order Info */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">Thông tin đơn hàng</h2>
-          <div className="grid grid-cols-2 gap-4">
+          {/* Order Info */}
+          <div className="space-y-4 mb-6">
+            <div>
+              <p className="text-sm text-gray-600">Mã đơn hàng</p>
+              <p className="font-medium">{order.id}</p>
+            </div>
             <div>
               <p className="text-sm text-gray-600">Danh mục</p>
-              <p className="font-semibold">{order.category}</p>
+              <p className="font-medium">{order.category}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Ngày tạo</p>
-              <p className="font-semibold">{new Date(order.created_at).toLocaleDateString()}</p>
+              <p className="text-sm text-gray-600">Mô tả</p>
+              <p className="font-medium">{order.description}</p>
             </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">Mô tả</p>
-            <p className="mt-1">{order.description}</p>
-          </div>
-        </div>
-
-        {/* AI Diagnosis */}
-        {order.ai_diagnosis && (
-          <div className="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
-            <h2 className="text-xl font-bold mb-4 text-blue-800">Chẩn đoán AI</h2>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-blue-600 font-semibold">Chẩn đoán</p>
-                <p className="text-blue-900">{order.ai_diagnosis.diagnosis}</p>
-              </div>
-              <div>
-                <p className="text-sm text-blue-600 font-semibold">Mức độ</p>
-                <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
-                  order.ai_diagnosis.severity === 'emergency' ? 'bg-red-200 text-red-800' :
-                  order.ai_diagnosis.severity === 'high' ? 'bg-orange-200 text-orange-800' :
-                  order.ai_diagnosis.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' :
-                  'bg-green-200 text-green-800'
-                }`}>
-                  {order.ai_diagnosis.severity}
-                </span>
-              </div>
-              <div>
-                <p className="text-sm text-blue-600 font-semibold">Kỹ năng cần</p>
-                <p className="text-blue-900">{order.ai_diagnosis.recommended_skills?.join(', ')}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Price */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">Giá cả</h2>
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-600">Giá dự kiến</p>
-              <p className="text-2xl font-bold text-blue-600">${order.estimated_price}</p>
+              <p className="font-medium">${order.estimated_price}</p>
             </div>
             {order.final_price && (
               <div>
                 <p className="text-sm text-gray-600">Giá cuối cùng</p>
-                <p className="text-2xl font-bold text-green-600">${order.final_price}</p>
+                <p className="font-medium">${order.final_price}</p>
+              </div>
+            )}
+            {order.workers?.profiles && (
+              <div>
+                <p className="text-sm text-gray-600">Thợ thực hiện</p>
+                <p className="font-medium">{order.workers.profiles.email}</p>
               </div>
             )}
           </div>
 
-          {/* Accept/Reject Price */}
-          {order.status === 'pending' && order.ai_diagnosis && (
-            <div className="flex gap-4 mt-6">
-              <button
-                onClick={acceptPrice}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold"
-              >
-                Chấp nhận giá
-              </button>
-              <button
-                onClick={() => router.push('/customer/service-request')}
-                className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 font-bold"
-              >
-                Từ chối
-              </button>
+          {/* AI Diagnosis */}
+          {order.ai_diagnosis && (
+            <div className="mb-6 p-4 bg-blue-50 rounded">
+              <h3 className="font-medium text-blue-900 mb-2">Chẩn đoán AI</h3>
+              <pre className="text-sm text-blue-800 whitespace-pre-wrap">
+                {JSON.stringify(order.ai_diagnosis, null, 2)}
+              </pre>
             </div>
           )}
+
+          {/* Rating Display (if already reviewed) */}
+          {order.rating && (
+            <div className="mb-6 p-4 bg-green-50 rounded">
+              <h3 className="font-medium text-green-900 mb-2">Đánh giá của bạn</h3>
+              <div className="flex items-center gap-2">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span key={star} className={star <= order.rating! ? 'text-yellow-400' : 'text-gray-300'}>
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <span className="text-sm text-green-800">({order.rating}/5)</span>
+              </div>
+              {order.review_comment && (
+                <p className="mt-2 text-sm text-green-800">{order.review_comment}</p>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-4">
+            <button
+              onClick={() => router.back()}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+            >
+              Quay lại
+            </button>
+
+            {/* Review Button - Show only if completed and not yet reviewed */}
+            {order.status === 'completed' && !order.rating && (
+              <Link href={`/customer/review/${order.id}`}>
+                <button className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">
+                  Đánh giá dịch vụ
+                </button>
+              </Link>
+            )}
+
+            {/* Warranty Claim Button - Show if within 30 days of completion */}
+            {isWarrantyEligible && (
+              <Link href={`/customer/warranty/${order.id}`}>
+                <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                  Yêu cầu bảo hành
+                </button>
+              </Link>
+            )}
+
+            {/* Complaint Button */}
+            {order.status === 'completed' && (
+              <Link href={`/customer/complaint?order_id=${order.id}`}>
+                <button className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                  Khiếu nại
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
-
-        {/* Worker Info */}
-        {order.workers && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Thợ đang thực hiện</h2>
-            <p className="text-gray-700">{order.workers.profiles?.email || 'N/A'}</p>
-          </div>
-        )}
-
-        {/* Media */}
-        {order.before_media && order.before_media.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Ảnh trước khi sửa</h2>
-            <div className="flex gap-2 overflow-x-auto">
-              {order.before_media.map((url: string, idx: number) => (
-                <img key={idx} src={url} alt="Before" className="w-24 h-24 object-cover rounded" />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {order.after_media && order.after_media.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4">Ảnh sau khi sửa</h2>
-            <div className="flex gap-2 overflow-x-auto">
-              {order.after_media.map((url: string, idx: number) => (
-                <img key={idx} src={url} alt="After" className="w-24 h-24 object-cover rounded" />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Complete Button */}
-        {order.status === 'completed' && (
-          <button
-            onClick={() => router.push(`/customer/orders/${order.id}/review`)}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold"
-          >
-            Đánh giá & Xác nhận
-          </button>
-        )}
       </div>
     </div>
   );
