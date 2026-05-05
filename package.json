@@ -1,0 +1,19 @@
+{
+  "name": "vifixa-ai-tests",
+  "version": "1.0.0",
+  "description": "Test suite for Vifixa AI Business Package",
+  "scripts": {
+    "test:supabase": "cd supabase/functions && for dir in */; do if [ -f \"$dir/test.ts\" ]; then echo \"Testing $dir...\"; deno test \"$dir/test.ts\" --allow-net --allow-env; fi; done",
+    "test:mobile": "cd mobile && npm test",
+    "test:web": "cd web && npm test",
+    "test:all": "npm run test:supabase && npm run test:mobile && npm run test:web",
+    "deploy:supabase": "supabase db push && supabase functions deploy",
+    "deploy:web": "cd web && vercel --prod",
+    "deploy:mobile:ios": "cd mobile && eas build --platform ios",
+    "deploy:mobile:android": "cd mobile && eas build --platform android",
+    "deploy:all": "npm run deploy:supabase && npm run deploy:web"
+  },
+  "devDependencies": {
+    "deno": "^1.40.0"
+  }
+}
