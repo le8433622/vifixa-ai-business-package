@@ -92,8 +92,8 @@ export default function AdminComplaints() {
       }
 
       const { error } = await supabase
-        .from('complaints')
-        .update(updateData)
+        .from('complaints' as any)
+        .update(updateData as any)
         .eq('id', complaintId);
 
       if (error) throw error;

@@ -109,7 +109,7 @@ export default function AdminAILogs() {
 
       if (workersError) throw workersError;
 
-      const workerQuality: WorkerQuality[] = (workersData || []).map(w => ({
+      const workerQuality: WorkerQuality[] = (workersData || []).map((w: any) => ({
         user_id: w.user_id,
         email: (w.profiles as any)?.email || 'N/A',
         trust_score: w.trust_score || 0,
