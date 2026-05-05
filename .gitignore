@@ -1,0 +1,11 @@
+node_modules/
+.expo/
+.next/
+.vercel/
+.supabase/
+wrangler.toml
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
