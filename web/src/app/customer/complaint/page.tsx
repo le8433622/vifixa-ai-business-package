@@ -1,5 +1,4 @@
 'use client';
-
 // Customer Complaint Page
 // Per 12_OPERATIONS_AND_TRUST.md - Complaint handling
 // Per Step 7: Trust & Quality - Task 8

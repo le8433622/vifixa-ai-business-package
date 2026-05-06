@@ -3,7 +3,6 @@
 // Per Step 7: Trust & Quality - Task 4
 
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

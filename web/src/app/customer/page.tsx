@@ -3,7 +3,6 @@
 // Per Step 3: Build customer flows
 
 'use client'
-
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -60,9 +59,8 @@ export default function CustomerDashboard() {
   const { toast } = useToast()
 
   useEffect(() => {
-    checkUser()
+    fetchOrders()
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         router.push('/login')
@@ -71,6 +69,22 @@ export default function CustomerDashboard() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  async function checkUser() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+      await fetchOrders()
+    } catch (error: any) {
+      console.error('checkUser error:', error)
+      toast(error.message || 'Lỗi tải dữ liệu', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function fetchOrders() {
     try {

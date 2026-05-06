@@ -2,7 +2,6 @@
 // Per 15_CODEX_BUSINESS_CONTEXT.md - User profile management
 
 'use client'
-
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'

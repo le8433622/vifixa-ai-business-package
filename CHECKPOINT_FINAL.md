@@ -432,7 +432,7 @@ API: NVIDIA (abacusai/dracarys-llama-3.1-70b-instruct)
 
 | Service | URL | Status |
 |---------|-----|--------|
-| **Web App** | https://web-eta-ochre-99.vercel.app | ✅ LIVE |
+| **Web App** | https://web-eta-ochre-99.vercel.app | ✅ LIVE (build 14s) |
 | **Supabase API** | https://lipjakzhzosrhttsltwo.supabase.co | ✅ ACTIVE |
 | **Supabase Edge** | https://lipjakzhzosrhttsltwo.supabase.co/functions/v1/* | ✅ ACTIVE |
 | **NVIDIA API** | https://integrate.api.nvidia.com/v1 | ✅ CONFIGURED |

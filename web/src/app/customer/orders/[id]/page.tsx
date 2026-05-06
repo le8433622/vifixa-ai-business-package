@@ -3,7 +3,6 @@
 // Per Step 7: Trust & Quality - Review, warranty, complaint
 
 'use client'
-
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
