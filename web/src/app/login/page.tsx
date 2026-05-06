@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -13,6 +13,37 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+
+  // Auto redirect if already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        checkRoleAndRedirect(session.user.id);
+      }
+    });
+  }, []);
+
+  async function checkRoleAndRedirect(userId: string) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (profile?.role === 'customer') {
+        router.replace('/customer');
+      } else if (profile?.role === 'worker') {
+        router.replace('/worker');
+      } else if (profile?.role === 'admin') {
+        router.replace('/admin');
+      } else {
+        router.replace('/');
+      }
+    } catch (err) {
+      console.error('Role check failed:', err);
+    }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -27,24 +58,11 @@ export default function Login() {
 
       if (error) throw error;
 
-      // Get user role and redirect
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profile?.role === 'customer') {
-        router.push('/customer');
-      } else if (profile?.role === 'worker') {
-        router.push('/worker');
-      } else if (profile?.role === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/');
-      }
+      // Force session refresh and redirect
+      await supabase.auth.refreshSession();
+      checkRoleAndRedirect(data.user.id);
     } catch (error: any) {
-      setError(error.message);
+      setError(error.message || 'Đăng nhập thất bại');
     } finally {
       setLoading(false);
     }

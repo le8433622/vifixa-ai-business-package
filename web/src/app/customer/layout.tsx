@@ -15,6 +15,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
+    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         router.push('/login')
@@ -22,6 +23,17 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
       }
       setUserEmail(session.user.email || '')
     })
+
+    // Listen for auth changes (token refresh, sign out on mobile)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || !session) {
+        if (!session) {
+          router.push('/login')
+        }
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   async function handleLogout() {

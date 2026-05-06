@@ -60,7 +60,16 @@ export default function CustomerDashboard() {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchOrders()
+    checkUser()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        router.push('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   async function fetchOrders() {
