@@ -106,15 +106,21 @@ export default function Home() {
               Chẩn đoán AI tức thì, báo giá minh bạch, thợ chuyên nghiệp được xác minh. Tất cả chỉ trong vài phút.
             </p>
             {user ? (
-              <button
-                onClick={() => {
-                  if (user.role === 'admin') router.push('/admin');
-                  else router.push('/login');
-                }}
-                className="bg-blue-600 text-white px-8 py-3.5 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
-              >
-                Vào trang quản trị
-              </button>
+              user.role === 'admin' ? (
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="bg-blue-600 text-white px-8 py-3.5 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  Vào trang quản trị
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push('/customer')}
+                  className="bg-blue-600 text-white px-8 py-3.5 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  Đến dashboard khách hàng
+                </button>
+              )
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <button
