@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 export default function CustomerWarrantyPage() {
   const router = useRouter();
@@ -80,10 +81,39 @@ export default function CustomerWarrantyPage() {
 
       if (disputeError) throw disputeError;
 
-      return true;
+      // Call AI dispute function
+      try {
+        const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-dispute`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: orderId,
+            complainant_id: session.user.id,
+            complaint_type: 'warranty',
+            description: claimReason,
+            evidence_urls: [],
+          }),
+        });
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          if (aiData.needs_human_review) {
+            return { needsReview: true };
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI dispute call failed:', aiError);
+      }
+
+      return { needsReview: false };
     },
-    onSuccess: () => {
-      alert('Yêu cầu bảo hành đã được gửi thành công! Chúng tôi sẽ xem xét và phản hồi sớm nhất.');
+    onSuccess: (data) => {
+      const message = data.needsReview
+        ? 'AI đã xem xét và chuyển cho admin xử lý. Chúng tôi sẽ phản hồi sớm nhất.'
+        : 'Yêu cầu bảo hành đã được gửi thành công! Chúng tôi sẽ xem xét và phản hồi sớm nhất.';
+      alert(message);
       router.push('/customer');
     },
     onError: (error: any) => {

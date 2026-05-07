@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
 type Job = {
   id: string
@@ -103,6 +104,34 @@ export default function WorkerJobDetailPage() {
         .eq('id', jobId)
 
       if (error) throw error
+
+      // Call AI quality check when marking complete
+      if (newStatus === 'completed') {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.access_token) {
+            const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-quality`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                order_id: jobId,
+                worker_id: session.user.id,
+              }),
+            })
+            if (aiRes.ok) {
+              const aiData = await aiRes.json()
+              if (!aiData.passed) {
+                alert(`Chất lượng: ${aiData.quality_score}/100. ${aiData.recommendations?.join(' ') || ''}`)
+              }
+            }
+          }
+        } catch (aiError) {
+          console.warn('AI quality check failed:', aiError)
+        }
+      }
 
       alert('Cập nhật thành công!')
       fetchJob()

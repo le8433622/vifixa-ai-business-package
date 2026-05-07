@@ -11,8 +11,36 @@ Bộ tài liệu này mô tả đầy đủ dự án kinh doanh **Vifixa AI**.
 
 1. Copy toàn bộ thư mục này vào dự án hoặc Google Drive.
 2. Dùng file `00_BUSINESS_PLAN_VIFIXA_AI.docx` làm bản tổng hợp để gửi đối tác/nhà đầu tư.
-3. Dùng các file Markdown riêng lẻ để đưa cho Codex, làm website, landing page, pitch deck hoặc tài liệu nội bộ.
+3. Dùng các file Markdown riêng lẻ để đưa cho Codex, làm website, landing page, tài liệu nội bộ.
 4. Dùng `15_CODEX_BUSINESS_CONTEXT.md` để Codex hiểu bối cảnh kinh doanh trước khi lập trình.
+
+## Tài liệu kỹ thuật
+
+- **AI API Docs**: `docs/ai-api.md` — tài liệu API 8 functions (endpoint, request/response, env vars)
+- **Rollback Plan**: `docs/rollback-plan.md` — hướng dẫn rollback functions + migrations
+- **CI/CD Secrets**: `docs/ci-secrets-guide.md` — cấu hình GitHub secrets
+- **Staging & Canary**: `docs/staging-canary.md` — staging project + chiến lược canary
+
+## Quick Start (Developers)
+
+```bash
+# 1. Clone & install
+npm install  # web
+cd mobile && npx expo install  # mobile
+
+# 2. Supabase setup
+supabase login
+supabase link --project-ref lipjakzhzosrhttsltwo
+supabase db pull
+
+# 3. Env files
+cp web/.env.local.example web/.env.local
+# Edit .env.local with your keys
+
+# 4. Run
+cd web && npm run dev
+cd mobile && npx expo start
+```
 
 ## Danh sách tài liệu
 

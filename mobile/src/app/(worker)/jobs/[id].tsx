@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!
 
 type Job = {
   id: string
@@ -88,6 +89,34 @@ export default function JobDetailScreen() {
         .eq('id', id)
 
       if (error) throw error
+
+      // Call AI quality check when marking complete
+      if (newStatus === 'completed') {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.access_token) {
+            const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-quality`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                order_id: id,
+                worker_id: session.user.id,
+              }),
+            })
+            if (aiRes.ok) {
+              const aiData = await aiRes.json()
+              if (!aiData.passed) {
+                Alert.alert('Kiểm tra chất lương', `Điểm: ${aiData.quality_score}/100. ${aiData.recommendations?.join(' ') || ''}`)
+              }
+            }
+          }
+        } catch (aiError) {
+          console.warn('AI quality check failed:', aiError)
+        }
+      }
 
       Alert.alert('Thành công', 'Đã cập nhật trạng thái')
       fetchJob()

@@ -5,6 +5,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Activi
 import { useRouter } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!
 
 const COMPLAINT_TYPES = [
   { value: 'poor_quality', label: 'Chất lượng dịch vụ kém' },
@@ -71,6 +72,55 @@ export default function ComplaintScreen() {
         router.replace('/login')
         return
       }
+
+      const { error } = await supabase.from('complaints').insert({
+        order_id: selectedOrder,
+        customer_id: session.user.id,
+        complaint_type: complaintType,
+        description,
+        status: 'pending',
+      })
+
+      if (error) throw error
+
+      // Call AI dispute function
+      try {
+        const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-dispute`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: selectedOrder,
+            complainant_id: session.user.id,
+            complaint_type: complaintType,
+            description,
+            evidence_urls: [],
+          }),
+        })
+        if (aiRes.ok) {
+          const aiData = await aiRes.json()
+          if (aiData.needs_human_review) {
+            Alert.alert('Khiếu nại đã gửi', 'AI đã xem xét và chuyển cho admin xử lý. Chúng tôi sẽ phản hồi sớm nhất.', [
+              { text: 'OK', onPress: () => router.back() },
+            ])
+            return
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI dispute call failed:', aiError)
+      }
+
+      Alert.alert('Thành công', 'Khiếu nại của bạn đã được gửi. Chúng tôi sẽ xem xét và phản hồi.', [
+        { text: 'OK', onPress: () => router.back() },
+      ])
+    } catch (error: any) {
+      Alert.alert('Lỗi', error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
       const { error } = await supabase.from('complaints').insert({
         order_id: selectedOrder,

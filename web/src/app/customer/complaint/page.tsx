@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 const COMPLAINT_TYPES = [
   'Chất lượng dịch vụ kém',
@@ -73,11 +74,40 @@ export default function CustomerComplaintPage() {
 
       if (error) throw error;
 
-      return true;
+      // Call AI dispute function
+      try {
+        const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-dispute`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: orderId,
+            complainant_id: session.user.id,
+            complaint_type: complaintType,
+            description,
+            evidence_urls: [],
+          }),
+        });
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          if (aiData.needs_human_review) {
+            return { needsReview: true, summary: aiData.summary };
+          }
+        }
+      } catch (aiError) {
+        console.warn('AI dispute call failed:', aiError);
+      }
+
+      return { needsReview: false };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['customer-orders-for-complaint'] });
-      alert('Khiếu nại của bạn đã được gửi thành công! Đội ngũ hỗ trợ sẽ xem xét và phản hồi sớm nhất.');
+      const message = data.needsReview
+        ? 'AI đã xem xét và chuyển cho admin xử lý. Chúng tôi sẽ phản hồi sớm nhất.'
+        : 'Khiếu nại của bạn đã được gửi thành công! Đội ngũ hỗ trợ sẽ xem xét và phản hồi sớm nhất.';
+      alert(message);
       router.push('/customer/orders');
     },
     onError: (error: any) => {
