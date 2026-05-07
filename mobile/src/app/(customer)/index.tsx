@@ -1,6 +1,5 @@
-// Customer Dashboard
-// Per 05_PRODUCT_SOLUTION.md - Customer flow: Quick actions, recent orders
-// Uses: TanStack Query, Supabase, Expo Router
+// Customer Dashboard - AI-Centric Design
+// Per user request: AI as centerpiece, form as foundation
 
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -11,15 +10,24 @@ type Order = {
   id: string;
   category: string;
   description: string;
-  status: 'pending' | 'matched' | 'in_progress' | 'completed' | 'canceled' | 'disputed';
+  status: 'pending' | 'matched' | 'in_progress' | 'completed' | 'cancelled' | 'disputed';
   estimated_price: number;
   created_at: string;
+};
+
+type Device = {
+  id: string;
+  device_type: string;
+  brand?: string;
+  model?: string;
+  purchase_date?: string;
 };
 
 type ServiceCategory = {
   id: string;
   name: string;
   icon: string;
+  desc: string;
 };
 
 export default function CustomerDashboard() {
@@ -27,10 +35,10 @@ export default function CustomerDashboard() {
   const queryClient = useQueryClient();
 
   const CATEGORIES: ServiceCategory[] = [
-    { id: 'electricity', name: 'Điện lạnh', icon: '❄️' },
-    { id: 'plumbing', name: 'Điện nước', icon: '🚿' },
-    { id: 'appliance', name: 'Điện gia dụng', icon: '🔌' },
-    { id: 'camera', name: 'Camera/Khóa', icon: '📷' },
+    { id: 'air_conditioning', name: 'Máy lạnh', icon: '❄️', desc: 'Sửa, lắp, vệ sinh' },
+    { id: 'electricity', name: 'Điện nước', icon: '💡', desc: 'Sửa điện, nước' },
+    { id: 'plumbing', name: 'Nước rò rỉ', icon: '🚿', desc: 'Thông tắc, sửa ống' },
+    { id: 'camera', name: 'Camera', icon: '📷', desc: 'Lắp đặt camera' },
   ];
 
   // TanStack Query for recent orders
@@ -52,6 +60,24 @@ export default function CustomerDashboard() {
 
       if (error) throw error;
       return data as Order[];
+    },
+  });
+
+  // Devices query
+  const { data: devices = [] } = useQuery({
+    queryKey: ['customer-devices-preview'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+
+      const { data, error } = await supabase
+        .from('device_profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .limit(3);
+
+      if (error) return [];
+      return data as Device[];
     },
   });
 
@@ -91,27 +117,38 @@ export default function CustomerDashboard() {
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
       }
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Vifixa AI</Text>
-        <Text style={styles.headerSubtitle}>Dịch vụ thông minh cho đời sống thật</Text>
+      {/* Hero Section - AI Chat CTA */}
+      <View style={styles.hero}>
+        <Text style={styles.heroEmoji}>💬</Text>
+        <Text style={styles.heroTitle}>Chat với AI</Text>
+        <Text style={styles.heroSubtitle}>Đặt dịch vụ thông minh</Text>
+        <TouchableOpacity
+          style={styles.heroButton}
+          onPress={() => router.push('/(customer)/chat')}
+        >
+          <Text style={styles.heroButtonText}>💬 Bắt đầu chat ngay</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => router.push('/(customer)/service-request')}
+        >
+          <Text style={styles.secondaryButtonText}>📝 Dùng form cũ</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Dịch vụ phổ biến</Text>
+        <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
         <View style={styles.grid}>
           {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat.id}
               style={styles.card}
-              onPress={() => router.push({
-                pathname: '/(customer)/service-request',
-                params: { category: cat.id }
-              })}
+              onPress={() => router.push('/(customer)/chat')}
             >
               <Text style={styles.cardIcon}>{cat.icon}</Text>
               <Text style={styles.cardText}>{cat.name}</Text>
+              <Text style={styles.cardDesc}>{cat.desc}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -120,7 +157,7 @@ export default function CustomerDashboard() {
       {/* Recent Orders */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Đơn hàng gần đây</Text>
+          <Text style={styles.sectionTitle}>📋 Đơn hàng gần đây</Text>
           <TouchableOpacity onPress={() => router.push('/(customer)/orders')}>
             <Text style={styles.viewAll}>Xem tất cả</Text>
           </TouchableOpacity>
@@ -131,9 +168,9 @@ export default function CustomerDashboard() {
             <Text style={styles.emptyText}>Chưa có đơn hàng nào</Text>
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => router.push('/(customer)/service-request')}
+              onPress={() => router.push('/(customer)/chat')}
             >
-              <Text style={styles.createButtonText}>Tạo yêu cầu dịch vụ</Text>
+              <Text style={styles.createButtonText}>💬 Chat với AI để đặt dịch vụ</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -160,6 +197,57 @@ export default function CustomerDashboard() {
           ))
         )}
       </View>
+
+      {/* Devices Preview */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>🔧 Thiết bị của tôi</Text>
+          <TouchableOpacity onPress={() => router.push('/(customer)/devices')}>
+            <Text style={styles.viewAll}>Xem tất cả</Text>
+          </TouchableOpacity>
+        </View>
+
+        {devices.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Chưa có thiết bị nào</Text>
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => router.push('/(customer)/devices')}
+            >
+              <Text style={styles.createButtonText}>+ Thêm thiết bị đầu tiên</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          devices.map((device) => (
+            <TouchableOpacity
+              key={device.id}
+              style={styles.deviceCard}
+              onPress={() => router.push('/(customer)/devices')}
+            >
+              <Text style={styles.deviceIcon}>🔧</Text>
+              <View style={styles.deviceInfo}>
+                <Text style={styles.deviceName}>{device.brand} {device.model}</Text>
+                {device.purchase_date && (
+                  <Text style={styles.deviceDate}>Mua: {new Date(device.purchase_date).toLocaleDateString()}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+
+      {/* Footer Links */}
+      <View style={styles.footer}>
+        <TouchableOpacity onPress={() => router.push('/(customer)/chat')}>
+          <Text style={styles.footerLink}>💬 Chat AI</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(customer)/service-request')}>
+          <Text style={styles.footerLink}>📝 Form cũ</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/(customer)/profile')}>
+          <Text style={styles.footerLink}>👤 Tài khoản</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -177,21 +265,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  // Hero Section
+  hero: {
     backgroundColor: '#3b82f6',
-    padding: 20,
+    padding: 24,
     paddingTop: 60,
+    alignItems: 'center',
   },
-  headerTitle: {
+  heroEmoji: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  heroTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
+    marginBottom: 4,
   },
-  headerSubtitle: {
+  heroSubtitle: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
+    marginBottom: 20,
   },
+  heroButton: {
+    backgroundColor: 'white',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  heroButtonText: {
+    color: '#3b82f6',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  secondaryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    width: '100%',
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  // Sections
   section: {
     padding: 20,
   },
@@ -211,6 +334,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  // Grid
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -237,28 +361,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  emptyCard: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
+  cardDesc: {
+    fontSize: 10,
     color: '#999',
-    marginBottom: 12,
+    textAlign: 'center',
+    marginTop: 4,
   },
-  createButton: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  createButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  // Orders
   orderCard: {
     backgroundColor: 'white',
     padding: 16,
@@ -307,5 +416,66 @@ const styles = StyleSheet.create({
   orderDate: {
     fontSize: 12,
     color: '#999',
+  },
+  // Devices
+  deviceCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deviceIcon: {
+    fontSize: 24,
+  },
+  deviceInfo: {
+    flex: 1,
+  },
+  deviceName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  deviceDate: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  // Empty state
+  emptyCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 12,
+  },
+  createButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  // Footer
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  footerLink: {
+    color: '#3b82f6',
+    fontSize: 14,
   },
 });

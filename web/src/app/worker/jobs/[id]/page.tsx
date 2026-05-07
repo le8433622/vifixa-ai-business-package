@@ -1,249 +1,295 @@
-// Web Worker Job Detail
-// Per 05_PRODUCT_SOLUTION.md - Worker flow: Accept/start/complete job, upload photos
-// Per Step 6: Web Flows with TanStack Query
+"use client"
+// Worker Job Detail - Web
+// Per user request: Complete worker pages
 
-'use client';
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
 
-
-import { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import QueryProvider from '@/components/QueryProvider';
-
-interface Job {
-  id: string;
-  category: string;
-  description: string;
-  status: 'pending' | 'matched' | 'in_progress' | 'completed' | 'cancelled' | 'disputed';
-  final_price?: number;
-  before_media?: string[];
-  after_media?: string[];
-  created_at: string;
-  customer_email?: string;
+type Job = {
+  id: string
+  category: string
+  description: string
+  status: 'pending' | 'matched' | 'in_progress' | 'completed' | 'cancelled' | 'disputed'
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  estimated_price: number
+  actual_price?: number
+  address?: string
+  customer_id?: string
+  worker_id?: string
+  rating?: number
+  feedback?: string
+  customer_name?: string
+  customer_phone?: string
 }
 
-export default function WebWorkerJobDetail() {
-  return (
-    <QueryProvider>
-      <JobDetailContent />
-    </QueryProvider>
-  );
-}
+export default function WorkerJobDetailPage() {
+  const params = useParams()
+  const jobId = params.id as string
+  const [job, setJob] = useState<Job | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [updating, setUpdating] = useState(false)
+  const router = useRouter()
 
-function JobDetailContent() {
-  const router = useRouter();
-  const params = useParams();
-  const jobId = params.id as string;
-  
-  const [actionLoading, setActionLoading] = useState(false);
+  useEffect(() => {
+    if (jobId) {
+      checkUser()
+    }
+  }, [jobId])
 
-  const { data: job, isLoading } = useQuery({
-    queryKey: ['web-worker-job', jobId],
-    queryFn: async () => {
-      if (!jobId) throw new Error('Job ID not found');
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return null;
-      }
-
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, profiles!orders_customer_id_fkey(email)')
-        .eq('id', jobId)
-        .single();
-
-      if (error) throw error;
-      return {
-        ...data,
-        customer_email: data.profiles?.email,
-      } as Job;
-    },
-    enabled: !!jobId,
-  });
-
-  async function updateStatus(newStatus: string) {
-    if (!job || !window.confirm(`Update job status to ${newStatus}?`)) return;
-    
-    setActionLoading(true);
+  async function checkUser() {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', jobId);
-
-      if (error) throw error;
-      alert(`Job ${newStatus} successfully!`);
-      router.refresh();
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+      fetchJob()
     } catch (error: any) {
-      alert(`Error: ${error.message}`);
-    } finally {
-      setActionLoading(false);
+      console.error('checkUser error:', error)
     }
   }
 
-  async function uploadPhoto(type: 'before' | 'after') {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e: any) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  async function fetchJob() {
+    try {
+      setError(null)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
 
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage
-        .from('service-media')
-        .upload(fileName, file);
-
-      if (error) {
-        alert(`Upload error: ${error.message}`);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('service-media')
-        .getPublicUrl(data.path);
-
-      const field = type === 'before' ? 'before_media' : 'after_media';
-      const currentUrls = type === 'before' 
-        ? (job?.before_media || [])
-        : (job?.after_media || []);
-      
-      const { error: updateError } = await supabase
+      const { data, error } = await supabase
         .from('orders')
-        .update({ [field]: [...currentUrls, publicUrl] })
-        .eq('id', jobId);
+        .select(`
+          *,
+          profiles:customer_id (full_name, phone)
+        `)
+        .eq('id', jobId)
+        .eq('worker_id', session.user.id)
+        .single()
 
-      if (updateError) {
-        alert(`Update error: ${updateError.message}`);
-        return;
+      if (error) throw error
+      
+      setJob({
+        ...data,
+        customer_name: data.profiles?.full_name,
+        customer_phone: data.profiles?.phone,
+      })
+    } catch (error: any) {
+      console.error('fetchJob error:', error)
+      setError(error.message || 'Không tìm thấy công việc')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function updateStatus(newStatus: string) {
+    setUpdating(true)
+    try {
+      const updates: any = { 
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      }
+      
+      if (newStatus === 'completed') {
+        updates.completed_at = new Date().toISOString()
       }
 
-      alert('Photo uploaded successfully!');
-      router.refresh();
-    };
-    input.click();
+      const { error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', jobId)
+
+      if (error) throw error
+
+      alert('Cập nhật thành công!')
+      fetchJob()
+    } catch (error: any) {
+      console.error('updateStatus error:', error)
+      alert('Lỗi: ' + error.message)
+    } finally {
+      setUpdating(false)
+    }
   }
 
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  function getStatusColor(status: string) {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800'
+      case 'in_progress': return 'bg-blue-100 text-blue-800'
+      case 'matched': return 'bg-purple-100 text-purple-800'
+      case 'pending': return 'bg-yellow-100 text-yellow-800'
+      case 'cancelled': return 'bg-gray-100 text-gray-800'
+      case 'disputed': return 'bg-red-100 text-red-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
   }
 
-  if (!job) {
-    return <div className="min-h-screen flex items-center justify-center">Job not found</div>;
+  function getStatusLabel(status: string) {
+    const labels: Record<string, string> = {
+      'completed': 'Hoàn thành',
+      'in_progress': 'Đang làm',
+      'matched': 'Đã nhận',
+      'pending': 'Chờ xử lý',
+      'cancelled': 'Đã hủy',
+      'disputed': 'Tranh chấp',
+    }
+    return labels[status] || status
+  }
+
+  function getCategoryIcon(category: string) {
+    const icons: Record<string, string> = {
+      'air_conditioning': '❄️',
+      'plumbing': '🚿',
+      'electricity': '🔌',
+      'camera': '📷',
+      'general': '🔧',
+    }
+    return icons[category] || '🔧'
+  }
+
+  function formatPrice(price: number | undefined) {
+    if (!price && price !== 0) return 'Chưa có giá'
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error || !job) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <div className="text-5xl mb-4">⚠️</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy công việc</h3>
+        <p className="text-gray-600 mb-6">{error || 'Công việc không tồn tại hoặc bạn không có quyền truy cập'}</p>
+        <Link
+          href="/worker/jobs"
+          className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          ← Quay lại danh sách
+        </Link>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-blue-600 text-white p-6">
-        <button 
-          onClick={() => router.push('/worker')}
-          className="text-white mb-2 hover:underline"
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link
+          href="/worker/jobs"
+          className="text-blue-600 hover:text-blue-800 hover:underline"
         >
-          ← Quay lại Dashboard
-        </button>
-        <h1 className="text-3xl font-bold">Chi tiết công việc</h1>
+          ← Quay lại
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-900">Chi tiết công việc</h1>
       </div>
 
-      <div className="max-w-2xl mx-auto p-6 space-y-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-start mb-4">
+      {/* Status Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{getCategoryIcon(job.category)}</span>
             <div>
-              <h2 className="text-2xl font-bold">{job.category}</h2>
-              <p className="text-gray-600 mt-1">{job.description}</p>
-            </div>
-            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-              job.status === 'completed' ? 'bg-green-100 text-green-800' :
-              job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-              job.status === 'disputed' ? 'bg-red-100 text-red-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
-              {job.status}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <p className="text-sm text-gray-600">Khách hàng</p>
-              <p className="font-semibold">{job.customer_email || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Giá chốt</p>
-              <p className="font-semibold text-blue-600">${job.final_price || 'Chưa có'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Ngày tạo</p>
-              <p className="font-semibold">{new Date(job.created_at).toLocaleDateString()}</p>
+              <h2 className="text-xl font-bold text-gray-900">{job.category}</h2>
+              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(job.status)}`}>
+                {getStatusLabel(job.status)}
+              </span>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            {job.status === 'matched' && (
-              <button
-                onClick={() => updateStatus('in_progress')}
-                disabled={actionLoading}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {actionLoading ? 'Đang xử lý...' : 'Bắt đầu làm việc'}
-              </button>
-            )}
-
-            {job.status === 'in_progress' && (
-              <button
-                onClick={() => updateStatus('completed')}
-                disabled={actionLoading}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400"
-              >
-                {actionLoading ? 'Đang xử lý...' : 'Hoàn thành'}
-              </button>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-gray-900">{formatPrice(job.estimated_price)}</p>
+            {job.actual_price && job.actual_price !== job.estimated_price && (
+              <p className="text-sm text-gray-600">Thực tế: {formatPrice(job.actual_price)}</p>
             )}
           </div>
         </div>
 
-        {/* Photo Upload Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-semibold mb-4">Hình ảnh</h3>
-          
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold">Trước khi làm</h4>
-                <button
-                  onClick={() => uploadPhoto('before')}
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  + Thêm ảnh
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {job.before_media?.map((url, idx) => (
-                  <img key={idx} src={url} alt="" className="w-full h-24 object-cover rounded" />
-                ))}
-              </div>
-            </div>
+        {/* Description */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-600 mb-2">Mô tả vấn đề</h3>
+          <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{job.description}</p>
+        </div>
 
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold">Sau khi làm</h4>
-                <button
-                  onClick={() => uploadPhoto('after')}
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  + Thêm ảnh
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {job.after_media?.map((url, idx) => (
-                  <img key={idx} src={url} alt="" className="w-full h-24 object-cover rounded" />
-                ))}
-              </div>
-            </div>
+        {/* Customer Info */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-600 mb-2">Thông tin khách hàng</h3>
+          <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+            <p className="text-gray-900"><span className="font-medium">Tên:</span> {job.customer_name || 'Ẩn danh'}</p>
+            <p className="text-gray-900"><span className="font-medium">SĐT:</span> {job.customer_phone || 'Không có'}</p>
+            {job.address && (
+              <p className="text-gray-900"><span className="font-medium">Địa chỉ:</span> {job.address}</p>
+            )}
           </div>
         </div>
+
+        {/* Timeline */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-600 mb-2">Thời gian</h3>
+          <div className="space-y-2 text-sm">
+            <p><span className="text-gray-500">Tạo đơn:</span> {new Date(job.created_at).toLocaleString('vi-VN')}</p>
+            <p><span className="text-gray-500">Cập nhật:</span> {new Date(job.updated_at).toLocaleString('vi-VN')}</p>
+            {job.completed_at && (
+              <p><span className="text-gray-500">Hoàn thành:</span> {new Date(job.completed_at).toLocaleString('vi-VN')}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Rating */}
+        {job.rating && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-600 mb-2">Đánh giá từ khách hàng</h3>
+            <div className="bg-yellow-50 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-yellow-400 text-xl">
+                  {'★'.repeat(job.rating)}{'☆'.repeat(5 - job.rating)}
+                </span>
+                <span className="font-medium">{job.rating}/5</span>
+              </div>
+              {job.feedback && <p className="text-gray-700 italic">"{job.feedback}"</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        {job.status !== 'completed' && job.status !== 'cancelled' && (
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-sm font-medium text-gray-600 mb-4">Cập nhật trạng thái</h3>
+            <div className="flex flex-wrap gap-3">
+              {job.status === 'matched' && (
+                <button
+                  onClick={() => updateStatus('in_progress')}
+                  disabled={updating}
+                  className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  Bắt đầu làm việc
+                </button>
+              )}
+              {job.status === 'in_progress' && (
+                <button
+                  onClick={() => updateStatus('completed')}
+                  disabled={updating}
+                  className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  Hoàn thành công việc
+                </button>
+              )}
+              <button
+                onClick={() => updateStatus('cancelled')}
+                disabled={updating}
+                className="bg-gray-200 text-gray-700 px-5 py-2.5 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+              >
+                Hủy việc
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  );
+  )
 }

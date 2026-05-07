@@ -1,63 +1,146 @@
-// Worker Earnings Page
-// Per 05_PRODUCT_SOLUTION.md - Worker flow: Track earnings
+// Worker Earnings - Mobile
+// Per user request: Complete mobile worker pages
 
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native'
+import { useRouter } from 'expo-router'
+import { supabase } from '@/lib/supabase'
+import { LinearGradient } from 'expo-linear-gradient'
 
-interface EarningsData {
-  total_earnings: number;
-  completed_orders: number;
-  avg_rating: number;
-  recent_orders: Array<{
-    id: string;
-    category: string;
-    final_price: number;
-    created_at: string;
-  }>;
+type EarningsData = {
+  today: number
+  thisWeek: number
+  thisMonth: number
+  total: number
+  pending: number
+  jobs: {
+    id: string
+    category: string
+    completed_at: string
+    created_at?: string
+    actual_price: number
+  }[]
 }
 
-export default function WorkerEarnings() {
-  const router = useRouter();
-  const [earnings, setEarnings] = useState<EarningsData | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function EarningsScreen() {
+  const router = useRouter()
+  const [earnings, setEarnings] = useState<EarningsData>({
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+    total: 0,
+    pending: 0,
+    jobs: [],
+  })
+  const [loading, setLoading] = useState(true)
+  const [timeframe, setTimeframe] = useState<'week' | 'month' | 'all'>('month')
 
   useEffect(() => {
-    fetchEarnings();
-  }, []);
+    checkUser()
+  }, [])
 
-  async function fetchEarnings() {
+  async function checkUser() {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        router.push('/login');
-        return;
+        router.push('/login')
+        return
       }
+      fetchEarnings(session.user.id)
+    } catch (error: any) {
+      console.error('checkUser error:', error)
+    }
+  }
 
-      // Get worker's orders
+  async function fetchEarnings(userId: string) {
+    try {
       const { data: orders, error } = await supabase
         .from('orders')
-        .select('id, category, final_price, created_at')
-        .eq('worker_id', session.user.id)
+        .select('id, category, completed_at, actual_price, estimated_price, status')
+        .eq('worker_id', userId)
         .eq('status', 'completed')
-        .order('created_at', { ascending: false });
+        .order('completed_at', { ascending: false })
 
-      if (error) throw error;
+      if (error) throw error
 
-      const totalEarnings = orders?.reduce((sum, order) => sum + (order.final_price || 0), 0) || 0;
-      
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+
+      let total = 0
+      let thisMonth = 0
+      let thisWeek = 0
+      let todayEarnings = 0
+      let pending = 0
+
+      const jobs = (orders || []).map(order => {
+        const price = order.actual_price || order.estimated_price || 0
+        total += price
+        
+        const completedDate = new Date(order.completed_at || new Date().toISOString())
+        
+        if (completedDate >= monthAgo) {
+          thisMonth += price
+        }
+        if (completedDate >= weekAgo) {
+          thisWeek += price
+        }
+        if (completedDate >= today) {
+          todayEarnings += price
+        }
+
+        return {
+          id: order.id,
+          category: order.category,
+          completed_at: order.completed_at || order.created_at,
+          actual_price: price,
+        }
+      })
+
+      // Fetch pending payments
+      const { data: pendingJobs } = await supabase
+        .from('orders')
+        .select('estimated_price')
+        .eq('worker_id', userId)
+        .eq('status', 'in_progress')
+
+      pending = (pendingJobs || []).reduce((sum, job) => sum + (job.estimated_price || 0), 0)
+
       setEarnings({
-        total_earnings: totalEarnings,
-        completed_orders: orders?.length || 0,
-        avg_rating: 0, // TODO: Calculate from reviews
-        recent_orders: orders?.slice(0, 10) || [],
-      });
+        today: todayEarnings,
+        thisWeek,
+        thisMonth,
+        total,
+        pending,
+        jobs: jobs.filter(job => {
+          const completedDate = new Date(job.completed_at)
+          if (timeframe === 'week') return completedDate >= weekAgo
+          if (timeframe === 'month') return completedDate >= monthAgo
+          return true
+        }),
+      })
     } catch (error: any) {
-      console.error('Error fetching earnings:', error);
+      console.error('fetchEarnings error:', error)
+      Alert.alert('Lỗi', error.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
+  }
+
+  function formatPrice(price: number) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  }
+
+  function getCategoryIcon(category: string) {
+    const icons: Record<string, string> = {
+      'air_conditioning': '❄️',
+      'plumbing': '🚿',
+      'electricity': '🔌',
+      'camera': '📷',
+      'general': '🔧',
+    }
+    return icons[category] || '🔧'
   }
 
   if (loading) {
@@ -65,53 +148,100 @@ export default function WorkerEarnings() {
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#3b82f6" />
       </View>
-    );
+    )
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Earnings</Text>
-      </View>
+    <ScrollView style={styles.container}>
+      <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.header}>
+        <Text style={styles.headerTitle}>💰 Thu nhập</Text>
+        <Text style={styles.headerSubtitle}>Quản lý thu nhập từ công việc</Text>
+      </LinearGradient>
 
+      {/* Stats Cards */}
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>${earnings?.total_earnings || 0}</Text>
-          <Text style={styles.statLabel}>Total Earnings</Text>
+          <Text style={styles.statLabel}>Hôm nay</Text>
+          <Text style={[styles.statValue, styles.greenText]}>{formatPrice(earnings.today)}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{earnings?.completed_orders || 0}</Text>
-          <Text style={styles.statLabel}>Completed Orders</Text>
+          <Text style={styles.statLabel}>Tuần này</Text>
+          <Text style={[styles.statValue, styles.blueText]}>{formatPrice(earnings.thisWeek)}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{earnings?.avg_rating || 'N/A'}</Text>
-          <Text style={styles.statLabel}>Avg Rating</Text>
+          <Text style={styles.statLabel}>Tháng này</Text>
+          <Text style={[styles.statValue, styles.purpleText]}>{formatPrice(earnings.thisMonth)}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statLabel}>Tổng thu nhập</Text>
+          <Text style={[styles.statValue, styles.grayText]}>{formatPrice(earnings.total)}</Text>
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Orders</Text>
-        {earnings?.recent_orders?.map((order) => (
+      {/* Pending */}
+      {earnings.pending > 0 && (
+        <TouchableOpacity
+          style={styles.pendingCard}
+          onPress={() => router.push('/(worker)/jobs' as any)}
+        >
+          <Text style={styles.pendingIcon}>💰</Text>
+          <View style={styles.pendingContent}>
+            <Text style={styles.pendingTitle}>Tiền đang chờ</Text>
+            <Text style={styles.pendingAmount}>{formatPrice(earnings.pending)}</Text>
+          </View>
+          <Text style={styles.pendingArrow}>→</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Time Filter */}
+      <View style={styles.filterContainer}>
+        {(['week', 'month', 'all'] as const).map((tf) => (
           <TouchableOpacity
-            key={order.id}
-            style={styles.orderCard}
-            onPress={() => router.push(`/jobs/${order.id}`)}
+            key={tf}
+            style={[styles.filterButton, timeframe === tf && styles.filterActive]}
+            onPress={() => setTimeframe(tf)}
           >
-            <View style={styles.orderHeader}>
-              <Text style={styles.orderCategory}>{order.category}</Text>
-              <Text style={styles.orderPrice}>${order.final_price || 0}</Text>
-            </View>
-            <Text style={styles.orderDate}>
-              {new Date(order.created_at).toLocaleDateString()}
+            <Text style={[styles.filterText, timeframe === tf && styles.filterTextActive]}>
+              {tf === 'week' ? '7 ngày' : tf === 'month' ? '30 ngày' : 'Tất cả'}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
-    </View>
-  );
+
+      {/* Jobs List */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Chi tiết thu nhập ({earnings.jobs.length} việc)</Text>
+        
+        {earnings.jobs.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>💰</Text>
+            <Text style={styles.emptyText}>Chưa có thu nhập trong khoảng này</Text>
+          </View>
+        ) : (
+          earnings.jobs.map((job) => (
+            <TouchableOpacity
+              key={job.id}
+              style={styles.jobCard}
+              onPress={() => router.push(`/(worker)/jobs/${job.id}` as any)}
+            >
+              <View style={styles.jobRow}>
+                <Text style={styles.jobIcon}>{getCategoryIcon(job.category)}</Text>
+                <View style={styles.jobInfo}>
+                  <Text style={styles.jobCategory}>{job.category}</Text>
+                  <Text style={styles.jobDate}>
+                    {new Date(job.completed_at).toLocaleDateString('vi-VN')}
+                  </Text>
+                </View>
+                <View style={styles.jobPrice}>
+                  <Text style={styles.priceText}>+{formatPrice(job.actual_price)}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  )
 }
 
 const styles = StyleSheet.create({
@@ -125,85 +255,165 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    backgroundColor: '#3b82f6',
-    padding: 20,
+    padding: 24,
     paddingTop: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backButton: {
-    color: 'white',
-    fontSize: 16,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: 16,
-    gap: 12,
+    gap: 8,
   },
   statCard: {
-    width: '45%',
+    width: '48%',
     backgroundColor: 'white',
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#3b82f6',
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  greenText: { color: '#16a34a' },
+  blueText: { color: '#2563eb' },
+  purpleText: { color: '#7c3aed' },
+  grayText: { color: '#111827' },
+  pendingCard: {
+    backgroundColor: '#fef3c7',
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pendingIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  pendingContent: {
+    flex: 1,
+  },
+  pendingTitle: {
+    fontSize: 14,
+    color: '#92400e',
+    fontWeight: '500',
+  },
+  pendingAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#92400e',
+    marginTop: 2,
+  },
+  pendingArrow: {
+    fontSize: 20,
+    color: '#92400e',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  filterActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  filterText: {
+    fontSize: 12,
+    color: '#374151',
+  },
+  filterTextActive: {
+    color: 'white',
   },
   section: {
     padding: 16,
+    paddingBottom: 100,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#111827',
     marginBottom: 12,
   },
-  orderCard: {
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  jobCard: {
     backgroundColor: 'white',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  orderCategory: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  jobRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  orderPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#10b981',
+  jobIcon: {
+    fontSize: 24,
+    marginRight: 12,
   },
-  orderDate: {
+  jobInfo: {
+    flex: 1,
+  },
+  jobCategory: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  jobDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#6b7280',
+    marginTop: 2,
   },
-});
+  jobPrice: {
+    alignItems: 'flex-end',
+  },
+  priceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#16a34a',
+  },
+})

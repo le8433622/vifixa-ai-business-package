@@ -10,6 +10,7 @@ interface ServiceRequest {
   description: string;
   media_urls?: string[];
   location: { lat: number; lng: number };
+  chat_session_id?: string;
 }
 
 Deno.serve(async (req) => {
@@ -29,27 +30,26 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Get user from auth token
+    // Get user from auth token using Supabase client
     const token = authHeader.replace('Bearer ', '');
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': serviceRoleKey,
-      },
-    });
-
-    if (!userResponse.ok) {
+    
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      console.error('Auth error:', userError?.message);
       return new Response(
         JSON.stringify({ error: 'Invalid authentication token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const userData = await userResponse.json();
-    const customerId = userData.id;
-
+    
+    const customerId = user.id;
+    
     if (req.method === 'POST') {
-      const { category, description, media_urls, location }: ServiceRequest = await req.json();
+      const { category, description, media_urls, location, chat_session_id }: ServiceRequest = await req.json();
 
       if (!category || !description || !location) {
         return new Response(
@@ -76,36 +76,62 @@ Deno.serve(async (req) => {
       });
 
       // Create order in database
+      const orderPayload: any = {
+        customer_id: customerId,
+        category,
+        description,
+        media_urls: media_urls || [],
+        ai_diagnosis: diagnosis,
+        estimated_price: priceEstimate.estimated_price,
+        status: 'pending',
+      };
+
+      if (chat_session_id) {
+        orderPayload.chat_session_id = chat_session_id;
+      }
+
       const orderResponse = await fetch(`${supabaseUrl}/rest/v1/orders`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
           'Content-Type': 'application/json',
           'Prefer': 'return=representation',
         },
-        body: JSON.stringify({
-          customer_id: customerId,
-          category,
-          description,
-          media_urls: media_urls || [],
-          ai_diagnosis: diagnosis,
-          estimated_price: priceEstimate.estimated_price,
-          status: 'pending',
-        }),
+        body: JSON.stringify(orderPayload),
       });
 
-      const orderData = await orderResponse.json();
+      const orderResponseText = await orderResponse.text();
+
+      if (!orderResponse.ok) {
+        console.error('Order creation failed:', orderResponseText);
+        throw new Error(`Failed to create order: ${orderResponseText}`);
+      }
+
+      let orderData;
+      try {
+        orderData = JSON.parse(orderResponseText);
+      } catch (e) {
+        throw new Error(`Failed to parse order response: ${orderResponseText}`);
+      }
+
+      if (!orderData || !orderData[0] || !orderData[0].id) {
+        throw new Error(`Invalid order response: ${orderResponseText}`);
+      }
+
+      const orderId = orderData[0].id;
 
       // Log AI diagnosis
       await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal',
         },
         body: JSON.stringify({
-          order_id: orderData[0].id,
+          order_id: orderId,
           agent_type: 'diagnosis',
           input: { category, description, media_urls, location },
           output: diagnosis,
@@ -117,11 +143,12 @@ Deno.serve(async (req) => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal',
         },
         body: JSON.stringify({
-          order_id: orderData[0].id,
+          order_id: orderId,
           agent_type: 'pricing',
           input: { category, diagnosis: diagnosis.diagnosis, location, urgency: diagnosis.severity },
           output: priceEstimate,
@@ -130,7 +157,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          request_id: orderData[0].id,
+          request_id: orderId,
           ai_diagnosis: diagnosis,
           estimated_price: priceEstimate.estimated_price,
           price_breakdown: priceEstimate.price_breakdown,
@@ -156,7 +183,6 @@ Deno.serve(async (req) => {
       );
 
       const orders = await ordersResponse.json();
-
       return new Response(
         JSON.stringify({ orders }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -168,9 +194,10 @@ Deno.serve(async (req) => {
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Customer requests error:', error);
+    console.error('=== Customer requests error ===:', error);
+    console.error('Stack:', error.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, stack: error.stack }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

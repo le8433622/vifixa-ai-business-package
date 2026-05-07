@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -21,14 +21,19 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.vifixa.ai"
+      "package": "com.vifixa.ai",
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "SUPABASE_URL": "https://lipjakzhzosrhttsltwo.supabase.co",
-      "SUPABASE_ANON_KEY": "sb_publishable_8ZQN98zLEfCsvoAn2OR85g_gB9QjWEF"
-    }
+      "SUPABASE_ANON_KEY": "sb_publishable_8ZQN98zLEfCsvoAn2OR85g_gB9QjWEF",
+      "eas": {
+        "projectId": "0e924b1e-9fc4-46fe-8656-d894dd110640"
+      }
+    },
+    "owner": "le8433622"
   }
 }

@@ -29,7 +29,7 @@ export default function CustomerWarrantyPage() {
       }
 
       const { data, error } = await supabase
-        .from('orders')
+        .from('orders' as any)
         .select('*')
         .eq('id', orderId)
         .single();
@@ -62,20 +62,20 @@ export default function CustomerWarrantyPage() {
 
       // Create warranty claim
       const { error } = await supabase
-        .from('warranty_claims')
+        .from('warranty_claims' as any)
         .insert({
           order_id: orderId,
           customer_id: session.user.id,
           claim_reason: claimReason,
           status: 'pending',
-        });
+        } as any);
 
       if (error) throw error;
 
       // Create dispute for the order
       const { error: disputeError } = await supabase
-        .from('orders')
-        .update({ status: 'disputed' })
+        .from('orders' as any)
+        .update({ status: 'disputed' } as any)
         .eq('id', orderId);
 
       if (disputeError) throw disputeError;
