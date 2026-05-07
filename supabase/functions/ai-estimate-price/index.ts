@@ -1,7 +1,9 @@
 // AI Price Estimation Edge Function
 // Per 11_AI_OPERATING_MODEL.md - Pricing Agent
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 interface PriceRequest {
   category: string;
@@ -10,88 +12,69 @@ interface PriceRequest {
   urgency: 'low' | 'medium' | 'high' | 'emergency';
 }
 
-interface PriceResponse {
-  estimated_price: number;
-  price_breakdown: { item: string; cost: number }[];
-  confidence: number;
-}
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 15 });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { category, diagnosis, location, urgency }: PriceRequest = await req.json();
 
     if (!category || !diagnosis) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: category, diagnosis' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing required fields: category, diagnosis' }, 400);
     }
 
-    const aiProvider = createAIProvider();
+    const requestId = crypto.randomUUID();
 
-    const priceEstimate = await aiProvider.estimatePrice({
-      category,
-      diagnosis,
-      location,
-      urgency,
-    });
+    // Fetch real price standards for this category & location
+    const { data: priceBands } = await supabase
+      .from('price_standards')
+      .select('*')
+      .eq('category', category)
+      .eq('is_active', true)
+      .limit(5);
 
-    // Log to ai_logs
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const ai = createAIProvider(requestId);
 
-    await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
+    // Inject price bands into the pricing call if available
+    if (priceBands && priceBands.length > 0) {
+      const priceEstimate = await ai.estimatePrice(
+        { category, diagnosis, location, urgency },
+        priceBands,
+      );
+
+      await supabase.from('ai_logs').insert({
+        user_id: user.id,
+        request_id: requestId,
         agent_type: 'pricing',
-        input: { category, diagnosis, location, urgency },
+        input: { category, diagnosis, location, urgency, price_bands_used: priceBands.length },
         output: priceEstimate,
-      }),
+      });
+
+      return jsonResponse(priceEstimate);
+    }
+
+    const priceEstimate = await ai.estimatePrice({ category, diagnosis, location, urgency });
+
+    await supabase.from('ai_logs').insert({
+      user_id: user.id,
+      request_id: requestId,
+      agent_type: 'pricing',
+      input: { category, diagnosis, location, urgency },
+      output: priceEstimate,
     });
 
-    return new Response(
-      JSON.stringify(priceEstimate),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
-  } catch (error) {
+    return jsonResponse(priceEstimate);
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Price estimation error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    return jsonResponse({ error: error.message }, 500);
   }
 });

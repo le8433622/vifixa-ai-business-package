@@ -1,10 +1,10 @@
 // AI Chat Support Edge Function
-// Handles multi-turn conversations with customers for service diagnosis and booking
+// Maintains stateful sessions with full JWT auth, message persistence, and booking
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider, ChatInput, ChatOutput } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
-// CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -21,76 +21,40 @@ interface ChatRequest {
   };
 }
 
-interface ChatResponse {
-  session_id: string;
-  reply: string;
-  actions?: ChatOutput['actions'];
-  next_step?: string;
-  session_complete?: boolean;
-  order_id?: string; // Return order_id if created
-}
-
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  const opt = handleOptions(req);
+  if (opt) return opt;
+
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
   try {
-    // Initialize Supabase client
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 30 });
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from JWT
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      console.error('Auth error:', authError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Parse request body
     let body: ChatRequest;
     try {
       body = await req.json();
-      console.log('Request body:', JSON.stringify(body));
-    } catch (e) {
-      console.error('Failed to parse request body:', e);
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    } catch {
+      return jsonResponse({ error: 'Invalid request body' }, 400);
     }
 
     const { session_id, message, context } = body;
 
     if (!message) {
-      return new Response(
-        JSON.stringify({ error: 'Missing message' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing message' }, 400);
     }
 
-    // Get or create chat session
     let sessionId = session_id;
     let sessionContext = context || {};
     let messages: { role: 'user' | 'assistant' | 'system'; content: string }[] = [];
 
     if (sessionId) {
-      // Fetch existing session
       const { data: session, error: sessionError } = await supabase
         .from('chat_sessions')
         .select('*')
@@ -99,29 +63,24 @@ Deno.serve(async (req: Request) => {
         .single();
 
       if (sessionError || !session) {
-        return new Response(
-          JSON.stringify({ error: 'Session not found' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: 'Session not found' }, 404);
       }
 
       sessionContext = session.context || {};
-      
-      // Fetch previous messages
-      const { data: chatMessages, error: msgError } = await supabase
+
+      const { data: chatMessages } = await supabase
         .from('chat_messages')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true });
 
-      if (!msgError && chatMessages) {
+      if (chatMessages) {
         messages = chatMessages.map(msg => ({
           role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content
+          content: msg.content,
         }));
       }
     } else {
-      // Create new session
       const { data: newSession, error: createError } = await supabase
         .from('chat_sessions')
         .insert({
@@ -134,33 +93,25 @@ Deno.serve(async (req: Request) => {
         .single();
 
       if (createError || !newSession) {
-        throw new Error(`Failed to create session: ${createError?.message}`);
+        return jsonResponse({ error: `Failed to create session: ${createError?.message}` }, 500);
       }
 
       sessionId = newSession.id;
     }
 
-    // Add user message to history
     messages.push({ role: 'user', content: message });
 
-    // Save user message to database
-    const { error: saveMsgError } = await supabase
-      .from('chat_messages')
-      .insert({
-        session_id: sessionId,
-        role: 'user',
-        content: message,
-      });
+    await supabase.from('chat_messages').insert({
+      session_id: sessionId,
+      role: 'user',
+      content: message,
+    });
 
-    if (saveMsgError) {
-      console.error('Failed to save user message:', saveMsgError);
-    }
-
-    // Call AI provider
-    const ai = createAIProvider();
+    const requestId = crypto.randomUUID();
+    const ai = createAIProvider(requestId);
     const chatInput: ChatInput = {
       session_id: sessionId!,
-      messages: messages,
+      messages,
       context: {
         ...sessionContext,
         user_id: user.id,
@@ -169,26 +120,18 @@ Deno.serve(async (req: Request) => {
 
     const chatOutput = await ai.chat(chatInput);
 
-    // Save AI response to database
-    const { error: saveAIError } = await supabase
-      .from('chat_messages')
-      .insert({
-        session_id: sessionId!,
-        role: 'assistant',
-        content: chatOutput.reply,
-        metadata: {
-          actions: chatOutput.actions,
-          next_step: chatOutput.next_step,
-        },
-      });
+    await supabase.from('chat_messages').insert({
+      session_id: sessionId,
+      role: 'assistant',
+      content: chatOutput.reply,
+      metadata: {
+        actions: chatOutput.actions,
+        next_step: chatOutput.next_step,
+      },
+    });
 
-    if (saveAIError) {
-      console.error('Failed to save AI message:', saveAIError);
-    }
+    let orderId: string | undefined;
 
-    let orderId: string | undefined = undefined;
-
-    // Update session if complete
     if (chatOutput.session_complete) {
       await supabase
         .from('chat_sessions')
@@ -197,9 +140,8 @@ Deno.serve(async (req: Request) => {
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq('id', sessionId!);
+        .eq('id', sessionId);
 
-      // Try to create order automatically
       try {
         const category = sessionContext.category || 'general';
         const description = `Chat session: ${message}`;
@@ -208,10 +150,11 @@ Deno.serve(async (req: Request) => {
         const orderResponse = await fetch(`${supabaseUrl}/functions/v1/customer-requests`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${supabaseServiceKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            user_id: user.id,
             category,
             description,
             location,
@@ -219,39 +162,27 @@ Deno.serve(async (req: Request) => {
           }),
         });
 
-        const orderData = await orderResponse.json();
-
-        if (orderResponse.ok && orderData.request_id) {
+        if (orderResponse.ok) {
+          const orderData = await orderResponse.json();
           orderId = orderData.request_id;
-        } else {
-          console.error('Failed to create order:', orderData.error);
         }
       } catch (orderError) {
         console.error('Error creating order:', orderError);
       }
     }
 
-    // Return response
-    const response: ChatResponse = {
-      session_id: sessionId!,
+    return jsonResponse({
+      session_id: sessionId,
       reply: chatOutput.reply,
       actions: chatOutput.actions,
       next_step: chatOutput.next_step,
       session_complete: chatOutput.session_complete,
       order_id: orderId,
-    };
-
-    return new Response(
-      JSON.stringify(response),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('=== Chat error ===:', error);
-    console.error('Stack:', error.stack);
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error', stack: error.stack }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    });
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
+    console.error('Chat error:', error);
+    return jsonResponse({ error: error.message }, 500);
   }
 });

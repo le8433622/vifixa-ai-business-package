@@ -3,6 +3,7 @@
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,95 +23,61 @@ interface PredictRequest {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 10 });
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from JWT
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (req.method !== 'POST') {
+      return jsonResponse({ error: 'Method not allowed' }, 405);
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const {
+      device_id, device_type, brand, model,
+      purchase_date, last_maintenance, usage_frequency, issues_reported,
+    }: PredictRequest = await req.json();
 
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!device_type) {
+      return jsonResponse({ error: 'Missing required field: device_type' }, 400);
     }
 
-    if (req.method === 'POST') {
-      const {
-        device_id,
-        device_type,
-        brand,
-        model,
-        purchase_date,
-        last_maintenance,
-        usage_frequency,
-        issues_reported,
-      }: PredictRequest = await req.json();
+    const requestId = crypto.randomUUID();
+    const prediction = await createAIProvider(requestId).predictMaintenance({
+      device_type, brand, model, purchase_date, last_maintenance, usage_frequency, issues_reported,
+    });
 
-      if (!device_type) {
-        return new Response(
-          JSON.stringify({ error: 'Missing required field: device_type' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Call AI predictMaintenance
-      const ai = createAIProvider();
-      const prediction = await ai.predictMaintenance({
-        device_type,
-        brand,
-        model,
-        purchase_date,
-        last_maintenance,
-        usage_frequency,
-        issues_reported,
-      });
-
-      // If device_id provided, update device with prediction
-      if (device_id) {
-        await supabase
-          .from('maintenance_schedules')
-          .upsert({
-            device_id,
-            maintenance_type: prediction.maintenance_type,
-            next_due: prediction.next_maintenance_date,
-            urgency: prediction.urgency,
-            estimated_cost: prediction.estimated_cost,
-            recommendations: prediction.recommendations,
-          }, { onConflict: 'device_id,maintenance_type' });
-      }
-
-      return new Response(
-        JSON.stringify(prediction),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (device_id) {
+      await supabase
+        .from('maintenance_schedules')
+        .upsert({
+          user_id: user.id,
+          device_id,
+          maintenance_type: prediction.maintenance_type,
+          next_due: prediction.next_maintenance_date,
+          urgency: prediction.urgency,
+          estimated_cost: prediction.estimated_cost,
+          recommendations: prediction.recommendations,
+        }, { onConflict: 'device_id,maintenance_type' });
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    await supabase.from('ai_logs').insert({
+      user_id: user.id,
+      agent_type: 'predict',
+      input: { device_type, brand, model, purchase_date, last_maintenance, usage_frequency, issues_reported },
+      output: prediction,
+    });
 
-  } catch (error) {
+    return jsonResponse(prediction);
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Predict maintenance error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ error: error.message }, 500);
   }
 });

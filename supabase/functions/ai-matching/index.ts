@@ -1,7 +1,9 @@
 // AI Worker Matching Edge Function
 // Per 11_AI_OPERATING_MODEL.md - Matching Agent
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 interface MatchingRequest {
   order_id: string;
@@ -10,104 +12,79 @@ interface MatchingRequest {
   urgency: 'low' | 'medium' | 'high' | 'emergency';
 }
 
-interface MatchingResponse {
-  matched_worker_id: string;
-  worker_name: string;
-  eta_minutes: number;
-  confidence: number;
-}
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 15 });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { order_id, skills_required, location, urgency }: MatchingRequest = await req.json();
 
     if (!order_id || !skills_required || !location) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: order_id, skills_required, location' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing required fields: order_id, skills_required, location' }, 400);
     }
 
-    const aiProvider = createAIProvider();
+    const requestId = crypto.randomUUID();
 
-    // Get available workers from Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Fetch real verified workers from database
+    const { data: workers, error: workersError } = await supabase
+      .from('workers')
+      .select('id, profiles(full_name, phone), skills, rating, completed_jobs, location_lat, location_lng, is_verified')
+      .eq('is_verified', true)
+      .limit(20);
 
-    const workersResponse = await fetch(
-      `${supabaseUrl}/rest/v1/workers?is_verified=eq.true&select=*,profiles(*)`,
-      {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    if (workersError) {
+      console.error(`[${requestId}] Failed to fetch workers:`, workersError);
+    }
 
-    const workers = await workersResponse.json();
-
-    // Use AI to match best worker
-    const matchingResult = await aiProvider.matchWorker({
+    const ai = createAIProvider(requestId);
+    const matchingResult = await ai.matchWorker({
       order_id,
       skills_required,
       location,
       urgency,
-    });
+    }, workers || []);
 
-    // Log to ai_logs
-    await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        order_id,
-        agent_type: 'matching',
-        input: { order_id, skills_required, location, urgency },
-        output: matchingResult,
-      }),
-    });
-
-    return new Response(
-      JSON.stringify(matchingResult),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
+    // Validate: if AI selected a worker not in the DB, fall back to first available
+    let validatedResult = matchingResult;
+    if (workers && workers.length > 0) {
+      const matchedInDb = workers.find((w: any) => String(w.id) === String(matchingResult.matched_worker_id));
+      if (!matchedInDb) {
+        const best = workers[0];
+        validatedResult = {
+          matched_worker_id: String(best.id),
+          worker_name: best.profiles?.full_name || `Worker ${best.id}`,
+          eta_minutes: 30,
+          confidence: 0.5,
+        };
+        console.warn(`[${requestId}] AI matched worker ${matchingResult.matched_worker_id} not in DB, falling back to ${best.id}`);
+      } else {
+        validatedResult = {
+          ...matchingResult,
+          worker_name: matchedInDb.profiles?.full_name || matchingResult.worker_name,
+        };
       }
-    );
-  } catch (error) {
+    }
+
+    await supabase.from('ai_logs').insert({
+      user_id: user.id,
+      request_id: requestId,
+      agent_type: 'matching',
+      input: { order_id, skills_required, location, urgency, candidates_count: workers?.length || 0 },
+      output: validatedResult,
+    });
+
+    return jsonResponse(validatedResult);
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Matching error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    return jsonResponse({ error: error.message }, 500);
   }
 });

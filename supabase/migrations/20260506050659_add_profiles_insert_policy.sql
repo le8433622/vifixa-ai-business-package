@@ -9,4 +9,4 @@ CREATE POLICY "Users can insert own profile"
 -- Also allow the service role to insert profiles (for admin operations)
 CREATE POLICY "Service role can insert profiles"
   ON public.profiles FOR INSERT
-  USING (auth.role() = 'service_role');
+  WITH CHECK (auth.role() = 'service_role');

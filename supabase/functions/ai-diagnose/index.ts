@@ -2,7 +2,9 @@
 // Per 11_AI_OPERATING_MODEL.md - Diagnosis Agent
 // Per 15_CODEX_BUSINESS_CONTEXT.md - AI Role
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 interface DiagnosisRequest {
   category: string;
@@ -20,86 +22,51 @@ interface DiagnosisResponse {
 }
 
 Deno.serve(async (req) => {
-  // CORS headers
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 15 });
 
-    // Parse request
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     const { category, description, media_urls, location }: DiagnosisRequest = await req.json();
 
     if (!category || !description) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: category, description' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing required fields: category, description' }, 400);
     }
 
-    // Initialize AI provider
-    const aiProvider = createAIProvider();
+    const requestId = crypto.randomUUID();
 
-    // Call AI Diagnosis
-    const diagnosis = await aiProvider.diagnose({
-      category,
-      description,
-      media_urls,
-      location,
-    });
+    // Fetch knowledge base entries for this category
+    const { data: knowledgeEntries } = await supabase
+      .from('knowledge_base')
+      .select('*')
+      .eq('category', category)
+      .eq('is_active', true)
+      .limit(10);
 
-    // Log to ai_logs table
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        agent_type: 'diagnosis',
-        input: { category, description, media_urls, location },
-        output: diagnosis,
-      }),
-    });
-
-    return new Response(
-      JSON.stringify(diagnosis),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
+    const diagnosis = await createAIProvider(requestId).diagnose(
+      { category, description, media_urls, location },
+      knowledgeEntries || [],
     );
-  } catch (error) {
+
+    await supabase.from('ai_logs').insert({
+      user_id: user.id,
+      agent_type: 'diagnosis',
+      input: { category, description, media_urls, location },
+      output: diagnosis,
+    });
+
+    return jsonResponse(diagnosis);
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Diagnosis error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    return jsonResponse({ error: error.message }, 500);
   }
 });

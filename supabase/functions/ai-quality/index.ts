@@ -1,7 +1,9 @@
 // AI Quality Check Edge Function
 // Per 11_AI_OPERATING_MODEL.md - Quality Agent
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 interface QualityRequest {
   order_id: string;
@@ -19,84 +21,40 @@ interface QualityResponse {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 15 });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { order_id, worker_id, before_media, after_media, checklist }: QualityRequest = await req.json();
 
     if (!order_id || !worker_id) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: order_id, worker_id' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing required fields: order_id, worker_id' }, 400);
     }
 
-    const aiProvider = createAIProvider();
-
-    // Analyze quality
-    const qualityResult = await aiProvider.checkQuality({
-      order_id,
-      worker_id,
-      before_media,
-      after_media,
-      checklist,
+    const requestId = crypto.randomUUID();
+    const qualityResult = await createAIProvider(requestId).checkQuality({
+      order_id, worker_id, before_media, after_media, checklist,
     });
 
-    // Log to ai_logs
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        order_id,
-        agent_type: 'quality',
-        input: { order_id, worker_id, before_media, after_media, checklist },
-        output: qualityResult,
-      }),
+    await supabase.from('ai_logs').insert({
+      user_id: user.id,
+      agent_type: 'quality',
+      input: { order_id, worker_id, before_media, after_media, checklist },
+      output: qualityResult,
     });
 
-    return new Response(
-      JSON.stringify(qualityResult),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
-  } catch (error) {
+    return jsonResponse(qualityResult);
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Quality check error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    return jsonResponse({ error: error.message }, 500);
   }
 });

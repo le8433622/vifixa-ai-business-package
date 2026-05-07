@@ -1,8 +1,7 @@
 -- Vifixa AI Database Schema - Initial Migration
 -- Based on 20_DATABASE_SCHEMA.md
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID extension (gen_random_uuid() is built-in for PostgreSQL 13+)
 
 -- Profiles table (linked to Supabase Auth)
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -27,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.workers (
 
 -- Orders table
 CREATE TABLE IF NOT EXISTS public.orders (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   customer_id UUID REFERENCES public.profiles(id) NOT NULL,
   worker_id UUID REFERENCES public.workers(user_id),
   category TEXT NOT NULL,
@@ -47,7 +46,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
 
 -- AI_Logs table
 CREATE TABLE IF NOT EXISTS public.ai_logs (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   order_id UUID REFERENCES public.orders(id),
   agent_type TEXT NOT NULL CHECK (agent_type IN ('diagnosis', 'pricing', 'matching', 'quality', 'dispute', 'coach', 'fraud')),
   input JSONB NOT NULL,

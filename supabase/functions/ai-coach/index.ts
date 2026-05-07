@@ -1,7 +1,9 @@
 // AI Worker Coach Edge Function
 // Per 11_AI_OPERATING_MODEL.md - Worker Coach Agent
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 interface CoachRequest {
   worker_id: string;
@@ -18,82 +20,40 @@ interface CoachResponse {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req);
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    checkRateLimit(user.id, clientIp, { maxRequests: 15 });
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { worker_id, job_type, issue_description, performance_history }: CoachRequest = await req.json();
 
     if (!worker_id) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required field: worker_id' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing required field: worker_id' }, 400);
     }
 
-    const aiProvider = createAIProvider();
-
-    // Generate coaching advice
-    const coachResult = await aiProvider.coachWorker({
-      worker_id,
-      job_type,
-      issue_description,
-      performance_history,
+    const requestId = crypto.randomUUID();
+    const coachResult = await createAIProvider(requestId).coachWorker({
+      worker_id, job_type, issue_description, performance_history,
     });
 
-    // Log to ai_logs
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        agent_type: 'coach',
-        input: { worker_id, job_type, issue_description, performance_history },
-        output: coachResult,
-      }),
+    await supabase.from('ai_logs').insert({
+      user_id: user.id,
+      agent_type: 'coach',
+      input: { worker_id, job_type, issue_description, performance_history },
+      output: coachResult,
     });
 
-    return new Response(
-      JSON.stringify(coachResult),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
-  } catch (error) {
+    return jsonResponse(coachResult);
+  } catch (error: any) {
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Coach error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    return jsonResponse({ error: error.message }, 500);
   }
 });

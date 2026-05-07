@@ -22,7 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.vifixa.ai",
-      "versionCode": 3
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,6 +34,10 @@
         "projectId": "0e924b1e-9fc4-46fe-8656-d894dd110640"
       }
     },
-    "owner": "le8433622"
+    "owner": "le8433622",
+    "plugins": [
+      "expo-font",
+      "expo-secure-store"
+    ]
   }
 }
