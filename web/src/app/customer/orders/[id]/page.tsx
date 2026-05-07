@@ -3,35 +3,36 @@
 // Per 05_PRODUCT_SOLUTION.md - Customer flow
 // Per Step 7: Trust & Quality - Review, warranty, complaint
 
-'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import { useToast } from '@/components/Toast'
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 interface OrderDetails {
-  id: string
-  category: string
-  description: string
-  status: string
-  estimated_price: number
-  final_price?: number
-  rating?: number
-  review_comment?: string
-  created_at: string
-  completed_at?: string
-  payment_status?: string
-  ai_diagnosis?: any
-  before_media?: any[]
-  after_media?: any[]
-  media_urls?: any[]
+  id: string;
+  category: string;
+  description: string;
+  status: string;
+  estimated_price: number;
+  final_price?: number;
+  rating?: number;
+  review_comment?: string;
+  created_at: string;
+  completed_at?: string;
+  payment_status?: string;
+  ai_diagnosis?: any;
+  before_media?: any[];
+  after_media?: any[];
+  media_urls?: any[];
   workers?: {
-    user_id: string
-    trust_score?: number
-    profiles?: { email: string; phone?: string }
-  }
+    user_id: string;
+    trust_score?: number;
+    profiles?: { email: string; phone?: string };
+  };
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,7 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Hoàn thành',
   cancelled: 'Đã hủy',
   disputed: 'Khiếu nại',
-}
+};
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -50,76 +51,112 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-green-100 text-green-800',
   cancelled: 'bg-gray-100 text-gray-800',
   disputed: 'bg-red-100 text-red-800',
-}
+};
 
 const CATEGORY_ICONS: Record<string, string> = {
   'electricity': '🔌', 'plumbing': '🚿', 'appliance': '🔧', 'camera': '📷',
   'Điện lạnh': '❄️', 'Điện nước': '🚿', 'Điện gia dụng': '🔌', 'Camera/Khóa': '📷',
-}
+};
 
-export default function CustomerOrderDetailsPage({ params }: { params: { id: string } }) {
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const orderId = params.id
-  const { toast } = useToast()
-  const [isWarrantyEligible, setIsWarrantyEligible] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
-  const [selectedMedia, setSelectedMedia] = useState<string | null>(null)
+export default function CustomerOrderDetailsPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const params = useParams<{ id: string }>();
+  const orderId = params.id;
+  const { toast } = useToast();
+  const [isWarrantyEligible, setIsWarrantyEligible] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, error: orderError, refetch } = useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return null }
+      if (!orderId) throw new Error('Missing order id');
 
-      const { data, error } = await supabase
-        .from('orders' as any)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setSessionUserId(null);
+        router.push('/login');
+        return null;
+      }
+
+      setSessionUserId(session.user.id);
+
+      console.log('[order-details] Fetching order:', orderId);
+      console.log('[order-details] session.user.id:', session.user.id);
+
+      // Try simple query first (no joins)
+      const { data: simpleData, error: simpleError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+      console.log('[order-details] Simple query result:', simpleData?.id, 'customer_id:', simpleData?.customer_id);
+      console.log('[order-details] Simple query error:', simpleError?.message, 'code:', simpleError?.code);
+
+      if (simpleError || !simpleData) {
+        // If simple query fails, throw error
+        if (simpleError) throw simpleError;
+        throw new Error('Order not found (simple query returned null)');
+      }
+
+      // If simple query works, try with joins
+      const { data: fullData, error: joinError } = await supabase
+        .from('orders')
         .select(`*, workers:worker_id (user_id, trust_score, profiles (email, phone))`)
         .eq('id', orderId)
-        .single()
+        .single();
 
-      if (error) throw error
-      return data as OrderDetails
+      console.log('[order-details] Join query result:', fullData?.id, 'customer_id:', fullData?.customer_id);
+      console.log('[order-details] Join query error:', joinError?.message, 'code:', joinError?.code);
+
+      if (fullData) return fullData as OrderDetails;
+      if (joinError) console.warn('[order-details] Join failed, using simple data');
+      return simpleData as OrderDetails;
     },
-  })
+    enabled: Boolean(orderId),
+  });
 
   useEffect(() => {
     if (order?.status === 'completed' && order.completed_at) {
-      const completedDate = new Date(order.completed_at)
-      const thirtyDaysLater = new Date(completedDate)
-      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30)
-      setIsWarrantyEligible(new Date() <= thirtyDaysLater)
+      const completedDate = new Date(order.completed_at);
+      const thirtyDaysLater = new Date(completedDate);
+      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      setIsWarrantyEligible(new Date() <= thirtyDaysLater);
     }
-  }, [order])
+  }, [order]);
 
   async function cancelOrder() {
-    if (!confirm('Bạn có chắc muốn hủy đơn hàng này?')) return
-    setCancelling(true)
+    if (!confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
+    setCancelling(true);
     try {
       const { error } = await supabase
-        .from('orders' as any)
+        .from('orders')
         .update({ status: 'cancelled', updated_at: new Date().toISOString() } as any)
-        .eq('id', orderId)
-      if (error) throw error
-      toast('Đã hủy đơn hàng', 'success')
-      queryClient.invalidateQueries({ queryKey: ['order', orderId] })
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast('Đã hủy đơn hàng', 'success');
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error: any) {
-      toast(error.message || 'Không thể hủy đơn hàng', 'error')
+      toast(error.message || 'Không thể hủy đơn hàng', 'error');
     } finally {
-      setCancelling(false)
+      setCancelling(false);
     }
   }
 
   function formatPrice(price: number | undefined) {
-    if (!price && price !== 0) return 'Chưa có giá'
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+    if (!price && price !== 0) return 'Chưa có giá';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   }
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('vi-VN', {
       year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
+    });
   }
 
   if (isLoading) {
@@ -127,7 +164,7 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
-    )
+    );
   }
 
   if (!order) {
@@ -135,23 +172,33 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
       <div className="text-center py-20">
         <div className="text-5xl mb-4">🔍</div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Không tìm thấy đơn hàng</h2>
+        <p className="text-sm text-gray-500 mb-4">orderId: <code className="bg-gray-100 px-2 py-1 rounded">{orderId || 'undefined'}</code></p>
+        <p className="text-xs text-gray-400 mb-2">Session user: {sessionUserId || 'not logged in'}</p>
+        {orderError && (
+          <p className="text-xs text-red-500 mb-4">
+            Error: {(orderError as any).code ? `${(orderError as any).code} - ` : ''}{orderError.message}
+          </p>
+        )}
+        <button onClick={() => refetch()} className="mt-2 mr-4 text-blue-600 hover:underline">
+          Thử lại
+        </button>
         <button onClick={() => router.push('/customer')} className="mt-4 text-blue-600 hover:underline">
           ← Quay lại Dashboard
         </button>
       </div>
-    )
+    );
   }
 
-  const showCancelButton = ['pending', 'matched'].includes(order.status)
-  const showReviewButton = order.status === 'completed' && !order.rating
-  const showComplaintButton = order.status === 'completed'
-  const showWarrantyButton = isWarrantyEligible
+  const showCancelButton = ['pending', 'matched'].includes(order.status);
+  const showReviewButton = order.status === 'completed' && !order.rating;
+  const showComplaintButton = order.status === 'completed';
+  const showWarrantyButton = isWarrantyEligible;
   const severityColors: Record<string, string> = {
     emergency: 'bg-red-100 text-red-700 border-red-200',
     high: 'bg-orange-100 text-orange-700 border-orange-200',
     medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     low: 'bg-green-100 text-green-700 border-green-200',
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -220,7 +267,7 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
                   <p className={`text-sm font-medium mt-1 ${
                     order.payment_status === 'paid' ? 'text-green-600' :
                     order.payment_status === 'refunded' ? 'text-orange-600' :
-                    'text-yellow-600'
+                    order.payment_status === 'failed' ? 'text-red-600' : 'text-yellow-600'
                   }`}>
                     {order.payment_status === 'paid' ? '✅ Đã thanh toán' :
                      order.payment_status === 'refunded' ? '↩️ Đã hoàn tiền' :
@@ -233,10 +280,7 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
 
           {order.ai_diagnosis && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">🤖</span>
-                <h3 className="text-lg font-semibold text-gray-900">Chẩn đoán AI</h3>
-              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">🤖 Chẩn đoán AI</h3>
               <div className="space-y-3">
                 {order.ai_diagnosis.diagnosis && (
                   <div>
@@ -269,9 +313,7 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
                 {order.ai_diagnosis.estimated_price_range && (
                   <div>
                     <span className="text-xs font-medium text-gray-500 uppercase">Khoảng giá</span>
-                    <p className="text-gray-800 mt-1">
-                      {formatPrice(order.ai_diagnosis.estimated_price_range.min)} - {formatPrice(order.ai_diagnosis.estimated_price_range.max)}
-                    </p>
+                    <p className="text-gray-800 mt-1">{formatPrice(order.ai_diagnosis.estimated_price_range.min)} - {formatPrice(order.ai_diagnosis.estimated_price_range.max)}</p>
                   </div>
                 )}
               </div>
@@ -456,6 +498,7 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
           </div>
         </div>
       </div>
+
     </div>
-  )
+  );
 }

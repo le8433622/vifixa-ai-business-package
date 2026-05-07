@@ -147,10 +147,13 @@ Deno.serve(async (req: Request) => {
         const description = `Chat session: ${message}`;
         const location = sessionContext.location || { lat: 10.762622, lng: 106.660172 };
 
+        // Use user's JWT token so customer-requests creates the order for the real customer.
+        const userToken = req.headers.get('Authorization')?.replace('Bearer ', '');
+
         const orderResponse = await fetch(`${supabaseUrl}/functions/v1/customer-requests`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Authorization': `Bearer ${userToken || supabaseServiceKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -165,6 +168,8 @@ Deno.serve(async (req: Request) => {
         if (orderResponse.ok) {
           const orderData = await orderResponse.json();
           orderId = orderData.request_id;
+        } else {
+          console.error('Order creation failed in ai-chat:', await orderResponse.text());
         }
       } catch (orderError) {
         console.error('Error creating order:', orderError);

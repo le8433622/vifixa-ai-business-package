@@ -178,7 +178,16 @@ export default function CustomerChatScreen() {
         Alert.alert(
           'Thành công!',
           'Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.',
-          [{ text: 'OK', onPress: () => router.push('/(customer)/') }]
+          [{
+            text: 'Xem đơn hàng',
+            onPress: () => {
+              if (data.order_id) {
+                router.push(`/(customer)/orders/${data.order_id}` as any)
+              } else {
+                router.push('/(customer)' as any)
+              }
+            }
+          }]
         )
       }
 

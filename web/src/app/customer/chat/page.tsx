@@ -46,16 +46,16 @@ export default function CustomerChatPage() {
       return
     }
     setUser(session.user)
-    loadOrCreateSession()
+    loadOrCreateSession(session.user.id)
   }
 
-  async function loadOrCreateSession() {
+  async function loadOrCreateSession(userId: string) {
     try {
       // Try to get active session
       const { data: sessions, error } = await supabase
         .from('chat_sessions')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', userId)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -128,8 +128,8 @@ export default function CustomerChatPage() {
 
     try {
       // Call AI Chat API
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession) {
         router.push('/login')
         return
       }
@@ -137,7 +137,7 @@ export default function CustomerChatPage() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -152,9 +152,11 @@ export default function CustomerChatPage() {
       }
 
       const data = await response.json()
+      console.log('[chat] FULL RESPONSE:', JSON.stringify(data))
+      console.log('[chat] order_id:', data.order_id, 'session_complete:', data.session_complete)
 
       // Update session if new
-      if (data.session_id && !session) {
+      if (data.session_id && session?.id !== data.session_id) {
         setSession({ id: data.session_id, status: 'active', created_at: new Date() })
       }
 
@@ -168,16 +170,23 @@ export default function CustomerChatPage() {
       }
       setMessages(prev => [...prev, aiMessage])
 
-      // Reload messages from server to get saved ones
+      // Reload messages from server
       if (data.session_id) {
         await loadMessages(data.session_id)
       }
 
-      // If session complete, show success
+      // If session complete, navigate to order or dashboard
       if (data.session_complete) {
+        console.log('[chat] Session complete, order_id:', data.order_id);
         setTimeout(() => {
-          alert('Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.')
-          router.push('/customer')
+          if (data.order_id) {
+            console.log('[chat] Navigating to order:', data.order_id);
+            router.push(`/customer/orders/${data.order_id}`)
+          } else {
+            console.warn('[chat] No order_id in response, redirecting to /customer');
+            alert('Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.')
+            router.push('/customer')
+          }
         }, 1000)
       }
 

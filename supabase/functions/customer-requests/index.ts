@@ -3,6 +3,7 @@
 // Per 05_PRODUCT_SOLUTION.md - Customer flow
 
 import { corsHeaders } from '../_shared/cors.ts';
+import { verifyAuth } from '../_shared/auth-helper.ts';
 import { createAIProvider } from '../_shared/ai-provider.ts';
 
 interface ServiceRequest {
@@ -27,26 +28,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Use verifyAuth from shared helper (same as other functions)
+    const user = await verifyAuth(req);
+    const customerId = user.id;
+
+    // Env vars for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    // Get user from auth token using Supabase client
-    const token = authHeader.replace('Bearer ', '');
-    
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      console.error('Auth error:', userError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    const customerId = user.id;
     
     if (req.method === 'POST') {
       const { category, description, media_urls, location, chat_session_id }: ServiceRequest = await req.json();
