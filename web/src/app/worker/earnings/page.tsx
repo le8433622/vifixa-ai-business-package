@@ -7,6 +7,20 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type WorkerEarningOrder = {
+  id: string
+  category: string
+  completed_at?: string
+  created_at?: string
+  actual_price?: number
+  estimated_price?: number
+  status: string
+}
+
+type PendingPaymentOrder = {
+  estimated_price?: number
+}
+
 type EarningsData = {
   today: number
   thisWeek: number
@@ -57,7 +71,7 @@ export default function WorkerEarningsPage() {
     try {
       setError(null)
       
-      const { data: orders, error } = await supabase
+      const { data: ordersData, error } = await (supabase as any)
         .from('orders')
         .select('id, category, completed_at, actual_price, estimated_price, status')
         .eq('worker_id', userId)
@@ -65,6 +79,7 @@ export default function WorkerEarningsPage() {
         .order('completed_at', { ascending: false })
 
       if (error) throw error
+      const orders = (ordersData || []) as WorkerEarningOrder[]
 
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -77,7 +92,7 @@ export default function WorkerEarningsPage() {
       let todayEarnings = 0
       let pending = 0
 
-      const jobs = (orders || []).map(order => {
+      const jobs = orders.map(order => {
         const price = order.actual_price || order.estimated_price || 0
         total += price
         
@@ -103,13 +118,14 @@ export default function WorkerEarningsPage() {
       })
 
       // Fetch pending payments (in_progress jobs with estimated price)
-      const { data: pendingJobs } = await supabase
+      const { data: pendingJobsData } = await (supabase as any)
         .from('orders')
         .select('estimated_price')
         .eq('worker_id', userId)
         .eq('status', 'in_progress')
 
-      pending = (pendingJobs || []).reduce((sum, job) => sum + (job.estimated_price || 0), 0)
+      const pendingJobs = (pendingJobsData || []) as PendingPaymentOrder[]
+      pending = pendingJobs.reduce((sum, job) => sum + (job.estimated_price || 0), 0)
 
       setEarnings({
         today: todayEarnings,

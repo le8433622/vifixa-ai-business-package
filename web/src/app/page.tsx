@@ -22,13 +22,14 @@ export default function Home() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
           .single();
 
-        const role = data?.role;
+        const profile = data as { role?: string } | null;
+        const role = profile?.role;
         const updatedUser = { ...session.user, role };
 
         // Khách đã login → redirect thẳng vào dashboard

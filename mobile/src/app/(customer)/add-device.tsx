@@ -7,11 +7,11 @@ import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 
 const DEVICE_TYPES = [
-  { id: 'air_conditioning', label: 'Điều hòa' },
-  { id: 'refrigerator', label: 'Tủ lạnh' },
-  { id: 'washing_machine', label: 'Máy giặt' },
-  { id: 'water_heater', label: 'Máy nước nóng' },
-  { id: 'other', label: 'Thiết bị khác' },
+  { id: 'air_conditioning', label: 'Điều hòa', icon: '❄️' },
+  { id: 'refrigerator', label: 'Tủ lạnh', icon: '🧊' },
+  { id: 'washing_machine', label: 'Máy giặt', icon: '🧺' },
+  { id: 'water_heater', label: 'Máy nước nóng', icon: '🚿' },
+  { id: 'other', label: 'Thiết bị khác', icon: '🔧' },
 ]
 
 export default function AddDeviceScreen() {

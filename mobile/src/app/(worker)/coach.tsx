@@ -124,7 +124,7 @@ Thông tin thợ:
 
 Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Việt.` 
             },
-            ...messages.filter(m => m.role !== 'system').map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+            ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
             { role: 'user' as const, content: userMessage }
           ],
           session_id: `coach-${session.user.id}`,

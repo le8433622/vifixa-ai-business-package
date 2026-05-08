@@ -1,38 +1,30 @@
-// AI Chat Support Edge Function
-// Maintains stateful sessions with full JWT auth, message persistence, and booking
+// AI Chat Service Closer Edge Function
+// Converts authenticated customer conversations into safe, auditable service orders.
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createAIProvider, ChatInput, ChatOutput } from '../_shared/ai-provider.ts';
-import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-};
-
-interface ChatRequest {
-  session_id?: string;
-  message: string;
-  context?: {
-    category?: string;
-    location?: string;
-    device_info?: any;
-  };
-}
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions, redactPII } from '../_shared/auth-helper.ts';
+import type { ChatContext, ChatRequest } from './types.ts';
+import { extractSlots } from './slot-extractor.ts';
+import { chooseState, getMissingSlots } from './state-machine.ts';
+import { buildActions } from './action-builder.ts';
+import { buildHandoffSummary, buildReply } from './reply-builder.ts';
+import { maybeRunDiagnosisAndQuote } from './ai-service.ts';
+import { createOrderIfConfirmed } from './order-service.ts';
+import { logChatDecision } from './audit-service.ts';
+import { logChatEvents } from './event-service.ts';
+import { createApprovalRequest, evaluateAutonomy, resolveAutonomyPolicy } from './autonomy-service.ts';
 
 Deno.serve(async (req: Request) => {
   const opt = handleOptions(req);
   if (opt) return opt;
 
-  if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405);
-  }
+  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
   try {
     const user = await verifyAuth(req);
     const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     checkRateLimit(user.id, clientIp, { maxRequests: 30 });
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -44,14 +36,12 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Invalid request body' }, 400);
     }
 
-    const { session_id, message, context } = body;
+    const message = body.message?.trim();
+    if (!message) return jsonResponse({ error: 'Missing message' }, 400);
 
-    if (!message) {
-      return jsonResponse({ error: 'Missing message' }, 400);
-    }
-
-    let sessionId = session_id;
-    let sessionContext = context || {};
+    let sessionId = body.session_id || undefined;
+    let isNewSession = false;
+    let sessionContext: ChatContext = { ...(body.context || {}) };
     let messages: { role: 'user' | 'assistant' | 'system'; content: string }[] = [];
 
     if (sessionId) {
@@ -62,11 +52,9 @@ Deno.serve(async (req: Request) => {
         .eq('user_id', user.id)
         .single();
 
-      if (sessionError || !session) {
-        return jsonResponse({ error: 'Session not found' }, 404);
-      }
+      if (sessionError || !session) return jsonResponse({ error: 'Session not found' }, 404);
 
-      sessionContext = session.context || {};
+      sessionContext = { ...(session.context || {}), ...(body.context || {}) };
 
       const { data: chatMessages } = await supabase
         .from('chat_messages')
@@ -81,13 +69,18 @@ Deno.serve(async (req: Request) => {
         }));
       }
     } else {
+      const initialContext = {
+        state: 'problem_capture',
+        conversion_stage: 'started',
+        ...(body.context || {}),
+      };
       const { data: newSession, error: createError } = await supabase
         .from('chat_sessions')
         .insert({
           user_id: user.id,
-          session_type: 'support',
+          session_type: 'booking',
           status: 'active',
-          context: sessionContext,
+          context: initialContext,
         })
         .select()
         .single();
@@ -97,97 +90,147 @@ Deno.serve(async (req: Request) => {
       }
 
       sessionId = newSession.id;
+      isNewSession = true;
+      sessionContext = initialContext;
     }
-
-    messages.push({ role: 'user', content: message });
 
     await supabase.from('chat_messages').insert({
       session_id: sessionId,
       role: 'user',
       content: message,
+      metadata: { request_id: body.idempotency_key || null },
     });
 
-    const requestId = crypto.randomUUID();
-    const ai = createAIProvider(requestId);
-    const chatInput: ChatInput = {
-      session_id: sessionId!,
-      messages,
-      context: {
-        ...sessionContext,
-        user_id: user.id,
-      },
-    };
+    messages.push({ role: 'user', content: message });
 
-    const chatOutput = await ai.chat(chatInput);
+    const requestId = body.idempotency_key || crypto.randomUUID();
+    let nextContext = extractSlots(message, {
+      ...sessionContext,
+      idempotency_key: requestId,
+    });
+
+    let missingSlots = getMissingSlots(nextContext);
+    let state = chooseState(nextContext, missingSlots);
+
+    if (state === 'diagnosis' || state === 'quote' || state === 'confirmation' || state === 'order_creation') {
+      try {
+        nextContext = await maybeRunDiagnosisAndQuote(nextContext);
+      } catch (aiError) {
+        console.error('Diagnosis/quote failed in ai-chat:', aiError);
+        nextContext.risk_flags = [...new Set([...(nextContext.risk_flags || []), 'ai_fallback'])];
+      }
+    }
+
+    missingSlots = getMissingSlots(nextContext);
+    state = chooseState(nextContext, missingSlots);
+
+    let orderId: string | undefined;
+    if (state === 'order_creation') {
+      const policy = await resolveAutonomyPolicy(supabase, nextContext.category);
+      const evaluation = evaluateAutonomy(nextContext, policy);
+
+      if (evaluation.decision === 'execute') {
+        const userToken = req.headers.get('Authorization')?.replace('Bearer ', '') || '';
+        orderId = await createOrderIfConfirmed(supabase, supabaseUrl, userToken, user.id, sessionId!, nextContext);
+        state = 'handoff';
+        nextContext.customer_confirmation = true;
+        nextContext.conversion_stage = 'order_created';
+      } else {
+        await createApprovalRequest(supabase, {
+          requestId,
+          userId: user.id,
+          sessionId: sessionId!,
+          actionType: 'create_order',
+          context: nextContext,
+          evaluation,
+        });
+        state = evaluation.decision === 'blocked' ? 'escalated' : 'approval_required';
+        nextContext.conversion_stage = evaluation.decision === 'blocked' ? 'blocked' : 'approval_required';
+        nextContext.risk_flags = [...new Set([...(nextContext.risk_flags || []), evaluation.reason])];
+      }
+    } else if (state === 'quote' && nextContext.quote) {
+      nextContext.conversion_stage = 'quoted';
+      state = 'confirmation';
+    } else if (state === 'slot_filling') {
+      nextContext.conversion_stage = 'qualified';
+    }
+
+    nextContext.state = state;
+    nextContext.handoff_summary = buildHandoffSummary(nextContext);
+    nextContext.lead_score = nextContext.category && nextContext.location ? 80 : 45;
+    nextContext.confidence = nextContext.quote ? 0.82 : 0.68;
+
+    const finalMissingSlots = getMissingSlots(nextContext);
+    const actions = buildActions(state, finalMissingSlots, nextContext, orderId);
+    const reply = buildReply(state, finalMissingSlots, nextContext, orderId);
+    const sessionComplete = Boolean(orderId);
 
     await supabase.from('chat_messages').insert({
       session_id: sessionId,
       role: 'assistant',
-      content: chatOutput.reply,
+      content: reply,
       metadata: {
-        actions: chatOutput.actions,
-        next_step: chatOutput.next_step,
+        request_id: requestId,
+        actions,
+        state,
+        intent: nextContext.intent,
+        slots: nextContext,
+        order_id: orderId,
       },
     });
 
-    let orderId: string | undefined;
+    await supabase
+      .from('chat_sessions')
+      .update({
+        status: sessionComplete ? 'completed' : 'active',
+        context: nextContext,
+        completed_at: sessionComplete ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId);
 
-    if (chatOutput.session_complete) {
-      await supabase
-        .from('chat_sessions')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sessionId);
-
-      try {
-        const category = sessionContext.category || 'general';
-        const description = `Chat session: ${message}`;
-        const location = sessionContext.location || { lat: 10.762622, lng: 106.660172 };
-
-        // Use user's JWT token so customer-requests creates the order for the real customer.
-        const userToken = req.headers.get('Authorization')?.replace('Bearer ', '');
-
-        const orderResponse = await fetch(`${supabaseUrl}/functions/v1/customer-requests`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${userToken || supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            category,
-            description,
-            location,
-            chat_session_id: sessionId,
-          }),
-        });
-
-        if (orderResponse.ok) {
-          const orderData = await orderResponse.json();
-          orderId = orderData.request_id;
-        } else {
-          console.error('Order creation failed in ai-chat:', await orderResponse.text());
-        }
-      } catch (orderError) {
-        console.error('Error creating order:', orderError);
-      }
-    }
-
-    return jsonResponse({
-      session_id: sessionId,
-      reply: chatOutput.reply,
-      actions: chatOutput.actions,
-      next_step: chatOutput.next_step,
-      session_complete: chatOutput.session_complete,
+    const output = {
+      session_id: sessionId!,
+      reply,
+      state,
+      intent: nextContext.intent,
+      slots: nextContext,
+      missing_slots: finalMissingSlots,
+      actions,
+      next_step: state,
+      confidence: nextContext.confidence,
+      session_complete: sessionComplete,
       order_id: orderId,
+    };
+
+    await logChatDecision(
+      supabase,
+      redactPII,
+      requestId,
+      user.id,
+      sessionId!,
+      { message, context: sessionContext, messages: messages.slice(-8) },
+      output,
+      orderId,
+    );
+
+    await logChatEvents(supabase, {
+      isNewSession,
+      requestId,
+      userId: user.id,
+      sessionId: sessionId!,
+      state,
+      intent: nextContext.intent,
+      missingSlots: finalMissingSlots,
+      context: nextContext,
+      orderId,
     });
+
+    return jsonResponse(output);
   } catch (error: any) {
     if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
     if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
     console.error('Chat error:', error);
-    return jsonResponse({ error: error.message }, 500);
+    return jsonResponse({ error: error.message || 'Internal server error' }, 500);
   }
 });

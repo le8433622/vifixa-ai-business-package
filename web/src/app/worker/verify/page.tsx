@@ -51,16 +51,18 @@ export default function WorkerVerifyPage() {
 
   async function fetchProfile(userId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
 
       if (error) throw error
-      setProfile(data)
-      setIdNumber(data.id_number || '')
-      setAddress(data.address || '')
+      const profileData = data as Profile | null
+      if (!profileData) throw new Error('Không tìm thấy hồ sơ')
+      setProfile(profileData)
+      setIdNumber(profileData.id_number || '')
+      setAddress(profileData.address || '')
     } catch (error: any) {
       console.error('fetchProfile error:', error)
     } finally {
@@ -82,7 +84,7 @@ export default function WorkerVerifyPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('profiles')
         .update({
           id_number: idNumber,

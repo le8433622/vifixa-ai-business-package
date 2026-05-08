@@ -30,6 +30,7 @@ export default function CustomerChatPage() {
   const [isListening, setIsListening] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     checkUser()
@@ -110,10 +111,11 @@ export default function CustomerChatPage() {
     setSession(null)
   }
 
-  async function sendMessage() {
-    if (!inputMessage.trim() || isLoading) return
+  async function sendMessage(messageOverride?: string, contextOverride?: Record<string, any>) {
+    const textToSend = messageOverride || inputMessage
+    if (!textToSend.trim() || isLoading) return
 
-    const userMessage = inputMessage.trim()
+    const userMessage = textToSend.trim()
     setInputMessage('')
     setIsLoading(true)
 
@@ -143,6 +145,7 @@ export default function CustomerChatPage() {
         body: JSON.stringify({
           session_id: session?.id || null,
           message: userMessage,
+          context: contextOverride,
         }),
       })
 
@@ -152,8 +155,6 @@ export default function CustomerChatPage() {
       }
 
       const data = await response.json()
-      console.log('[chat] FULL RESPONSE:', JSON.stringify(data))
-      console.log('[chat] order_id:', data.order_id, 'session_complete:', data.session_complete)
 
       // Update session if new
       if (data.session_id && session?.id !== data.session_id) {
@@ -177,13 +178,10 @@ export default function CustomerChatPage() {
 
       // If session complete, navigate to order or dashboard
       if (data.session_complete) {
-        console.log('[chat] Session complete, order_id:', data.order_id);
         setTimeout(() => {
           if (data.order_id) {
-            console.log('[chat] Navigating to order:', data.order_id);
             router.push(`/customer/orders/${data.order_id}`)
           } else {
-            console.warn('[chat] No order_id in response, redirecting to /customer');
             alert('Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.')
             router.push('/customer')
           }
@@ -196,6 +194,155 @@ export default function CustomerChatPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+
+  async function handleAction(action: any) {
+    if (action.type === 'share_location') {
+      if (!navigator.geolocation) {
+        alert('Trình duyệt không hỗ trợ gửi vị trí. Vui lòng nhập địa chỉ/khu vực trong ô chat.')
+        return
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          await sendMessage('Tôi đã gửi vị trí hiện tại', {
+            location: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            },
+          })
+        },
+        () => alert('Không lấy được vị trí. Bạn có thể nhập địa chỉ/khu vực trong ô chat.'),
+        { enableHighAccuracy: true, timeout: 10000 },
+      )
+      return
+    }
+
+    if (action.type === 'upload_media') {
+      fileInputRef.current?.click()
+      return
+    }
+
+    if (action.type === 'confirmation_card') {
+      await sendMessage(action.value || 'Tôi xác nhận tạo đơn dịch vụ')
+      return
+    }
+
+    if (action.type === 'view_order' && action.value) {
+      router.push(`/customer/orders/${action.value}`)
+      return
+    }
+
+    if (action.value) {
+      await sendMessage(action.value)
+    }
+  }
+
+  async function handleMediaUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    setIsLoading(true)
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession) {
+        router.push('/login')
+        return
+      }
+
+      const mediaUrls: string[] = []
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+          throw new Error('Chỉ hỗ trợ ảnh hoặc video')
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          throw new Error('File quá lớn. Vui lòng chọn file dưới 20MB')
+        }
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+        const fileName = `${authSession.user.id}/${session?.id || 'new-chat'}/${Date.now()}-${safeName}`
+        const { data, error } = await supabase.storage
+          .from('service-media')
+          .upload(fileName, file, { upsert: false })
+
+        if (error) throw error
+        const { data: { publicUrl } } = supabase.storage
+          .from('service-media')
+          .getPublicUrl(data.path)
+        mediaUrls.push(publicUrl)
+      }
+
+      await sendMessage(`Tôi đã gửi ${mediaUrls.length} ảnh/video sự cố`, { media_urls: mediaUrls })
+    } catch (error: any) {
+      alert(`Lỗi upload: ${error.message}`)
+    } finally {
+      event.target.value = ''
+      setIsLoading(false)
+    }
+  }
+
+  function formatVnd(value?: number) {
+    return typeof value === 'number' ? `${value.toLocaleString('vi-VN')}đ` : 'Đang cập nhật'
+  }
+
+  function renderAction(action: any, idx: number) {
+    if (action.type === 'quote_card') {
+      const quote = action.data || {}
+      return (
+        <div key={idx} className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950">
+          <div className="font-semibold text-sm mb-1">💰 Báo giá dự kiến</div>
+          <div className="text-lg font-bold">{formatVnd(quote.estimated_price)}</div>
+          {typeof quote.confidence === 'number' && (
+            <div className="mt-1">Độ tin cậy: {Math.round(quote.confidence * 100)}%</div>
+          )}
+          {Array.isArray(quote.price_breakdown) && quote.price_breakdown.length > 0 && (
+            <ul className="mt-2 list-disc pl-4 space-y-1">
+              {quote.price_breakdown.map((item: any, itemIdx: number) => (
+                <li key={itemIdx}>{item.item}: {formatVnd(item.cost)}</li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-blue-700">Giá cuối có thể thay đổi sau khảo sát thực tế và vật tư phát sinh.</p>
+        </div>
+      )
+    }
+
+    if (action.type === 'confirmation_card') {
+      const data = action.data || {}
+      return (
+        <div key={idx} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950">
+          <div className="font-semibold text-sm mb-2">✅ Xác nhận tạo đơn</div>
+          <div className="space-y-1">
+            <div><span className="font-medium">Dịch vụ:</span> {data.category || 'Đã ghi nhận trong chat'}</div>
+            <div><span className="font-medium">Thời gian:</span> {data.preferred_time || 'Theo thông tin đã cung cấp'}</div>
+            <div><span className="font-medium">Vị trí:</span> {typeof data.location === 'string' ? data.location : data.location ? 'Đã gửi tọa độ' : 'Đã ghi nhận'}</div>
+            {data.quote?.estimated_price && <div><span className="font-medium">Giá dự kiến:</span> {formatVnd(data.quote.estimated_price)}</div>}
+          </div>
+          <p className="mt-2 text-emerald-700">Bạn cần xác nhận rõ trước khi Vifixa tạo đơn và ghép thợ.</p>
+          <button
+            type="button"
+            onClick={() => handleAction(action)}
+            disabled={isLoading}
+            className="mt-3 w-full rounded-md bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            Tôi xác nhận tạo đơn
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <button
+        key={idx}
+        type="button"
+        onClick={() => handleAction(action)}
+        disabled={isLoading}
+        className="block text-left text-xs bg-white/20 rounded px-2 py-1 hover:bg-white/30 disabled:opacity-50"
+      >
+        ⚡ {action.label || action.type}
+      </button>
+    )
   }
 
   function handleKeyPress(e: React.KeyboardEvent) {
@@ -284,6 +431,15 @@ export default function CustomerChatPage() {
         </div>
       </div>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        className="hidden"
+        onChange={handleMediaUpload}
+      />
+
       {/* Chat Container */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col" style={{ height: '600px' }}>
         {/* Messages Area */}
@@ -307,11 +463,7 @@ export default function CustomerChatPage() {
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                     {msg.actions && msg.actions.length > 0 && (
                       <div className="mt-2 space-y-1">
-                        {msg.actions.map((action, idx) => (
-                          <div key={idx} className="text-xs bg-white bg-opacity-20 rounded px-2 py-1">
-                            ⚡ {action.type}
-                          </div>
-                        ))}
+                        {msg.actions.map((action, idx) => renderAction(action, idx))}
                       </div>
                     )}
                   </div>
@@ -346,7 +498,7 @@ export default function CustomerChatPage() {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Nhập tin nhắn... (VD: Máy lạnh không mát)"
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               disabled={isLoading}
@@ -363,7 +515,7 @@ export default function CustomerChatPage() {
               {isListening ? '⏹️' : '🎤'}
             </button>
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >

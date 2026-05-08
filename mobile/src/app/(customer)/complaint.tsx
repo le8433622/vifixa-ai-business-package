@@ -122,26 +122,6 @@ export default function ComplaintScreen() {
     }
   }
 
-      const { error } = await supabase.from('complaints').insert({
-        order_id: selectedOrder,
-        customer_id: session.user.id,
-        complaint_type: complaintType,
-        description,
-        status: 'pending',
-      })
-
-      if (error) throw error
-
-      Alert.alert('Thành công', 'Khiếu nại của bạn đã được gửi. Chúng tôi sẽ xem xét và phản hồi.', [
-        { text: 'OK', onPress: () => router.back() },
-      ])
-    } catch (error: any) {
-      Alert.alert('Lỗi', error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>

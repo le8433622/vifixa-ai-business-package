@@ -14,6 +14,8 @@ import {
 import { useRouter } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { Ionicons } from '@expo/vector-icons'
+import * as Location from 'expo-location'
+import * as ImagePicker from 'expo-image-picker'
 
 interface Message {
   id: string;
@@ -50,15 +52,15 @@ export default function CustomerChatScreen() {
       return
     }
     setUser(session.user)
-    loadOrCreateSession()
+    loadOrCreateSession(session.user.id)
   }
 
-  async function loadOrCreateSession() {
+  async function loadOrCreateSession(userId: string) {
     try {
       const { data: sessions, error } = await supabase
         .from('chat_sessions')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', userId)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -111,10 +113,11 @@ export default function CustomerChatScreen() {
     setSession(null)
   }
 
-  async function sendMessage() {
-    if (!inputMessage.trim() || isLoading) return
+  async function sendMessage(messageOverride?: string, contextOverride?: Record<string, any>) {
+    const textToSend = messageOverride || inputMessage
+    if (!textToSend.trim() || isLoading) return
 
-    const userMessage = inputMessage.trim()
+    const userMessage = textToSend.trim()
     setInputMessage('')
     setIsLoading(true)
 
@@ -128,8 +131,8 @@ export default function CustomerChatScreen() {
     setMessages(prev => [...prev, tempUserMsg])
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession) {
         router.push('/login')
         return
       }
@@ -137,12 +140,13 @@ export default function CustomerChatScreen() {
       const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          session_id: session?.user?.id || null,
+          session_id: session?.id || null,
           message: userMessage,
+          context: contextOverride,
         }),
       })
 
@@ -154,7 +158,7 @@ export default function CustomerChatScreen() {
       const data = await response.json()
 
       // Update session if new
-      if (data.session_id && !session) {
+      if (data.session_id && session?.id !== data.session_id) {
         setSession({ id: data.session_id, status: 'active', created_at: new Date().toISOString() })
       }
 
@@ -199,6 +203,139 @@ export default function CustomerChatScreen() {
     }
   }
 
+
+  async function handleAction(action: any) {
+    if (action.type === 'share_location') {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync()
+        if (status !== 'granted') {
+          Alert.alert('Cần vị trí', 'Bạn có thể nhập địa chỉ/khu vực cụ thể trong ô chat nếu không cấp quyền GPS.')
+          return
+        }
+
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        await sendMessage('Tôi đã gửi vị trí hiện tại', {
+          location: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          },
+        })
+      } catch (error: any) {
+        Alert.alert('Không lấy được vị trí', error.message || 'Vui lòng nhập địa chỉ/khu vực trong ô chat.')
+      }
+      return
+    }
+
+    if (action.type === 'upload_media') {
+      await pickAndUploadMedia()
+      return
+    }
+
+    if (action.type === 'confirmation_card') {
+      await sendMessage(action.value || 'Tôi xác nhận tạo đơn dịch vụ')
+      return
+    }
+
+    if (action.value) {
+      await sendMessage(action.value)
+    }
+  }
+
+  async function pickAndUploadMedia() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        Alert.alert('Cần quyền ảnh', 'Vui lòng cấp quyền thư viện ảnh để gửi bằng chứng sự cố.')
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      })
+
+      if (result.canceled || result.assets.length === 0) return
+
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession) {
+        router.push('/login')
+        return
+      }
+
+      setIsLoading(true)
+      const mediaUrls: string[] = []
+      for (const asset of result.assets) {
+        const response = await fetch(asset.uri)
+        const blob = await response.blob()
+        const extension = asset.uri.split('.').pop()?.split('?')[0] || 'jpg'
+        const fileName = `${authSession.user.id}/${session?.id || 'new-chat'}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+
+        const { data, error } = await supabase.storage
+          .from('service-media')
+          .upload(fileName, blob)
+
+        if (error) throw error
+        const { data: { publicUrl } } = supabase.storage
+          .from('service-media')
+          .getPublicUrl(data.path)
+        mediaUrls.push(publicUrl)
+      }
+
+      await sendMessage(`Tôi đã gửi ${mediaUrls.length} ảnh/video sự cố`, { media_urls: mediaUrls })
+    } catch (error: any) {
+      Alert.alert('Lỗi upload', error.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  function formatVnd(value?: number) {
+    return typeof value === 'number' ? `${value.toLocaleString('vi-VN')}đ` : 'Đang cập nhật'
+  }
+
+  function renderAction(action: any, idx: number) {
+    if (action.type === 'quote_card') {
+      const quote = action.data || {}
+      return (
+        <View key={idx} style={styles.quoteCard}>
+          <Text style={styles.cardTitle}>💰 Báo giá dự kiến</Text>
+          <Text style={styles.priceText}>{formatVnd(quote.estimated_price)}</Text>
+          {typeof quote.confidence === 'number' && (
+            <Text style={styles.cardText}>Độ tin cậy: {Math.round(quote.confidence * 100)}%</Text>
+          )}
+          {Array.isArray(quote.price_breakdown) && quote.price_breakdown.map((item: any, itemIdx: number) => (
+            <Text key={itemIdx} style={styles.cardText}>• {item.item}: {formatVnd(item.cost)}</Text>
+          ))}
+          <Text style={styles.disclaimerText}>Giá cuối có thể thay đổi sau khảo sát thực tế và vật tư phát sinh.</Text>
+        </View>
+      )
+    }
+
+    if (action.type === 'confirmation_card') {
+      const data = action.data || {}
+      return (
+        <View key={idx} style={styles.confirmationCard}>
+          <Text style={styles.cardTitle}>✅ Xác nhận tạo đơn</Text>
+          <Text style={styles.cardText}>Dịch vụ: {data.category || 'Đã ghi nhận trong chat'}</Text>
+          <Text style={styles.cardText}>Thời gian: {data.preferred_time || 'Theo thông tin đã cung cấp'}</Text>
+          <Text style={styles.cardText}>Vị trí: {typeof data.location === 'string' ? data.location : data.location ? 'Đã gửi tọa độ' : 'Đã ghi nhận'}</Text>
+          {data.quote?.estimated_price && <Text style={styles.cardText}>Giá dự kiến: {formatVnd(data.quote.estimated_price)}</Text>}
+          <Text style={styles.disclaimerText}>Bạn cần xác nhận rõ trước khi Vifixa tạo đơn và ghép thợ.</Text>
+          <TouchableOpacity style={styles.confirmButton} onPress={() => handleAction(action)} disabled={isLoading}>
+            <Text style={styles.confirmButtonText}>Tôi xác nhận tạo đơn</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    return (
+      <TouchableOpacity key={idx} style={styles.actionBadge} onPress={() => handleAction(action)} disabled={isLoading}>
+        <Text style={styles.actionText}>⚡ {action.label || action.type}</Text>
+      </TouchableOpacity>
+    )
+  }
+
   function renderMessage({ item }: { item: Message }) {
     const isUser = item.role === 'user'
     
@@ -217,11 +354,7 @@ export default function CustomerChatScreen() {
         </Text>
         {item.actions && item.actions.length > 0 && (
           <View style={styles.actionsContainer}>
-            {item.actions.map((action: any, idx: number) => (
-              <View key={idx} style={styles.actionBadge}>
-                <Text style={styles.actionText}>⚡ {action.type}</Text>
-              </View>
-            ))}
+            {item.actions.map((action: any, idx: number) => renderAction(action, idx))}
           </View>
         )}
       </View>
@@ -304,7 +437,7 @@ export default function CustomerChatScreen() {
           placeholderTextColor="#9ca3af"
           multiline
           editable={!isLoading}
-          onSubmitEditing={sendMessage}
+          onSubmitEditing={() => sendMessage()}
         />
         <TouchableOpacity
           onPress={() => {
@@ -315,7 +448,7 @@ export default function CustomerChatScreen() {
           <Ionicons name={isListening ? 'stop-circle' : 'mic'} size={24} color={isListening ? 'white' : '#4b5563'} />
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={sendMessage}
+          onPress={() => sendMessage()}
           disabled={isLoading || !inputMessage.trim()}
           style={[styles.sendButton, (!inputMessage.trim() || isLoading) && styles.sendButtonDisabled]}
         >
@@ -430,6 +563,59 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 10,
     color: '#2563eb',
+  },
+  quoteCard: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    gap: 4,
+  },
+  confirmationCard: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    gap: 4,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  priceText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1d4ed8',
+  },
+  cardText: {
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 18,
+  },
+  disclaimerText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#047857',
+    lineHeight: 16,
+  },
+  confirmButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
   },
   loadingContainer: {
     flexDirection: 'row',

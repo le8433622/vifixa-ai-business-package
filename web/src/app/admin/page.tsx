@@ -118,6 +118,32 @@ export default function AdminDashboard() {
               <h3 className="text-xl font-semibold mb-2">AI Logs</h3>
               <p className="text-gray-600">View AI diagnosis and pricing logs</p>
             </button>
+
+            <button
+              onClick={() => router.push('/admin/approvals')}
+              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
+            >
+              <h3 className="text-xl font-semibold mb-2">AI Approval Queue</h3>
+              <p className="text-gray-600">Approve, reject, or execute supervised AI actions</p>
+            </button>
+
+
+            <button
+              onClick={() => router.push('/admin/chat-kpis')}
+              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
+            >
+              <h3 className="text-xl font-semibold mb-2">Chat Funnel KPIs</h3>
+              <p className="text-gray-600">Measure AI closer conversion, drop-off, escalation and fallback</p>
+            </button>
+
+
+            <button
+              onClick={() => router.push('/admin/price-accuracy')}
+              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
+            >
+              <h3 className="text-xl font-semibold mb-2">Price Accuracy</h3>
+              <p className="text-gray-600">Compare AI estimates with completed order prices</p>
+            </button>
           </div>
         </>
       ) : (

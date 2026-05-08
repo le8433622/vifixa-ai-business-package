@@ -10,6 +10,7 @@ export async function POST(
   try {
     const resolvedParams = await params;
     const path = resolvedParams.path.join('/');
+    const search = request.nextUrl.search;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -29,11 +30,11 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
+    const body = request.headers.get('content-length') === '0' ? {} : await request.json();
 
     // Proxy to Supabase Edge Function
     const response = await fetch(
-      `${supabaseUrl}/functions/v1/${path}`,
+      `${supabaseUrl}/functions/v1/${path}${search}`,
       {
         method: 'POST',
         headers: {
@@ -63,6 +64,7 @@ export async function GET(
   try {
     const resolvedParams = await params;
     const path = resolvedParams.path.join('/');
+    const search = request.nextUrl.search;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -82,7 +84,7 @@ export async function GET(
     }
 
     const response = await fetch(
-      `${supabaseUrl}/functions/v1/${path}`,
+      `${supabaseUrl}/functions/v1/${path}${search}`,
       {
         method: 'GET',
         headers: {

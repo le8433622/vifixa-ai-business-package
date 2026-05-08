@@ -25,12 +25,13 @@ export default function Login() {
 
   async function checkRoleAndRedirect(userId: string) {
     try {
-      const { data: profile } = await supabase
+      const { data } = await (supabase as any)
         .from('profiles')
         .select('role')
         .eq('id', userId)
         .single();
 
+      const profile = data as { role?: string } | null;
       if (profile?.role === 'customer') {
         router.replace('/customer');
       } else if (profile?.role === 'worker') {
