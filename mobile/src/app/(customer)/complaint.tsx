@@ -42,7 +42,6 @@ export default function ComplaintScreen() {
         .from('orders')
         .select('id, category, description, status, created_at')
         .eq('customer_id', session.user.id)
-        .eq('status', 'completed')
         .order('created_at', { ascending: false })
 
       if (error) throw error

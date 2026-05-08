@@ -4,7 +4,7 @@
 // Per 12_OPERATIONS_AND_TRUST.md - Complaint handling
 // Per Step 7: Trust & Quality - Task 8
 
-import { useState } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -21,7 +21,11 @@ const COMPLAINT_TYPES = [
   'Khác',
 ];
 
-export default function CustomerComplaintPage() {
+export default function CustomerComplaintPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -30,7 +34,11 @@ export default function CustomerComplaintPage() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
 
-  // Fetch customer's completed orders for dropdown
+  // Read order_id from URL parameter
+  const params = use(searchParams);
+  const prefilledOrderId = params.order_id as string | undefined;
+
+  // Fetch ALL customer orders (not just completed)
   const { data: orders, isLoading } = useQuery({
     queryKey: ['customer-orders-for-complaint'],
     queryFn: async () => {
@@ -42,15 +50,21 @@ export default function CustomerComplaintPage() {
 
       const { data, error } = await supabase
         .from('orders')
-        .select('id, category, description, status, completed_at')
+        .select('id, category, description, status, completed_at, created_at')
         .eq('customer_id', session.user.id)
-        .eq('status', 'completed')
-        .order('completed_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Pre-select order from URL parameter
+  useEffect(() => {
+    if (prefilledOrderId && orders?.some(o => o.id === prefilledOrderId)) {
+      setOrderId(prefilledOrderId);
+    }
+  }, [orders, prefilledOrderId]);
 
   // Submit complaint mutation
   const submitComplaintMutation = useMutation({
@@ -132,7 +146,7 @@ export default function CustomerComplaintPage() {
             </label>
             {isLoading ? (
               <p className="text-gray-600">Đang tải...</p>
-            ) : (
+            ) : orders?.length > 0 ? (
               <select
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
@@ -140,12 +154,23 @@ export default function CustomerComplaintPage() {
                 required
               >
                 <option value="">-- Chọn đơn hàng --</option>
-                {orders?.map((order: any) => (
+                {orders.map((order: any) => (
                   <option key={order.id} value={order.id}>
-                    {order.category} - {new Date(order.completed_at).toLocaleDateString('vi-VN')}
+                    {order.category} - {new Date(order.completed_at || order.created_at).toLocaleDateString('vi-VN')} ({order.status})
                   </option>
                 ))}
               </select>
+            ) : (
+              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                <div className="text-4xl mb-2">📋</div>
+                <p className="mb-4">Bạn chưa có đơn hàng nào có thể khiếu nại</p>
+                <button
+                  onClick={() => router.push('/customer')}
+                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  ← Xem danh sách đơn hàng
+                </button>
+              </div>
             )}
           </div>
 

@@ -45,7 +45,9 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   const navItems = [
     { href: '/customer', label: 'Dashboard', icon: '🏠' },
     { href: '/customer/chat', label: '💬 Chat AI', icon: '💬' },
+    { href: '/customer/care', label: '🌿 Chăm sóc', icon: '🌿' },
     { href: '/customer/service-request', label: 'Đặt dịch vụ', icon: '➕' },
+    { href: '/customer/orders', label: 'Đơn hàng', icon: '📋' },
     { href: '/customer/profile', label: 'Tài khoản', icon: '👤' },
     { href: '/customer/complaint', label: 'Khiếu nại', icon: '⚠️' },
   ]

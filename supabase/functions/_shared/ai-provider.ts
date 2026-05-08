@@ -12,6 +12,7 @@ export interface AIProvider {
   detectFraud(input: FraudInput): Promise<FraudOutput>;
   chat(input: ChatInput): Promise<ChatOutput>;
   predictMaintenance(input: MaintenancePredictionInput): Promise<MaintenancePredictionOutput>;
+  careAgent(input: CareAgentInput): Promise<CareAgentOutput>;
   healthcheck(): Promise<{ ok: boolean; model: string; latency: number; error?: string }>;
 }
 
@@ -55,6 +56,62 @@ export interface MaintenancePredictionOutput {
   estimated_cost?: number;
   recommendations: string[];
   device_lifespan_years?: number;
+}
+
+// Care Agent interfaces
+export interface CareAgentInput {
+  user_id: string;
+  devices: Array<{
+    device_type: string;
+    brand?: string;
+    model?: string;
+    purchase_date?: string;
+    warranty_expiry?: string;
+  }>;
+  orders: Array<{
+    id: string;
+    category: string;
+    status: string;
+    created_at: string;
+    completed_at?: string;
+    rating?: number;
+    description?: string;
+  }>;
+  total_spent: number;
+  device_count: number;
+  completed_orders: number;
+  repeat_rate: number;
+}
+
+export interface CareAgentOutput {
+  summary: string;
+  next_best_action: {
+    title: string;
+    description: string;
+    action_type: string;
+  };
+  device_insights: Array<{
+    device_type: string;
+    brand?: string;
+    model?: string;
+    age_months: number;
+    needs_attention: boolean;
+    recommendation: string;
+  }>;
+  maintenance_reminders: Array<{
+    title: string;
+    due_date: string;
+    priority: 'low' | 'medium' | 'high';
+  }>;
+  reorder_suggestions: Array<{
+    category: string;
+    reason: string;
+  }>;
+  loyalty_status: {
+    tier: string;
+    total_spent: number;
+    next_tier_at: number;
+  };
 }
 
 export interface DiagnosisInput {
@@ -268,6 +325,23 @@ const predictRules: FieldRule[] = [
   { name: 'maintenance_type', type: 'string', required: true },
   { name: 'urgency', type: 'string', required: true, allowedValues: ['low', 'medium', 'high'] },
   { name: 'recommendations', type: 'array', required: true, arrayType: 'string' },
+];
+
+const careAgentRules: FieldRule[] = [
+  { name: 'summary', type: 'string', required: true },
+  { name: 'next_best_action', type: 'object', required: true, nestedFields: [
+    { name: 'title', type: 'string', required: true },
+    { name: 'description', type: 'string', required: true },
+    { name: 'action_type', type: 'string', required: true },
+  ]},
+  { name: 'device_insights', type: 'array', required: true },
+  { name: 'maintenance_reminders', type: 'array', required: true },
+  { name: 'reorder_suggestions', type: 'array', required: true },
+  { name: 'loyalty_status', type: 'object', required: true, nestedFields: [
+    { name: 'tier', type: 'string', required: true },
+    { name: 'total_spent', type: 'number', required: true },
+    { name: 'next_tier_at', type: 'number', required: true },
+  ]},
 ];
 
 // NVIDIA AI Provider Class
@@ -629,6 +703,39 @@ Context hiện tại: ${JSON.stringify(input.context || {})}`;
       next_step: session_complete ? 'booking_confirmed' : 'continue_chat',
       session_complete
     };
+  }
+
+  async careAgent(input: CareAgentInput): Promise<CareAgentOutput> {
+    const systemPrompt = `Bạn là chuyên gia chăm sóc khách hàng cho Vifixa AI.
+Trả về JSON hợp lệ với cấu trúc:
+{
+  "summary": "Tóm tắt tình trạng (2-3 câu tiếng Việt)",
+  "next_best_action": {
+    "title": "Hành động quan trọng nhất",
+    "description": "Mô tả ngắn",
+    "action_type": "chat|orders|devices|complaint"
+  },
+  "device_insights": [{"device_type", "brand", "model", "age_months": số, "needs_attention": bool, "recommendation": "khuyến nghị"}],
+  "maintenance_reminders": [{"title", "due_date": "YYYY-MM-DD", "priority": "low|medium|high"}],
+  "reorder_suggestions": [{"category": "danh mục", "reason": "lý do"}],
+  "loyalty_status": {"tier": "Đồng|Bạc|Vàng|Kim cương", "total_spent": số, "next_tier_at": số}
+}
+Chỉ trả về JSON.`;
+
+    const userPrompt = `Dữ liệu khách hàng:
+
+THIẾT BỊ (${input.devices.length}):
+${input.devices.map(d => `- ${d.device_type} ${d.brand || ''} ${d.model || ''} (Mua: ${d.purchase_date || '?'}, BH: ${d.warranty_expiry || '?'})`).join('\n')}
+
+ĐƠN HÀNG (${input.orders.length}, ${input.completed_orders} hoàn thành):
+${input.orders.map(o => `- ${o.category} (${o.status}) ${o.created_at}${o.rating ? ` ⭐${o.rating}` : ''}`).join('\n')}
+
+ĐÃ CHI: ${input.total_spent} VND
+TỶ LỆ ĐẶT LẠI: ${(input.repeat_rate * 100).toFixed(0)}%
+
+Trả về JSON kế hoạch chăm sóc:`;
+
+    return await this.callWithValidation(systemPrompt, userPrompt, careAgentRules);
   }
 
   async predictMaintenance(input: MaintenancePredictionInput): Promise<MaintenancePredictionOutput> {

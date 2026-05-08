@@ -1,11 +1,70 @@
+# Dependencies
 node_modules/
-.expo/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
 .next/
+.out/
+.build/
+dist/
+build/
+
+# Expo
+.expo/
+.expo-shared/
+expo-*.json
+
+# Vercel
 .vercel/
+
+# Supabase
 .supabase/
-wrangler.toml
+
+# Environment files
 .env
-.env.*
-!.env.example
-*.log
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Mobile
+mobile/.expo/
+mobile/node_modules/
+mobile/web-build/
+
+# Web
+web/node_modules/
+web/.next/
+
+# iOS/Android (if using bare workflow)
+ios/
+android/

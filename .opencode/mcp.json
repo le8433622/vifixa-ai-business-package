@@ -1,0 +1,43 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/lha/Documents/vifixa-ai-business-package"
+      ],
+      "description": "Read/write files in the Vifixa AI project"
+    },
+    "git": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-git",
+        "/Users/lha/Documents/vifixa-ai-business-package"
+      ],
+      "description": "Git operations for version control"
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}",
+        "SUPABASE_PROJECT_ID": "vifixa-ai-business-package"
+      },
+      "description": "Supabase database, auth, storage, edge functions"
+    }
+  },
+  "skillsPath": ".opencode/skills",
+  "autoLoadSkills": true,
+  "projectContext": {
+    "name": "Vifixa AI",
+    "type": "AI Repair Marketplace",
+    "stack": "Supabase + Vercel + Expo",
+    "agentFile": "agent.md",
+    "sourceOfTruth": "15_CODEX_BUSINESS_CONTEXT.md"
+  }
+}
