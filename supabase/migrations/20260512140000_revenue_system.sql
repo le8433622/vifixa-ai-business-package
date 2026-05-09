@@ -65,14 +65,10 @@ ALTER TABLE public.payouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.worker_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
 
--- Workers can see their own wallet and transactions
 CREATE POLICY "Workers can view own wallet" ON public.wallets FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Workers can view own transactions" ON public.wallet_transactions FOR SELECT 
 USING (EXISTS (SELECT 1 FROM public.wallets WHERE id = public.wallet_transactions.wallet_id AND user_id = auth.uid()));
 CREATE POLICY "Workers can view own subscription" ON public.worker_subscriptions FOR SELECT USING (auth.uid() = user_id);
-
--- Trigger: Automatically create wallet on profile creation (handled via Supabase function or trigger)
--- For existing users, we'll need to run a manual script to create wallets.
 
 -- Function to handle order completion and commission calculation
 CREATE OR REPLACE FUNCTION public.handle_order_completion_revenue()
@@ -83,8 +79,14 @@ DECLARE
     v_worker_amount DECIMAL(15, 2);
     v_worker_wallet_id UUID;
     v_tier TEXT;
+    v_price DECIMAL(15, 2);
 BEGIN
     IF NEW.status = 'completed' AND OLD.status != 'completed' THEN
+        -- Get price (using actual_price first, fallback to final_price or estimated_price)
+        v_price := COALESCE(NEW.actual_price, NEW.final_price, NEW.estimated_price, 0);
+        
+        IF v_price <= 0 THEN RETURN NEW; END IF;
+
         -- Get worker subscription tier to adjust rate
         SELECT tier INTO v_tier FROM public.worker_subscriptions WHERE user_id = NEW.worker_id;
         
@@ -92,8 +94,8 @@ BEGIN
         ELSIF v_tier = 'elite' THEN v_commission_rate := 10.00;
         END IF;
 
-        v_commission_amount := NEW.final_price * (v_commission_rate / 100);
-        v_worker_amount := NEW.final_price - v_commission_amount;
+        v_commission_amount := v_price * (v_commission_rate / 100);
+        v_worker_amount := v_price - v_commission_amount;
 
         -- Record commission
         INSERT INTO public.commissions (order_id, amount, rate, status)
@@ -112,6 +114,9 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Cleanup existing trigger if exists to avoid conflict
+DROP TRIGGER IF EXISTS on_order_completed_revenue ON public.orders;
 
 CREATE TRIGGER on_order_completed_revenue
     AFTER UPDATE ON public.orders

@@ -1,9 +1,5 @@
 -- Vifixa AI v2.0 Referral System Migration
 
--- 1. Add referral_code to profiles if not exists
--- (Assuming profiles table exists, otherwise use auth.users)
--- Let's check profiles table first or just use a dedicated table
-
 CREATE TABLE IF NOT EXISTS public.referrals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     referrer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -14,8 +10,6 @@ CREATE TABLE IF NOT EXISTS public.referrals (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
--- 2. Add referral_code to users (optional, can be generated on the fly)
--- We'll use a simple table to store unique referral codes
 CREATE TABLE IF NOT EXISTS public.user_referral_codes (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     code TEXT UNIQUE NOT NULL,
@@ -44,16 +38,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to create referral code for new users
-CREATE OR REPLACE FUNCTION public.on_auth_user_created_referral()
+-- Trigger to create referral code for new profiles
+-- Safer than triggering on auth.users directly
+CREATE OR REPLACE FUNCTION public.on_profile_created_referral()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO public.user_referral_codes (user_id, code)
     VALUES (NEW.id, public.generate_referral_code());
+    
+    -- Also create a wallet for the user automatically
+    INSERT INTO public.wallets (user_id, balance)
+    VALUES (NEW.id, 0.00)
+    ON CONFLICT (user_id) DO NOTHING;
+    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER on_auth_user_created_referral
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.on_auth_user_created_referral();
+DROP TRIGGER IF EXISTS on_profile_created_referral ON public.profiles;
+
+CREATE TRIGGER on_profile_created_referral
+    AFTER INSERT ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION public.on_profile_created_referral();
+
+-- Manually generate codes for existing profiles who don't have one
+INSERT INTO public.user_referral_codes (user_id, code)
+SELECT id, public.generate_referral_code()
+FROM public.profiles
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Manually create wallets for existing profiles who don't have one
+INSERT INTO public.wallets (user_id, balance)
+SELECT id, 0.00
+FROM public.profiles
+ON CONFLICT (user_id) DO NOTHING;
