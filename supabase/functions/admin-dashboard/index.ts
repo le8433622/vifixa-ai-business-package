@@ -170,10 +170,19 @@ Deno.serve(async (req) => {
       {
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
           'Content-Type': 'application/json',
         },
       }
     );
+
+    if (!profileResponse.ok) {
+      const errText = await profileResponse.text();
+      return new Response(
+        JSON.stringify({ error: `Failed to verify admin role: ${profileResponse.status}`, detail: errText.slice(0, 200) }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const profile = await profileResponse.json();
 
@@ -189,19 +198,12 @@ Deno.serve(async (req) => {
 
     if (action === 'dashboard') {
       // Get dashboard stats
+      const restHeaders = { 'Authorization': `Bearer ${serviceRoleKey}`, 'apikey': serviceRoleKey, 'Accept': 'application/json' };
       const [usersRes, workersRes, ordersRes, aiLogsRes] = await Promise.all([
-        fetch(`${supabaseUrl}/rest/v1/profiles?select=count`, {
-          headers: { 'Authorization': `Bearer ${serviceRoleKey}`, 'Accept': 'application/json' },
-        }),
-        fetch(`${supabaseUrl}/rest/v1/workers?select=count`, {
-          headers: { 'Authorization': `Bearer ${serviceRoleKey}`, 'Accept': 'application/json' },
-        }),
-        fetch(`${supabaseUrl}/rest/v1/orders?select=count`, {
-          headers: { 'Authorization': `Bearer ${serviceRoleKey}`, 'Accept': 'application/json' },
-        }),
-        fetch(`${supabaseUrl}/rest/v1/ai_logs?select=count`, {
-          headers: { 'Authorization': `Bearer ${serviceRoleKey}`, 'Accept': 'application/json' },
-        }),
+        fetch(`${supabaseUrl}/rest/v1/profiles?select=count`, { headers: restHeaders }),
+        fetch(`${supabaseUrl}/rest/v1/workers?select=count`, { headers: restHeaders }),
+        fetch(`${supabaseUrl}/rest/v1/orders?select=count`, { headers: restHeaders }),
+        fetch(`${supabaseUrl}/rest/v1/ai_logs?select=count`, { headers: restHeaders }),
       ]);
 
       const [users, workers, orders, aiLogs] = await Promise.all([
@@ -214,10 +216,10 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           stats: {
-            total_users: users.count || 0,
-            total_workers: workers.count || 0,
-            total_orders: orders.count || 0,
-            total_ai_calls: aiLogs.count || 0,
+            total_users: users[0]?.count ?? 0,
+            total_workers: workers[0]?.count ?? 0,
+            total_orders: orders[0]?.count ?? 0,
+            total_ai_calls: aiLogs[0]?.count ?? 0,
           },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -230,6 +232,7 @@ Deno.serve(async (req) => {
         {
           headers: {
             'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
             'Content-Type': 'application/json',
           },
         }
@@ -247,6 +250,7 @@ Deno.serve(async (req) => {
         {
           headers: {
             'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
             'Content-Type': 'application/json',
           },
         }
@@ -264,6 +268,7 @@ Deno.serve(async (req) => {
         {
           headers: {
             'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
             'Content-Type': 'application/json',
           },
         }
@@ -281,6 +286,7 @@ Deno.serve(async (req) => {
         {
           headers: {
             'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
             'Content-Type': 'application/json',
           },
         }
@@ -298,6 +304,7 @@ Deno.serve(async (req) => {
         {
           headers: {
             'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
             'Content-Type': 'application/json',
           },
         }

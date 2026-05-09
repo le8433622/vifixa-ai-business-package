@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useToast } from '@/components/Toast'
 
 type WorkerEarningOrder = {
   id: string
@@ -27,6 +28,9 @@ type EarningsData = {
   thisMonth: number
   total: number
   pending: number
+  balance?: number
+  locked?: number
+  available?: number
   jobs: {
     id: string
     category: string
@@ -49,10 +53,75 @@ export default function WorkerEarningsPage() {
   const [error, setError] = useState<string | null>(null)
   const [timeframe, setTimeframe] = useState<'week' | 'month' | 'all'>('month')
   const router = useRouter()
+  const { toast } = useToast()
+
+  // Wallet / payout state
+  const [showWithdrawForm, setShowWithdrawForm] = useState(false)
+  const [showLedger, setShowLedger] = useState(false)
+  const [ledgerEntries, setLedgerEntries] = useState<any[]>([])
+  const [payoutHistory, setPayoutHistory] = useState<any[]>([])
+  const [withdrawAmount, setWithdrawAmount] = useState(50000)
+  const [bankAccount, setBankAccount] = useState({ bank_name: '', account_number: '', holder: '' })
+  const [withdrawLoading, setWithdrawLoading] = useState(false)
+  const [withdrawError, setWithdrawError] = useState<string | null>(null)
 
   useEffect(() => {
     checkUser()
-  }, [])
+  }, [timeframe])
+
+  async function handleWithdraw() {
+    try {
+      setWithdrawLoading(true)
+      setWithdrawError(null)
+      if (withdrawAmount < 50000) throw new Error('Số tiền tối thiểu là 50.000 VND')
+      if (withdrawAmount > (earnings.available || 0)) throw new Error('Số dư không đủ')
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: withdrawAmount, bank_account: bankAccount }),
+        }
+      )
+      if (!response.ok) throw new Error((await response.json()).error || 'Yêu cầu rút tiền thất bại')
+      setWithdrawAmount(50000)
+      setShowWithdrawForm(false)
+      toast('Yêu cầu rút tiền đã được gửi', 'success')
+      checkUser()
+    } catch (err: any) {
+      console.error('Withdraw error:', err)
+      setWithdrawError(err.message || 'Yêu cầu rút tiền thất bại')
+    } finally {
+      setWithdrawLoading(false)
+    }
+  }
+
+  async function fetchLedger(userId: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=ledger&limit=50`,
+        { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+      )
+      if (response.ok) setLedgerEntries((await response.json()).entries || [])
+    } catch (err) {
+      console.error('Fetch ledger error:', err)
+    }
+  }
+
+  async function fetchPayouts(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('payouts').select('*').eq('worker_id', userId)
+        .order('created_at', { ascending: false }).limit(10)
+      if (!error) setPayoutHistory(data || [])
+    } catch (err) {
+      console.error('Fetch payouts error:', err)
+    }
+  }
 
   async function checkUser() {
     try {
@@ -62,6 +131,8 @@ export default function WorkerEarningsPage() {
         return
       }
       fetchEarnings(session.user.id)
+      fetchLedger(session.user.id)
+      fetchPayouts(session.user.id)
     } catch (error: any) {
       console.error('checkUser error:', error)
     }
@@ -70,7 +141,14 @@ export default function WorkerEarningsPage() {
   async function fetchEarnings(userId: string) {
     try {
       setError(null)
-      
+
+      // Fetch wallet balance from wallet-manager
+      const balanceResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=balance`,
+        { headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
+      )
+      const balanceData = balanceResponse.ok ? await balanceResponse.json() : { balance: 0, locked_amount: 0 }
+
       const { data: ordersData, error } = await (supabase as any)
         .from('orders')
         .select('id, category, completed_at, actual_price, estimated_price, status')
@@ -133,6 +211,9 @@ export default function WorkerEarningsPage() {
         thisMonth,
         total,
         pending,
+        balance: balanceData.balance || 0,
+        locked: balanceData.locked_amount || 0,
+        available: (balanceData.balance || 0) - (balanceData.locked_amount || 0),
         jobs: jobs.filter(job => {
           const completedDate = new Date(job.completed_at)
           if (timeframe === 'week') return completedDate >= weekAgo
@@ -201,21 +282,137 @@ export default function WorkerEarningsPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-600 mb-1">Hôm nay</p>
-          <p className="text-2xl font-bold text-green-600">{formatPrice(earnings.today)}</p>
+          <p className="text-sm text-gray-600 mb-1">Số dư ví</p>
+          <p className="text-2xl font-bold text-green-600">{formatPrice(earnings.balance || 0)}</p>
+          <p className="text-xs text-gray-500 mt-1">Khả dụng: {formatPrice(earnings.available || 0)}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-600 mb-1">Tuần này</p>
-          <p className="text-2xl font-bold text-blue-600">{formatPrice(earnings.thisWeek)}</p>
+          <p className="text-sm text-gray-600 mb-1">Đang chờ</p>
+          <p className="text-2xl font-bold text-yellow-600">{formatPrice(earnings.locked || 0)}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <p className="text-sm text-gray-600 mb-1">Tháng này</p>
-          <p className="text-2xl font-bold text-purple-600">{formatPrice(earnings.thisMonth)}</p>
+          <p className="text-2xl font-bold text-blue-600">{formatPrice(earnings.thisMonth)}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
           <p className="text-sm text-gray-600 mb-1">Tổng thu nhập</p>
           <p className="text-2xl font-bold text-gray-900">{formatPrice(earnings.total)}</p>
         </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex gap-3">
+        <button onClick={() => setShowWithdrawForm(!showWithdrawForm)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+          {showWithdrawForm ? 'Đóng' : '💰 Rút tiền'}
+        </button>
+        <button onClick={() => setShowLedger(!showLedger)}
+          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
+          {showLedger ? 'Đóng' : '📊 Xem Ledger'}
+        </button>
+      </div>
+
+      {/* Withdrawal Form */}
+      {showWithdrawForm && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">💰 Yêu cầu rút tiền</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền muốn rút (VND)</label>
+              <input type="number" value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(parseInt(e.target.value) || 0)}
+                min={50000} max={earnings.available || 0}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <p className="text-xs text-gray-500 mt-1">
+                Khả dụng: {formatPrice(earnings.available || 0)} | Tối thiểu: {formatPrice(50000)}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ngân hàng</label>
+              <input type="text" value={bankAccount.bank_name}
+                onChange={(e) => setBankAccount({...bankAccount, bank_name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Tên ngân hàng" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Số tài khoản</label>
+              <input type="text" value={bankAccount.account_number}
+                onChange={(e) => setBankAccount({...bankAccount, account_number: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Số tài khoản" />
+            </div>
+            <button onClick={handleWithdraw}
+              disabled={withdrawLoading || withdrawAmount < 50000 || withdrawAmount > (earnings.available || 0)}
+              className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">
+              {withdrawLoading ? 'Đang xử lý...' : `Rút ${formatPrice(withdrawAmount)}`}
+            </button>
+            {withdrawError && <p className="text-red-600 text-sm">{withdrawError}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Ledger Entries */}
+      {showLedger && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">📊 Ledger Entries</h2>
+          </div>
+          {ledgerEntries.length === 0 ? (
+            <div className="p-12 text-center"><p className="text-gray-600">Chưa có giao dịch nào</p></div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {ledgerEntries.map((entry, idx) => (
+                <div key={idx} className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">{entry.description || entry.account}</p>
+                      <p className="text-xs text-gray-500">{new Date(entry.created_at).toLocaleDateString('vi-VN')}</p>
+                    </div>
+                    <div className={`text-right font-bold ${entry.direction === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                      {entry.direction === 'credit' ? '+' : '-'}{formatPrice(entry.amount)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Payout History */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">📋 Lịch sử rút tiền</h2>
+        </div>
+        {payoutHistory.length === 0 ? (
+          <div className="p-12 text-center"><p className="text-gray-600">Chưa có yêu cầu rút tiền nào</p></div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {payoutHistory.map((payout) => (
+              <div key={payout.id} className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {formatPrice(payout.amount)}
+                      <span className={`ml-2 px-2 py-0.5 rounded text-xs font-medium ${
+                        payout.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        payout.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>{payout.status}</span>
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(payout.created_at).toLocaleDateString('vi-VN')}
+                      {payout.completed_at && <> → {new Date(payout.completed_at).toLocaleDateString('vi-VN')}</>}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Fee: {formatPrice(payout.fee || 0)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pending */}

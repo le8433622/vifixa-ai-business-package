@@ -78,6 +78,20 @@ export default function CustomerOrdersPage() {
     },
   });
 
+  // Realtime subscription: auto-refresh when orders change
+  useEffect(() => {
+    const channel = supabase
+      .channel('customer-orders-realtime')
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'orders' },
+        () => { refetch() }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [refetch])
+
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const matchesSearch =

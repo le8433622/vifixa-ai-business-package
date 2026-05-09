@@ -64,6 +64,25 @@ interface CarePlan {
   loyalty_status: { tier: string; total_spent: number; next_tier_at: number }
 }
 
+interface SubscriptionPlan {
+  id: string
+  name: string
+  description: string
+  price: number
+  interval: string
+  features: string[]
+  popular: boolean
+}
+
+interface CustomerSubscription {
+  id: string
+  plan_id: string
+  status: string
+  start_date: string
+  end_date: string
+  subscription_plans: SubscriptionPlan
+}
+
 export default function CustomerCarePage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -73,6 +92,11 @@ export default function CustomerCarePage() {
   const [error, setError] = useState<string | null>(null)
   const [carePlan, setCarePlan] = useState<CarePlan | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [mySubscription, setMySubscription] = useState<CustomerSubscription | null>(null)
+  const [subscribing, setSubscribing] = useState(false)
+  const [stripeLoading, setStripeLoading] = useState<string | null>(null)
+  const [subLoading, setSubLoading] = useState(true)
 
   useEffect(() => {
     loadData()
@@ -152,6 +176,41 @@ export default function CustomerCarePage() {
     }
   }, [loading, orders.length])
 
+  async function fetchSubscriptions() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const [plansRes, myRes] = await Promise.all([
+        fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/subscription-manage/plans`,
+          { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+        ),
+        fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/subscription-manage/my`,
+          { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+        ),
+      ])
+
+      if (plansRes.ok) {
+        const { plans } = await plansRes.json()
+        setPlans(plans || [])
+      }
+      if (myRes.ok) {
+        const { subscription } = await myRes.json()
+        setMySubscription(subscription)
+      }
+    } catch (err) {
+      console.error('fetchSubscriptions error:', err)
+    } finally {
+      setSubLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchSubscriptions()
+  }, [])
+
   // Derived stats
   const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed'), [orders])
   const pendingOrders = useMemo(() => orders.filter(o => ['pending', 'matched', 'in_progress'].includes(o.status)), [orders])
@@ -203,6 +262,107 @@ export default function CustomerCarePage() {
   function formatPrice(price: number | undefined) {
     if (!price && price !== 0) return '0₫'
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  }
+
+  async function handleSubscribe(planId: string) {
+    try {
+      setSubscribing(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/subscription-manage/subscribe`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ plan_id: planId }),
+        }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setMySubscription(data.subscription)
+        toast('Đăng ký gói thành công!', 'success')
+      } else {
+        const err = await res.json()
+        toast(err.error || 'Đăng ký thất bại', 'error')
+      }
+    } catch (err: any) {
+      toast(err.message || 'Lỗi đăng ký', 'error')
+    } finally {
+      setSubscribing(false)
+    }
+  }
+
+  async function handleCancel() {
+    try {
+      setSubscribing(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/subscription-manage/cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+      if (res.ok) {
+        setMySubscription(null)
+        toast('Đã hủy gói', 'info')
+      } else {
+        const err = await res.json()
+        toast(err.error || 'Hủy thất bại', 'error')
+      }
+    } catch (err: any) {
+      toast(err.message || 'Lỗi hủy', 'error')
+    } finally {
+      setSubscribing(false)
+    }
+  }
+
+  async function handleStripeCheckout(planId: string) {
+    try {
+      setStripeLoading(planId)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ plan_id: planId }),
+        }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        if (data.url) {
+          window.location.href = data.url
+        } else {
+          toast('Không thể tạo thanh toán', 'error')
+        }
+      } else {
+        const err = await res.json()
+        if (err.error?.includes('not configured')) {
+          toast('Stripe chưa được cấu hình, hãy dùng Đăng ký trực tiếp', 'warning')
+        } else {
+          toast(err.error || 'Tạo thanh toán thất bại', 'error')
+        }
+      }
+    } catch (err: any) {
+      toast(err.message || 'Lỗi thanh toán', 'error')
+    } finally {
+      setStripeLoading(null)
+    }
   }
 
   if (loading) {
@@ -542,6 +702,97 @@ export default function CustomerCarePage() {
           </div>
         )}
       </div>
+
+      {/* 6. Subscription/Care Plan */}
+      {!subLoading && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">📦 Gói Chăm sóc</h2>
+            {mySubscription && (
+              <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                Đang hoạt động
+              </span>
+            )}
+          </div>
+
+          {mySubscription ? (
+            <div>
+              <div className="p-4 bg-green-50 rounded-xl mb-4">
+                <p className="font-semibold text-green-900">
+                  {mySubscription.subscription_plans?.name}
+                </p>
+                <p className="text-sm text-green-700 mt-1">
+                  {mySubscription.end_date && (
+                    <>Hiệu lực đến: {new Date(mySubscription.end_date).toLocaleDateString('vi-VN')}</>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={handleCancel}
+                disabled={subscribing}
+                className="w-full px-4 py-2 border border-red-300 text-red-600 rounded-xl hover:bg-red-50 disabled:opacity-50"
+              >
+                {subscribing ? 'Đang xử lý...' : 'Hủy gói'}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className={`relative p-4 rounded-xl border-2 transition-all ${
+                    plan.popular
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {plan.popular && (
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-emerald-500 text-white text-xs font-medium rounded-full">
+                      Phổ biến
+                    </span>
+                  )}
+                  <div className="text-center mb-4">
+                    <h3 className="font-bold text-gray-900">{plan.name}</h3>
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold text-gray-900">{formatPrice(plan.price)}</span>
+                      <span className="text-sm text-gray-500">/{plan.interval === 'month' ? 'tháng' : plan.interval === 'quarter' ? 'quý' : 'năm'}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{plan.description}</p>
+                  </div>
+                  <ul className="space-y-2 mb-4">
+                    {(plan.features as string[]).map((feat, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-xs text-gray-700">
+                        <span className="text-emerald-500 mt-0.5">✓</span>
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => handleSubscribe(plan.id)}
+                      disabled={subscribing}
+                      className={`w-full py-2 rounded-xl text-sm font-medium transition-colors ${
+                        plan.popular
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      } disabled:opacity-50`}
+                    >
+                      {subscribing ? 'Đang xử lý...' : 'Đăng ký trực tiếp'}
+                    </button>
+                    <button
+                      onClick={() => handleStripeCheckout(plan.id)}
+                      disabled={stripeLoading === plan.id}
+                      className="w-full py-2 rounded-xl text-sm font-medium border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    >
+                      {stripeLoading === plan.id ? 'Đang chuyển...' : '💳 Thanh toán qua Stripe'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

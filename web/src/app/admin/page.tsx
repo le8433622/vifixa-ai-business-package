@@ -18,6 +18,7 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,12 +26,11 @@ export default function AdminDashboard() {
   }, []);
 
   async function fetchStats() {
+    setLoading(true);
+    setApiError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/');
-        return;
-      }
+      if (!session) return;
 
       const response = await fetch('/api/ai/admin-dashboard?action=dashboard', {
         headers: {
@@ -42,10 +42,14 @@ export default function AdminDashboard() {
         const data = await response.json();
         setStats(data.stats);
       } else {
-        router.push('/');
+        const errBody = await response.text();
+        const errDetail = errBody.slice(0, 300);
+        console.error('Dashboard API error:', response.status, errDetail);
+        setApiError(`Lỗi ${response.status}: ${errDetail}`);
       }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+      setApiError('Lỗi kết nối. Vui lòng tải lại trang.');
     } finally {
       setLoading(false);
     }
@@ -56,7 +60,21 @@ export default function AdminDashboard() {
       <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
 
       {loading ? (
-        <p>Loading...</p>
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+          <span className="ml-3 text-gray-600">Đang tải dữ liệu...</span>
+        </div>
+      ) : apiError ? (
+        <div className="text-center py-20">
+          <div className="text-5xl mb-4">⚠️</div>
+          <p className="text-red-600 mb-4">{apiError}</p>
+          <button
+            onClick={fetchStats}
+            className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
+        </div>
       ) : stats ? (
         <>
           <div className="grid grid-cols-4 gap-6 mb-8">

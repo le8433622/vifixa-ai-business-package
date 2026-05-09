@@ -88,9 +88,10 @@ export default function DeviceDetailPage() {
       setDevice(data)
 
       if (data) {
+        const device = data as Device
         await Promise.all([
-          fetchPrediction(data),
-          fetchServiceHistory(session.user.id, data.device_type),
+          fetchPrediction(device),
+          fetchServiceHistory(session.user.id, device.device_type),
         ])
       }
     } catch (error: any) {

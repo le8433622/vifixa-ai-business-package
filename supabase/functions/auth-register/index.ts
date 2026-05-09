@@ -53,13 +53,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create profile record
-    const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+    // Upsert profile record because the auth trigger may already create it.
+    const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?on_conflict=id`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${serviceRoleKey}`,
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation',
+        'Prefer': 'resolution=merge-duplicates,return=representation',
       },
       body: JSON.stringify({
         id: authData.id,

@@ -68,3 +68,4 @@ web/.next/
 # iOS/Android (if using bare workflow)
 ios/
 android/
+.vercel

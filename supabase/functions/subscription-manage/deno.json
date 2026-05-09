@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@/shared/ai-provider.ts": "../../_shared/ai-provider.ts",
+    "@/shared/auth-helper.ts": "../../_shared/auth-helper.ts"
+  }
+}
