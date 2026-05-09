@@ -5,9 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req)
-  }
+  const optionsResp = handleOptions(req)
+  if (optionsResp) return optionsResp
 
   // Verify admin (this is an admin function)
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!

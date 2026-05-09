@@ -13,10 +13,10 @@ export async function maybeRunDiagnosisAndQuote(context: ChatContext) {
   if (!next.diagnosis) {
     try {
       next.diagnosis = await ai.diagnose({
-        category: next.category,
-        description: next.description,
+        category: next.category!,
+        description: next.description!,
         media_urls: next.media_urls,
-        location: next.location,
+        location: next.location!,
       });
     } catch (error) {
       console.error('AI diagnosis failed; using guarded fallback:', error);
@@ -29,10 +29,10 @@ export async function maybeRunDiagnosisAndQuote(context: ChatContext) {
     try {
       const diagnosis = next.diagnosis as { diagnosis?: string; severity?: ChatSlots['urgency'] };
       next.quote = await ai.estimatePrice({
-        category: next.category,
-        diagnosis: diagnosis.diagnosis || next.description,
-        location: next.location,
-        urgency: diagnosis.severity || next.urgency || 'medium',
+        category: next.category!,
+        diagnosis: diagnosis.diagnosis || next.description!,
+        location: next.location!,
+        urgency: (diagnosis.severity || next.urgency || 'medium') as 'low' | 'medium' | 'high' | 'emergency',
       });
     } catch (error) {
       console.error('AI pricing failed; using guarded fallback:', error);

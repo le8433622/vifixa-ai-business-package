@@ -7,9 +7,8 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req)
-  }
+  const optionsResp = handleOptions(req)
+  if (optionsResp) return optionsResp
 
   // Verify auth
   let user: any
@@ -210,7 +209,7 @@ Deno.serve(async (req: Request) => {
 })
 
 // Helper: Get user's A/B test variant (deterministic based on user ID hash)
-async function getABTestVariant(supabase: any, userId: string, abTests: any[]): any {
+async function getABTestVariant(supabase: any, userId: string, abTests: any[]): Promise<any> {
   if (!abTests || abTests.length === 0) return null
 
   // For simplicity, assign user to a variant based on hash of user ID

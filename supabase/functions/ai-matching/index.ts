@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         const best = workers[0];
         validatedResult = {
           matched_worker_id: String(best.id),
-          worker_name: best.profiles?.full_name || `Worker ${best.id}`,
+          worker_name: (best.profiles?.[0] as any)?.full_name || `Worker ${best.id}`,
           eta_minutes: 30,
           confidence: 0.5,
         };
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       } else {
         validatedResult = {
           ...matchingResult,
-          worker_name: matchedInDb.profiles?.full_name || matchingResult.worker_name,
+          worker_name: (matchedInDb.profiles?.[0] as any)?.full_name || matchingResult.worker_name,
         };
       }
     }

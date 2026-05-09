@@ -55,7 +55,7 @@ export class ZaloPayGateway implements PaymentGateway {
 
     // Create HMAC-SHA256 signature using key1
     const signData = `app_id=${params.app_id}&app_trans_id=${params.app_trans_id}&app_user=${params.app_user}&amount=${params.amount}&description=${params.description}`
-    const signature = this.createSignature(signData, this.key1)
+    const signature = await this.createSignature(signData, this.key1)
 
     params['mac'] = signature
 

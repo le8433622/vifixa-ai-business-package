@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if worker already has a Stripe account
-    const { data: worker, error: workerError } = await fetch(
+    const workerResponse = await fetch(
       `${supabaseUrl}/rest/v1/workers?id=eq.${worker_id}&select=stripe_account_id`,
       {
         headers: {
@@ -65,7 +65,8 @@ Deno.serve(async (req) => {
       }
     );
 
-    if (workerError || !worker[0]) {
+    const worker = await workerResponse.json();
+    if (!workerResponse.ok || !worker[0]) {
       return new Response(
         JSON.stringify({ error: 'Worker not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -147,10 +148,10 @@ Deno.serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Stripe Connect error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

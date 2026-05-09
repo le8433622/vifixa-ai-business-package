@@ -42,6 +42,7 @@ export class MoMoGateway implements PaymentGateway {
     const orderInfo = request.description || `Payment for ${orderId}`
     
     // MoMo requires: partnerCode, accessKey, requestId, amount, orderId, orderInfo, redirectUrl
+    const signData = `accessKey=${this.accessKey}&amount=${amount}&extraData=&ipnUrl=${request.metadata?.ipnUrl || ''}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${this.partnerCode}&redirectUrl=${request.returnUrl || ''}&requestId=${orderId}`
     const requestData = {
       partnerCode: this.partnerCode,
       accessKey: this.accessKey,
@@ -52,13 +53,8 @@ export class MoMoGateway implements PaymentGateway {
       redirectUrl: request.returnUrl || '',
       ipnUrl: request.metadata?.ipnUrl || '',
       extraData: '',
+      signature: await this.createSignature(signData),
     }
-
-    // Create signature: HMAC-SHA256
-    const signData = `accessKey=${this.accessKey}&amount=${amount}&extraData=&ipnUrl=${requestData.ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${this.partnerCode}&redirectUrl=${requestData.redirectUrl}&requestId=${orderId}`
-    const signature = this.createSignature(signData)
-
-    requestData['signature'] = signature
 
     // In real implementation, make POST request to MoMo API
     // For now, return mock response

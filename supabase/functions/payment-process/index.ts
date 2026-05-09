@@ -27,9 +27,8 @@ import {
 
 // ========== SERVE ==========
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req)
-  }
+  const optionsResp = handleOptions(req)
+  if (optionsResp) return optionsResp
 
   // Initialize Supabase
   const supabase = createClient(

@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
         }));
       }
     } else {
-      const initialContext = {
+      const initialContext: ChatContext = {
         state: 'problem_capture',
         conversion_stage: 'started',
         ...(body.context || {}),

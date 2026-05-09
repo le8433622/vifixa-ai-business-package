@@ -181,11 +181,12 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error as Error;
     console.error('=== Customer requests error ===:', error);
-    console.error('Stack:', error.stack);
+    console.error('Stack:', err.stack);
     return new Response(
-      JSON.stringify({ error: error.message, stack: error.stack }),
+      JSON.stringify({ error: err.message, stack: err.stack }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

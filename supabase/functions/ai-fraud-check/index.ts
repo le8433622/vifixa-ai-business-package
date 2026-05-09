@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
     if (check_type === 'multiple_accounts' && user_id) {
       // In production: Track IP addresses in auth logs
       // Placeholder for AI-powered detection
-      const { data: orders, error } = await fetch(
+      const ordersResponse = await fetch(
         `${supabaseUrl}/rest/v1/orders?customer_id=eq.${user_id}&select=count`,
         {
           headers: {
@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
         }
       );
 
-      if (!error) {
-        const ordersData = await orders.json();
+      if (ordersResponse.ok) {
+        const ordersData = await ordersResponse.json();
         if (ordersData.count > 10) {
           alerts.push({
             alert_type: 'high_volume',
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
 
     // Check 2: Sudden price changes > 50%
     if (check_type === 'price_change' && order_id) {
-      const { data: order, error } = await fetch(
+      const orderResponse = await fetch(
         `${supabaseUrl}/rest/v1/orders?id=eq.${order_id}&select=estimated_price,final_price,status`,
         {
           headers: {
@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
         }
       );
 
-      if (!error) {
-        const orderData = await order.json();
+      if (orderResponse.ok) {
+        const orderData = await orderResponse.json();
         if (orderData[0] && orderData[0].final_price && orderData[0].estimated_price) {
           const estimated = orderData[0].estimated_price;
           const final = orderData[0].final_price;
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
     // Check 3: Fake reviews detection (same rating pattern, similar text)
     if (check_type === 'fake_review' && order_id) {
       // Get the order's rating
-      const { data: order, error: orderError } = await fetch(
+      const orderResponse = await fetch(
         `${supabaseUrl}/rest/v1/orders?id=eq.${order_id}&select=rating,review_comment,customer_id`,
         {
           headers: {
@@ -145,13 +145,14 @@ Deno.serve(async (req) => {
           },
         }
       );
+      const order = await orderResponse.json();
 
-      if (!orderError && order[0]) {
+      if (orderResponse.ok && order[0]) {
         const orderData = order[0];
         
         if (orderData.rating && orderData.customer_id) {
           // Check if user always gives same rating (suspicious pattern)
-          const { data: userReviews } = await fetch(
+          const userReviewsResponse = await fetch(
             `${supabaseUrl}/rest/v1/orders?customer_id=eq.${orderData.customer_id}&rating=not.is.null&select=rating`,
             {
               headers: {
@@ -160,8 +161,9 @@ Deno.serve(async (req) => {
               },
             }
           );
+          const userReviews = await userReviewsResponse.json();
 
-          if (userReviews) {
+          if (userReviewsResponse.ok && userReviews) {
             const ratings = userReviews.map((r: any) => r.rating);
             const allSameRating = ratings.every((r: number) => r === ratings[0]);
             
@@ -177,7 +179,7 @@ Deno.serve(async (req) => {
 
           // Check for similar review text (copy-paste pattern)
           if (orderData.review_comment) {
-            const { data: similarReviews } = await fetch(
+            const similarReviewsResponse = await fetch(
               `${supabaseUrl}/rest/v1/orders?review_comment=ilike.*${orderData.review_comment.substring(0, 20)}*&select=id,customer_id`,
               {
                 headers: {
@@ -186,8 +188,9 @@ Deno.serve(async (req) => {
                 },
               }
             );
+            const similarReviews = await similarReviewsResponse.json();
 
-            if (similarReviews && similarReviews.length > 1) {
+            if (similarReviewsResponse.ok && similarReviews && similarReviews.length > 1) {
               alerts.push({
                 alert_type: 'duplicate_review_text',
                 severity: 'high',
@@ -202,7 +205,7 @@ Deno.serve(async (req) => {
 
     // Check 4: Suspicious workers (dispute rate > 20%)
     if (check_type === 'dispute_rate' && user_id) {
-      const { data: workerOrders, error } = await fetch(
+      const workerOrdersResponse = await fetch(
         `${supabaseUrl}/rest/v1/orders?worker_id=eq.${user_id}&select=status`,
         {
           headers: {
@@ -212,7 +215,8 @@ Deno.serve(async (req) => {
         }
       );
 
-      if (!error && workerOrders) {
+      if (workerOrdersResponse.ok) {
+        const workerOrders = await workerOrdersResponse.json();
         const totalOrders = workerOrders.length;
         const disputedOrders = workerOrders.filter((o: any) => o.status === 'disputed').length;
         const disputeRate = totalOrders > 0 ? (disputedOrders / totalOrders) * 100 : 0;
@@ -232,7 +236,7 @@ Deno.serve(async (req) => {
     if (check_type === 'suspicious_activity') {
       if (user_id) {
         // Check for multiple disputes
-        const { data: disputes, error } = await fetch(
+        const disputesResponse = await fetch(
           `${supabaseUrl}/rest/v1/orders?customer_id=eq.${user_id}&status=eq.disputed&select=count`,
           {
             headers: {
@@ -242,8 +246,8 @@ Deno.serve(async (req) => {
           }
         );
 
-        if (!error) {
-          const disputesData = await disputes.json();
+        if (disputesResponse.ok) {
+          const disputesData = await disputesResponse.json();
           if (disputesData.count >= 3) {
             alerts.push({
               alert_type: 'multiple_disputes',
@@ -258,7 +262,7 @@ Deno.serve(async (req) => {
         const oneHourAgo = new Date();
         oneHourAgo.setHours(oneHourAgo.getHours() - 1);
         
-        const { data: recentOrders, error: recentError } = await fetch(
+        const recentOrdersResponse = await fetch(
           `${supabaseUrl}/rest/v1/orders?customer_id=eq.${user_id}&created_at=gte.${oneHourAgo.toISOString()}&select=count`,
           {
             headers: {
@@ -268,8 +272,8 @@ Deno.serve(async (req) => {
           }
         );
 
-        if (!recentError) {
-          const recentOrdersData = await recentOrders.json();
+        if (recentOrdersResponse.ok) {
+          const recentOrdersData = await recentOrdersResponse.json();
           if (recentOrdersData.count >= 5) {
             alerts.push({
               alert_type: 'rapid_order_creation',
@@ -319,10 +323,10 @@ Deno.serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Fraud check error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

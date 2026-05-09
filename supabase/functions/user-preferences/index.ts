@@ -6,9 +6,8 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req)
-  }
+  const optionsResp = handleOptions(req)
+  if (optionsResp) return optionsResp
 
   // Verify auth
   let user: any

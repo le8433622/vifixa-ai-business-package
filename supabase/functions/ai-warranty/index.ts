@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     }
 
     // Fetch order details
-    const { data: order, error: orderError } = await fetch(
+    const orderResponse = await fetch(
       `${supabaseUrl}/rest/v1/orders?id=eq.${order_id}&select=*`,
       {
         headers: {
@@ -47,7 +47,8 @@ Deno.serve(async (req) => {
       }
     );
 
-    if (orderError || !order[0]) {
+    const order = await orderResponse.json();
+    if (!orderResponse.ok || !order[0]) {
       return new Response(
         JSON.stringify({ error: 'Order not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if warranty already claimed
-    const { data: existingClaims } = await fetch(
+    const existingClaimsResponse = await fetch(
       `${supabaseUrl}/rest/v1/warranty_claims?order_id=eq.${order_id}&select=count`,
       {
         headers: {
@@ -95,7 +96,8 @@ Deno.serve(async (req) => {
       }
     );
 
-    if (existingClaims && existingClaims.count > 0) {
+    const existingClaims = await existingClaimsResponse.json();
+    if (existingClaimsResponse.ok && existingClaims.count > 0) {
       return new Response(
         JSON.stringify({
           eligible: false,
@@ -169,10 +171,10 @@ Deno.serve(async (req) => {
       JSON.stringify(warrantyResult),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Warranty check error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

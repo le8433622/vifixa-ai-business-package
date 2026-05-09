@@ -17,9 +17,8 @@ interface ToggleRequest {
 // ========== HANDLER ==========
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req)
-  }
+  const optionsResp = handleOptions(req)
+  if (optionsResp) return optionsResp
 
   // Verify authentication
   let user: any
@@ -27,7 +26,7 @@ Deno.serve(async (req: Request) => {
     // verifyAuth returns { id, email }
     const auth = await verifyAuth(req)
     user = auth
-  } catch (error) {
+  } catch {
     return jsonResponse({ error: 'Unauthorized' }, 401)
   }
 
@@ -58,7 +57,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return jsonResponse({ error: 'Method not allowed' }, 405)
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Feature flag error:', error)
     return jsonResponse({ error: 'Internal server error' }, 500)
   }
