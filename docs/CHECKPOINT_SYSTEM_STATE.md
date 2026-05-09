@@ -1,8 +1,8 @@
 # Vifixa AI — System State Checkpoint
 
 > Tag: `v0.1.0-payment-smart-system`  
-> Date: 2026-05-09  
-> Commit: `11a8c6f`
+> Date: 2026-05-09 (Updated: 2026-05-09)  
+> Commit: `2cea968`
 
 ---
 
@@ -14,7 +14,9 @@
 |-----------|-----------|--------|
 | Web App | https://web-eta-ochre-99.vercel.app | ✅ Active (47 routes) |
 | Supabase | lipjakzhzosrhttsltwo | ✅ Active |
-| GitHub | le8433622/vifixa-ai-business-package | ✅ main |
+| GitHub | le8433622/vifixa-ai-business-package | ✅ main + staging |
+| Staging Web | https://vifixa-ai-staging.vercel.app | ✅ Active |
+| Staging Supabase | drapjraegrygkakzalog | ✅ Active, all functions deployed |
 
 ### Supabase Edge Functions (16 active)
 
@@ -98,6 +100,7 @@ a23d810 Step1: Project initialization
 - `20260510000006_add_ab_test_id_to_suggestions.sql` migration file missing (not critical — smart-suggestions function was fixed to not depend on `ab_test_id` column)
 - `review` page on mobile missing cancel button for customers
 - `cancel_order` action type defined in `ai_action_requests` table but never used
+- **RESOLVED** VERCEL_TOKEN — now set with real value
 
 ---
 
@@ -144,15 +147,44 @@ AI Config, Security, Gateway config dynamic
 
 ---
 
-## 7. Quick Commands
+## 7. CI/CD Pipeline
+
+| Workflow | Trigger | Environment | Action |
+|---|---|---|---|
+| `ci.yml` | Push/PR main, staging | — | Lint, typecheck, quality gates, build, integration tests |
+| `deploy-vercel.yml` | Push main/staging, PR | Preview/staging/Production | Vercel auto-deploy |
+| `deploy-supabase.yml` | Push supabase/ changes | staging/Production | Edge functions + migrations |
+| `ai-tests.yml` | AI function changes | — | Deno check + integration tests |
+
+## 8. GitHub Configuration
+
+| Item | Status |
+|---|---|
+| Environments | ✅ Production, staging, Preview |
+| Branch protection (main) | ✅ PR + 1 review, status checks, linear history |
+| Branch protection (staging) | ✅ Same as main, admins bypass |
+| Secrets (repo) | ✅ SUPABASE_ACCESS_TOKEN, ANON_KEY, SERVICE_ROLE_KEY, TEST_USER/PASS, VERCEL_TOKEN |
+| Secrets (Production env) | ✅ VERCEL, SUPABASE_PROJECT_REF, URL, ANON_KEY |
+| Secrets (staging env) | ✅ VERCEL, SUPABASE_PROJECT_REF, URL, ANON_KEY |
+| Secrets (Preview env) | ✅ VERCEL_ORG_ID, PROJECT_ID, TOKEN |
+| Quality gates | Deno check, `auth.user.` prohibition, cors import validation |
+
+## 9. Quick Commands
 
 ```bash
-# Supabase
+# Supabase Production
 supabase functions deploy <name> --project-ref lipjakzhzosrhttsltwo
 supabase db push
 
-# Vercel (from web/)
-vercel deploy --prod
+# Supabase Staging
+supabase functions deploy <name> --project-ref drapjraegrygkakzalog
+supabase db push --linked
+
+# Vercel Production (from web/)
+vercel deploy --prod --token <token>
+
+# Vercel Staging (from web/ on staging branch)
+vercel deploy --token <token>
 
 # Git
 git tag v0.1.0-payment-smart-system
