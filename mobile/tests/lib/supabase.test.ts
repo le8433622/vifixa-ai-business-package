@@ -3,10 +3,10 @@ import * as SecureStore from 'expo-secure-store';
 // Since it's not exported, we might need to test the behaviors or export it for testing.
 // For now, let's assume we want to verify SecureStore integration.
 
-vi.mock('expo-secure-store', () => ({
-  getItemAsync: vi.fn(),
-  setItemAsync: vi.fn(),
-  deleteItemAsync: vi.fn(),
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
 }));
 
 describe('Supabase Mobile Storage Adapter', () => {

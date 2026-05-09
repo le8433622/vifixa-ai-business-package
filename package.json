@@ -6,6 +6,7 @@
     "test:supabase": "cd supabase/functions && for dir in */; do if [ -f \"$dir/test.ts\" ]; then echo \"Testing $dir...\"; /Users/lha/.deno/bin/deno test \"$dir/test.ts\" --allow-net --allow-env --no-check; fi; done",
     "test:mobile": "cd mobile && npm test",
     "test:web": "cd web && npm test",
+    "test:e2e": "cd web && npx playwright test",
     "test:all": "npm run test:supabase && npm run test:mobile && npm run test:web",
     "deploy:supabase": "supabase db push && supabase functions deploy",
     "deploy:web": "cd web && vercel --prod",

@@ -469,11 +469,24 @@ QUY TẮC AN TOÀN (BẮT BUỘC):
         }
         
         let data;
+        const cleanResponseText = responseText.trim();
         try {
-          data = JSON.parse(responseText);
+          data = JSON.parse(cleanResponseText);
         } catch (e) {
-          console.error('[NVIDIA] Failed to parse response as JSON:', responseText);
-          throw new Error(`Invalid API response format: ${responseText.substring(0, 100)}`);
+          console.error('[NVIDIA] Failed to parse response as JSON. Status:', response.status);
+          console.error('[NVIDIA] Response preview:', cleanResponseText.substring(0, 500));
+          
+          // Try to extract JSON if the response contains extra text
+          const jsonMatch = cleanResponseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              data = JSON.parse(jsonMatch[0]);
+            } catch (e2) {
+              throw new Error(`Invalid API response format (could not extract JSON): ${cleanResponseText.substring(0, 100)}`);
+            }
+          } else {
+            throw new Error(`Invalid API response format (no JSON found): ${cleanResponseText.substring(0, 100)}`);
+          }
         }
         
         if (data.error) {

@@ -1,8 +1,8 @@
 # Vifixa AI — System State Checkpoint
 
-> Tag: `v0.1.0-payment-smart-system`  
+> Tag: `v0.1.1-testing-and-validation`  
 > Date: 2026-05-09 (Updated: 2026-05-09)  
-> Commit: `2cea968`
+> Commit: `700605f` (Unit Testing Setup)
 
 ---
 
@@ -101,6 +101,7 @@ a23d810 Step1: Project initialization
 - `review` page on mobile missing cancel button for customers
 - `cancel_order` action type defined in `ai_action_requests` table but never used
 - **RESOLVED** VERCEL_TOKEN — now set with real value
+- **IMPROVED** NVIDIA API Resilience — added robust JSON parsing and trimming in `_shared/ai-provider.ts` to fix potential parse errors.
 
 ---
 
@@ -151,7 +152,7 @@ AI Config, Security, Gateway config dynamic
 
 | Workflow | Trigger | Environment | Action |
 |---|---|---|---|
-| `ci.yml` | Push/PR main, staging | — | Lint, typecheck, quality gates, build, integration tests |
+| `ci.yml` | Push/PR main, staging | — | Lint, typecheck, quality gates, build, unit tests (Vitest/Jest), integration tests |
 | `deploy-vercel.yml` | Push main/staging, PR | Preview/staging/Production | Vercel auto-deploy |
 | `deploy-supabase.yml` | Push supabase/ changes | staging/Production | Edge functions + migrations |
 | `ai-tests.yml` | AI function changes | — | Deno check + integration tests |
