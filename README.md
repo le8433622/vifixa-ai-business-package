@@ -20,6 +20,7 @@ Bộ tài liệu này mô tả đầy đủ dự án kinh doanh **Vifixa AI**.
 - **Rollback Plan**: `docs/rollback-plan.md` — hướng dẫn rollback functions + migrations
 - **CI/CD Secrets**: `docs/ci-secrets-guide.md` — cấu hình GitHub secrets
 - **Staging & Canary**: `docs/staging-canary.md` — staging project + chiến lược canary
+- **Checkpoint**: `docs/CHECKPOINT_SYSTEM_STATE.md` — snapshot hệ thống (tag v0.1.0-payment-smart-system)
 
 ## Quick Start (Developers)
 
