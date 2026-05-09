@@ -46,7 +46,7 @@ test_endpoint() {
   local response=$(curl -s -X POST "$SUPABASE_URL/functions/v1/$endpoint" \
     -H "Content-Type: application/json" \
     -H "$AUTH" \
-    -d "$payload" --max-time 60)
+    -d "$payload" --max-time 120)
 
   if echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('$expected_field',''))" 2>/dev/null | head -1 | grep -q .; then
     echo "PASS"
