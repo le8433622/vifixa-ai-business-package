@@ -24,6 +24,7 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           working-directory: ./web
           scope: ${{ secrets.VERCEL_ORG_ID }}
 
@@ -75,6 +76,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           working-directory: ./web
           scope: ${{ secrets.VERCEL_ORG_ID }}
       - name: Update Vercel CLI
