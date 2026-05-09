@@ -1,3 +1,7 @@
+> [!WARNING]
+> **ARCHIVED DOCUMENT**
+> This document is kept for historical purposes only. Please refer to `docs/CHECKPOINT_SYSTEM_STATE.md` for the current, single source of truth regarding the system state.
+
 # VIFIXA AI - NHẬT KÝ PHÁT TRIỂN & CHECKPOINT
 
 **Dự án**: Vifixa AI - Nền tảng dịch vụ sửa chữa nhà cửa ứng dụng AI

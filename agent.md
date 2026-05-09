@@ -5,17 +5,17 @@ Strict sequential process for opencode CLI to auto-complete 100% of Vifixa AI co
 
 ## Source of Truth
 All requirements defined in:
-- 15_CODEX_BUSINESS_CONTEXT.md
-- 11_AI_OPERATING_MODEL.md
-- 05_PRODUCT_SOLUTION.md
-- 12_OPERATIONS_AND_TRUST.md
-- 14_OKR_KPI.md
-- 13_RISKS_LEGAL_COMPLIANCE.md
-- 18_FINANCIAL_PLAN.md
-- 19_TECHNICAL_ARCHITECTURE.md
-- 20_DATABASE_SCHEMA.md
-- 21_API_SPECIFICATION.md
-- 22_SECURITY_PLAN.md
+- docs/specs/15_CODEX_BUSINESS_CONTEXT.md
+- docs/specs/11_AI_OPERATING_MODEL.md
+- docs/specs/05_PRODUCT_SOLUTION.md
+- docs/specs/12_OPERATIONS_AND_TRUST.md
+- docs/specs/14_OKR_KPI.md
+- docs/specs/13_RISKS_LEGAL_COMPLIANCE.md
+- docs/specs/18_FINANCIAL_PLAN.md
+- docs/specs/19_TECHNICAL_ARCHITECTURE.md
+- docs/specs/20_DATABASE_SCHEMA.md
+- docs/specs/21_API_SPECIFICATION.md
+- docs/specs/22_SECURITY_PLAN.md
 - SUPABASE_SPEC.md
 - VERCEL_SPEC.md
 - MASTER_SPEC.md
@@ -45,7 +45,7 @@ All requirements defined in:
   - Storage buckets: avatars, service-media, worker-documents, order-evidence, brand-assets
   - Edge Functions: ai-diagnose, ai-estimate-price, ai-fraud-check, upload-complete, notify
   - Environment variables: SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, AI_PROVIDER
-- Define Postgres schema per 20_DATABASE_SCHEMA.md adapted for Supabase:
+- Define Postgres schema per docs/specs/20_DATABASE_SCHEMA.md adapted for Supabase:
   - profiles (linked to Auth users), workers, orders, ai_logs, trust_scores tables
   - Row Level Security (RLS) policies for protected data
 - Create /supabase/migrations/001_init.sql with full schema
@@ -54,11 +54,11 @@ All requirements defined in:
   - /supabase/functions/ai-diagnose/index.ts (Diagnosis Agent)
   - /supabase/functions/ai-estimate-price/index.ts (Pricing Agent)
   - /supabase/functions/ai-fraud-check/index.ts (Fraud Risk Agent)
-- Implement RLS policies per 22_SECURITY_PLAN.md
+- Implement RLS policies per docs/specs/22_SECURITY_PLAN.md
 - Test: `supabase db reset && supabase functions serve` (all foundation tests pass)
 
 ## Step 3: Core Backend & Web APIs
-- Create Supabase Edge Functions per 21_API_SPECIFICATION.md adapted for Supabase:
+- Create Supabase Edge Functions per docs/specs/21_API_SPECIFICATION.md adapted for Supabase:
   - /supabase/functions/auth-register/index.ts, auth-login/index.ts (Supabase Auth wrapper)
   - /supabase/functions/customer-requests/index.ts (service requests, orders, reviews)
   - /supabase/functions/worker-jobs/index.ts (profile, jobs, earnings)
@@ -69,12 +69,12 @@ All requirements defined in:
 - Build customer flows: service requests, order tracking, reviews (via Supabase JS client)
 - Build worker flows: profile, job management, earnings (via Supabase JS client)
 - Build admin flows: dashboard, user/worker/order management (via Supabase JS + Server-side)
-- Match 05_PRODUCT_SOLUTION.md flows exactly
+- Match docs/specs/05_PRODUCT_SOLUTION.md flows exactly
 - Test: `npm test /supabase && npm test /web` (100% pass required)
 
 ## Step 4: AI Integration (Supabase Edge Functions)
 - Create /supabase/functions/_shared/ai-provider.ts (abstraction layer for OpenAI/Anthropic)
-- Implement 7 AI agents per 11_AI_OPERATING_MODEL.md:
+- Implement 7 AI agents per docs/specs/11_AI_OPERATING_MODEL.md:
   - /supabase/functions/ai-diagnose/index.ts (Diagnosis Agent)
   - /supabase/functions/ai-estimate-price/index.ts (Pricing Agent)
   - /supabase/functions/ai-matching/index.ts (Matching Agent)
@@ -83,8 +83,8 @@ All requirements defined in:
   - /supabase/functions/ai-coach/index.ts (Worker Coach Agent)
   - /supabase/functions/ai-fraud-check/index.ts (Fraud Risk Agent)
 - Connect agents to Edge Functions: auto-diagnosis on service request, pricing, matching
-- Log all AI inputs/outputs to ai_logs table per 13_RISKS_LEGAL_COMPLIANCE.md
-- Meet AI KPIs in 14_OKR_KPI.md (80% category accuracy, 60% price accuracy)
+- Log all AI inputs/outputs to ai_logs table per docs/specs/13_RISKS_LEGAL_COMPLIANCE.md
+- Meet AI KPIs in docs/specs/14_OKR_KPI.md (80% category accuracy, 60% price accuracy)
 - Test: `supabase functions serve` + `npm test /supabase/functions` (100% pass required)
 
 ## Step 5: Mobile Foundation (Expo/React Native)
@@ -101,10 +101,10 @@ All requirements defined in:
 - Test: `npx expo start -- npm test /mobile` (foundation tests pass)
 
 ## Step 6: Mobile & Web Flows
-- Implement customer flow per 05_PRODUCT_SOLUTION.md:
+- Implement customer flow per docs/specs/05_PRODUCT_SOLUTION.md:
   - /mobile/app/(customer)/service-request.tsx (description, media upload, AI diagnosis display)
   - /mobile/app/(customer)/orders/[id].tsx (order tracking, review)
-- Implement worker flow per 05_PRODUCT_SOLUTION.md:
+- Implement worker flow per docs/specs/05_PRODUCT_SOLUTION.md:
   - /mobile/app/(worker)/jobs/[id].tsx (accept, status update, before/after photos)
   - /mobile/app/(worker)/earnings.tsx (earnings tracking, trust score)
 - Implement admin web dashboard per VERCEL_SPEC.md:
@@ -114,19 +114,19 @@ All requirements defined in:
 - Implement public landing page per VERCEL_SPEC.md:
   - /web/app/page.tsx (Hero, How it works, AI diagnosis, Pricing, Trust, FAQ, CTA)
   - /web/app/for-workers/page.tsx, for-business/page.tsx
-- Match 05_PRODUCT_SOLUTION.md flows exactly
+- Match docs/specs/05_PRODUCT_SOLUTION.md flows exactly
 - 100% mobile + web test pass required before next step
 
 ## Step 7: Trust & Quality
-- Implement dynamic trust scores per 12_OPERATIONS_AND_TRUST.md:
+- Implement dynamic trust scores per docs/specs/12_OPERATIONS_AND_TRUST.md:
   - /supabase/migrations/002_trust_scores.sql (trust score functions)
   - /mobile/app/(worker)/trust.tsx (display trust score)
-- Add mandatory before/after photo uploads to Supabase Storage per 12_OPERATIONS_AND_TRUST.md
+- Add mandatory before/after photo uploads to Supabase Storage per docs/specs/12_OPERATIONS_AND_TRUST.md
 - Build quality checklists: /supabase/functions/quality-check/index.ts
 - Build in-app warranty/complaint flows:
   - /mobile/app/(customer)/warranty.tsx, /mobile/app/(customer)/complaint.tsx
   - /web/app/admin/complaints/page.tsx, warranties/page.tsx
-- Implement RLS policies for protected data per 22_SECURITY_PLAN.md
+- Implement RLS policies for protected data per docs/specs/22_SECURITY_PLAN.md
 - Test all trust/quality features (100% pass required)
 
 ## Step 8: Testing & Validation
@@ -134,7 +134,7 @@ All requirements defined in:
 - Run Supabase tests: `supabase db test`
 - Run integration tests: `npm test /tests/integration`
 - Run E2E tests: `npm test /tests/e2e`
-- Validate against 14_OKR_KPI.md OKRs:
+- Validate against docs/specs/14_OKR_KPI.md OKRs:
   - 500 registered users, 100 service requests, 30 completed orders
   - 50 registered workers, 20 verified, 10 active weekly
   - 80% category accuracy, 60% price accuracy
@@ -155,7 +155,7 @@ All requirements defined in:
 - Monitor Vercel analytics, Supabase logs, app store reviews
 
 ## Step 10: Final Verification
-- Confirm all AI KPIs met per 14_OKR_KPI.md:
+- Confirm all AI KPIs met per docs/specs/14_OKR_KPI.md:
   - Diagnosis category accuracy >= 80%
   - Price estimate accuracy >= 60%
   - Matching success rate >= 50%
@@ -165,7 +165,7 @@ All requirements defined in:
   - All files created per steps 2-7 (Supabase, Mobile, Web)
   - All tests pass per step 8
 - Verify Supabase + Vercel + Expo stacks fully operational
-- Generate completion report: /COMPLETION_REPORT.md
+- Generate completion report: /docs/archive/COMPLETION_REPORT.md
 - Notify Giám đốc (you) via email/log
 
 ## Opencode CLI Startup Config
@@ -173,7 +173,7 @@ Add to root `AGENTS.md` (auto-read by opencode on startup):
 ```
 # Vifixa AI Opencode Directive
 Follow strict sequential process in /agent.md
-Source of truth: 15_CODEX_BUSINESS_CONTEXT.md
+Source of truth: docs/specs/15_CODEX_BUSINESS_CONTEXT.md
 All AI calls via Supabase Edge Functions only
 No secrets in mobile or web frontend
 No mock data in production
@@ -181,17 +181,17 @@ Stack: Supabase + Vercel + Expo
 ```
 
 ## References
-- 15_CODEX_BUSINESS_CONTEXT.md
-- 11_AI_OPERATING_MODEL.md
-- 05_PRODUCT_SOLUTION.md
-- 12_OPERATIONS_AND_TRUST.md
-- 14_OKR_KPI.md
-- 13_RISKS_LEGAL_COMPLIANCE.md
-- 18_FINANCIAL_PLAN.md
-- 19_TECHNICAL_ARCHITECTURE.md
-- 20_DATABASE_SCHEMA.md
-- 21_API_SPECIFICATION.md
-- 22_SECURITY_PLAN.md
+- docs/specs/15_CODEX_BUSINESS_CONTEXT.md
+- docs/specs/11_AI_OPERATING_MODEL.md
+- docs/specs/05_PRODUCT_SOLUTION.md
+- docs/specs/12_OPERATIONS_AND_TRUST.md
+- docs/specs/14_OKR_KPI.md
+- docs/specs/13_RISKS_LEGAL_COMPLIANCE.md
+- docs/specs/18_FINANCIAL_PLAN.md
+- docs/specs/19_TECHNICAL_ARCHITECTURE.md
+- docs/specs/20_DATABASE_SCHEMA.md
+- docs/specs/21_API_SPECIFICATION.md
+- docs/specs/22_SECURITY_PLAN.md
 - SUPABASE_SPEC.md
 - VERCEL_SPEC.md
 - MASTER_SPEC.md

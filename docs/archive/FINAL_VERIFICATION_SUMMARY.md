@@ -1,3 +1,7 @@
+> [!WARNING]
+> **ARCHIVED DOCUMENT**
+> This document is kept for historical purposes only. Please refer to `docs/CHECKPOINT_SYSTEM_STATE.md` for the current, single source of truth regarding the system state.
+
 # Vifixa AI - Final Verification Summary (Step 10)
 
 **Date**: 2026-05-05
