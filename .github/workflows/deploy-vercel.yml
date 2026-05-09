@@ -5,6 +5,10 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
 jobs:
   deploy-preview:
     name: Deploy Preview
@@ -27,18 +31,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          scope: ${{ secrets.VERCEL_ORG_ID }}
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+      - name: Pull Vercel environment
+        run: |
+          cd web
+          vercel pull --yes --token ${{ secrets.VERCEL_TOKEN }} \
+            --scope ${{ secrets.VERCEL_ORG_ID }}
+      - name: Build for Vercel
+        run: |
+          cd web
+          vercel build --token ${{ secrets.VERCEL_TOKEN }} \
+            --scope ${{ secrets.VERCEL_ORG_ID }}
+      - name: Deploy to Vercel (preview, no --prod)
+        id: deploy
+        run: |
+          cd web
+          DEPLOY_URL=$(vercel deploy --prebuilt \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --scope ${{ secrets.VERCEL_ORG_ID }} \
+            2>&1 | tail -1)
+          echo "deploy_url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+      - name: Assign staging alias
+        run: |
+          vercel alias set "${{ steps.deploy.outputs.deploy_url }}" \
+            "vifixa-ai-staging.vercel.app" \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --scope ${{ secrets.VERCEL_ORG_ID }}
 
   deploy-production:
     name: Deploy Production
     if: github.ref == 'refs/heads/main'
-    needs: [deploy-preview, deploy-staging]
     environment: Production
     runs-on: ubuntu-latest
     steps:

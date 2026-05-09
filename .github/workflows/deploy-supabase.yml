@@ -41,13 +41,14 @@ jobs:
       - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Deploy all edge functions
         run: |
-          for fn in supabase/functions/*/; do
-            name=$(basename "$fn")
+          for fn in supabase/functions/*/index.ts; do
+            name=$(basename $(dirname "$fn"))
+            [ "$name" = "_shared" ] && continue
             echo "Deploying $name..."
-            supabase functions deploy "$name" 2>&1 || echo "WARN: $name deploy failed (may not exist on staging)"
+            supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1 || echo "WARN: $name deploy failed"
           done
       - name: Push migrations
-        run: supabase db push --linked
+        run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
 
   deploy-production:
     name: Deploy to Production Supabase
@@ -63,10 +64,11 @@ jobs:
       - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Deploy all edge functions
         run: |
-          for fn in supabase/functions/*/; do
-            name=$(basename "$fn")
+          for fn in supabase/functions/*/index.ts; do
+            name=$(basename $(dirname "$fn"))
+            [ "$name" = "_shared" ] && continue
             echo "Deploying $name..."
-            supabase functions deploy "$name" 2>&1
+            supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1
           done
       - name: Push migrations
-        run: supabase db push --linked
+        run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
