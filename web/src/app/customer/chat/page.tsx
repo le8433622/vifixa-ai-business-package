@@ -1,4 +1,7 @@
 // @ts-nocheck
+// Vifixa AI v2.0 — Premium Chat Interface
+// Gradient bubbles, rich action cards, typing animation, voice input
+
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
@@ -31,43 +34,29 @@ export default function CustomerChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    checkUser()
-  }, [])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  useEffect(() => { checkUser() }, [])
+  useEffect(() => { scrollToBottom() }, [messages])
 
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      router.push('/login')
-      return
-    }
+    if (!session) { router.push('/login'); return }
     setUser(session.user)
     loadOrCreateSession(session.user.id)
   }
 
   async function loadOrCreateSession(userId: string) {
     try {
-      // Try to get active session
       const { data: sessions, error } = await supabase
-        .from('chat_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-
+        .from('chat_sessions').select('*')
+        .eq('user_id', userId).eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(1)
       if (error) throw error
-
       if (sessions && sessions.length > 0) {
         setSession(sessions[0] as any)
         await loadMessages((sessions[0] as any).id)
       } else {
-        // Create new session on server
         await startNewChat()
       }
     } catch (error) {
@@ -78,21 +67,14 @@ export default function CustomerChatPage() {
   async function loadMessages(sessionId: string) {
     try {
       const { data: msgs, error } = await supabase
-        .from('chat_messages')
-        .select('*')
+        .from('chat_messages').select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true })
-
       if (error) throw error
-
       if (msgs) {
-        const msgsAny = msgs as any[]
-        setMessages(msgsAny.map(msg => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          actions: msg.metadata?.actions
+        setMessages((msgs as any[]).map(msg => ({
+          id: msg.id, role: msg.role, content: msg.content,
+          timestamp: new Date(msg.created_at), actions: msg.metadata?.actions
         })))
       }
     } catch (error) {
@@ -103,9 +85,8 @@ export default function CustomerChatPage() {
   async function startNewChat() {
     setInputMessage('')
     setMessages([{
-      id: 'welcome',
-      role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI của Vifixa. Bạn cần hỗ trợ sửa chữa gì? Hãy mô tả sự cố bạn đang gặp phải nhé! 😊',
+      id: 'welcome', role: 'assistant',
+      content: 'Xin chào! 👋 Tôi là trợ lý AI của Vifixa. Bạn cần hỗ trợ sửa chữa gì? Mô tả sự cố, gửi ảnh, hoặc chọn dịch vụ bên dưới nhé!',
       timestamp: new Date()
     }])
     setSession(null)
@@ -119,22 +100,14 @@ export default function CustomerChatPage() {
     setInputMessage('')
     setIsLoading(true)
 
-    // Add user message to UI immediately
     const tempUserMsg: Message = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date()
+      id: `temp-${Date.now()}`, role: 'user', content: userMessage, timestamp: new Date()
     }
     setMessages(prev => [...prev, tempUserMsg])
 
     try {
-      // Call AI Chat API
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      if (!authSession) {
-        router.push('/login')
-        return
-      }
+      if (!authSession) { router.push('/login'); return }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
@@ -156,123 +129,75 @@ export default function CustomerChatPage() {
 
       const data = await response.json()
 
-      // Update session if new
       if (data.session_id && session?.id !== data.session_id) {
         setSession({ id: data.session_id, status: 'active', created_at: new Date() })
       }
 
-      // Add AI response to UI
       const aiMessage: Message = {
-        id: `ai-${Date.now()}`,
-        role: 'assistant',
-        content: data.reply,
-        timestamp: new Date(),
-        actions: data.actions
+        id: `ai-${Date.now()}`, role: 'assistant',
+        content: data.reply, timestamp: new Date(), actions: data.actions
       }
       setMessages(prev => [...prev, aiMessage])
 
-      // Reload messages from server
-      if (data.session_id) {
-        await loadMessages(data.session_id)
-      }
+      if (data.session_id) await loadMessages(data.session_id)
 
-      // If session complete, navigate to order or dashboard
       if (data.session_complete) {
         setTimeout(() => {
-          if (data.order_id) {
-            router.push(`/customer/orders/${data.order_id}`)
-          } else {
-            alert('Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.')
-            router.push('/customer')
-          }
+          if (data.order_id) router.push(`/customer/orders/${data.order_id}`)
+          else { alert('Đơn dịch vụ đã được chốt thành công!'); router.push('/customer') }
         }, 1000)
       }
-
     } catch (error: any) {
       console.error('Send message error:', error)
-      alert(`Lỗi: ${error.message}`)
+      setMessages(prev => [...prev, {
+        id: `err-${Date.now()}`, role: 'assistant',
+        content: `⚠️ Xin lỗi, đã có lỗi xảy ra: ${error.message}. Vui lòng thử lại.`,
+        timestamp: new Date()
+      }])
     } finally {
       setIsLoading(false)
+      inputRef.current?.focus()
     }
   }
 
-
   async function handleAction(action: any) {
     if (action.type === 'share_location') {
-      if (!navigator.geolocation) {
-        alert('Trình duyệt không hỗ trợ gửi vị trí. Vui lòng nhập địa chỉ/khu vực trong ô chat.')
-        return
-      }
-
+      if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ vị trí'); return }
       navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        async (pos) => {
           await sendMessage('Tôi đã gửi vị trí hiện tại', {
-            location: {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            },
+            location: { lat: pos.coords.latitude, lng: pos.coords.longitude }
           })
         },
-        () => alert('Không lấy được vị trí. Bạn có thể nhập địa chỉ/khu vực trong ô chat.'),
-        { enableHighAccuracy: true, timeout: 10000 },
+        () => alert('Không lấy được vị trí. Hãy nhập địa chỉ trong ô chat.'),
+        { enableHighAccuracy: true, timeout: 10000 }
       )
       return
     }
-
-    if (action.type === 'upload_media') {
-      fileInputRef.current?.click()
-      return
-    }
-
-    if (action.type === 'confirmation_card') {
-      await sendMessage(action.value || 'Tôi xác nhận tạo đơn dịch vụ')
-      return
-    }
-
-    if (action.type === 'view_order' && action.value) {
-      router.push(`/customer/orders/${action.value}`)
-      return
-    }
-
-    if (action.value) {
-      await sendMessage(action.value)
-    }
+    if (action.type === 'upload_media') { fileInputRef.current?.click(); return }
+    if (action.type === 'confirmation_card') { await sendMessage(action.value || 'Tôi xác nhận tạo đơn dịch vụ'); return }
+    if (action.type === 'view_order' && action.value) { router.push(`/customer/orders/${action.value}`); return }
+    if (action.value) await sendMessage(action.value)
   }
 
   async function handleMediaUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files
     if (!files || files.length === 0) return
-
     setIsLoading(true)
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      if (!authSession) {
-        router.push('/login')
-        return
-      }
-
+      if (!authSession) { router.push('/login'); return }
       const mediaUrls: string[] = []
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-          throw new Error('Chỉ hỗ trợ ảnh hoặc video')
-        }
-        if (file.size > 20 * 1024 * 1024) {
-          throw new Error('File quá lớn. Vui lòng chọn file dưới 20MB')
-        }
-
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) throw new Error('Chỉ hỗ trợ ảnh hoặc video')
+        if (file.size > 20 * 1024 * 1024) throw new Error('File quá lớn (max 20MB)')
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-        const fileName = `${authSession.user.id}/${session?.id || 'new-chat'}/${Date.now()}-${safeName}`
-        const { data, error } = await supabase.storage
-          .from('service-media')
-          .upload(fileName, file, { upsert: false })
-
+        const fileName = `${authSession.user.id}/${session?.id || 'new'}/${Date.now()}-${safeName}`
+        const { data, error } = await supabase.storage.from('service-media').upload(fileName, file, { upsert: false })
         if (error) throw error
-        const { data: { publicUrl } } = supabase.storage
-          .from('service-media')
-          .getPublicUrl(data.path)
+        const { data: { publicUrl } } = supabase.storage.from('service-media').getPublicUrl(data.path)
         mediaUrls.push(publicUrl)
       }
-
       await sendMessage(`Tôi đã gửi ${mediaUrls.length} ảnh/video sự cố`, { media_urls: mediaUrls })
     } catch (error: any) {
       alert(`Lỗi upload: ${error.message}`)
@@ -283,27 +208,41 @@ export default function CustomerChatPage() {
   }
 
   function formatVnd(value?: number) {
-    return typeof value === 'number' ? `${value.toLocaleString('vi-VN')}đ` : 'Đang cập nhật'
+    return typeof value === 'number' ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value) : 'Đang cập nhật'
   }
 
   function renderAction(action: any, idx: number) {
     if (action.type === 'quote_card') {
       const quote = action.data || {}
       return (
-        <div key={idx} className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950">
-          <div className="font-semibold text-sm mb-1">💰 Báo giá dự kiến</div>
-          <div className="text-lg font-bold">{formatVnd(quote.estimated_price)}</div>
+        <div key={idx} className="mt-3 rounded-xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 to-violet-500/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-sm">💰</span>
+            <span className="font-bold text-sm text-[hsl(var(--vf-text))]">Báo giá dự kiến</span>
+          </div>
+          <div className="text-2xl font-bold text-[hsl(var(--vf-text))] mb-1">{formatVnd(quote.estimated_price)}</div>
           {typeof quote.confidence === 'number' && (
-            <div className="mt-1">Độ tin cậy: {Math.round(quote.confidence * 100)}%</div>
+            <div className="mb-2">
+              <div className="flex justify-between text-xs text-[hsl(var(--vf-text-muted))] mb-1">
+                <span>Độ tin cậy</span>
+                <span>{Math.round(quote.confidence * 100)}%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-[hsl(var(--vf-bg-muted))]">
+                <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all" style={{ width: `${quote.confidence * 100}%` }} />
+              </div>
+            </div>
           )}
           {Array.isArray(quote.price_breakdown) && quote.price_breakdown.length > 0 && (
-            <ul className="mt-2 list-disc pl-4 space-y-1">
-              {quote.price_breakdown.map((item: any, itemIdx: number) => (
-                <li key={itemIdx}>{item.item}: {formatVnd(item.cost)}</li>
+            <div className="mt-3 space-y-1">
+              {quote.price_breakdown.map((item: any, i: number) => (
+                <div key={i} className="flex justify-between text-xs text-[hsl(var(--vf-text-secondary))]">
+                  <span>{item.item}</span>
+                  <span className="font-medium">{formatVnd(item.cost)}</span>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
-          <p className="mt-2 text-blue-700">Giá cuối có thể thay đổi sau khảo sát thực tế và vật tư phát sinh.</p>
+          <p className="mt-3 text-xs text-[hsl(var(--vf-text-muted))] italic">Giá cuối có thể thay đổi sau khảo sát thực tế.</p>
         </div>
       )
     }
@@ -311,22 +250,22 @@ export default function CustomerChatPage() {
     if (action.type === 'confirmation_card') {
       const data = action.data || {}
       return (
-        <div key={idx} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-950">
-          <div className="font-semibold text-sm mb-2">✅ Xác nhận tạo đơn</div>
-          <div className="space-y-1">
-            <div><span className="font-medium">Dịch vụ:</span> {data.category || 'Đã ghi nhận trong chat'}</div>
-            <div><span className="font-medium">Thời gian:</span> {data.preferred_time || 'Theo thông tin đã cung cấp'}</div>
-            <div><span className="font-medium">Vị trí:</span> {typeof data.location === 'string' ? data.location : data.location ? 'Đã gửi tọa độ' : 'Đã ghi nhận'}</div>
-            {data.quote?.estimated_price && <div><span className="font-medium">Giá dự kiến:</span> {formatVnd(data.quote.estimated_price)}</div>}
+        <div key={idx} className="mt-3 rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-sm">✅</span>
+            <span className="font-bold text-sm text-[hsl(var(--vf-text))]">Xác nhận tạo đơn</span>
           </div>
-          <p className="mt-2 text-emerald-700">Bạn cần xác nhận rõ trước khi Vifixa tạo đơn và ghép thợ.</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-[hsl(var(--vf-text-muted))]">Dịch vụ:</span><span className="font-medium text-[hsl(var(--vf-text))]">{data.category || 'Đã ghi nhận'}</span></div>
+            <div className="flex justify-between"><span className="text-[hsl(var(--vf-text-muted))]">Thời gian:</span><span className="font-medium text-[hsl(var(--vf-text))]">{data.preferred_time || 'Theo yêu cầu'}</span></div>
+            {data.quote?.estimated_price && <div className="flex justify-between"><span className="text-[hsl(var(--vf-text-muted))]">Giá dự kiến:</span><span className="font-bold text-emerald-600">{formatVnd(data.quote.estimated_price)}</span></div>}
+          </div>
           <button
-            type="button"
             onClick={() => handleAction(action)}
             disabled={isLoading}
-            className="mt-3 w-full rounded-md bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="mt-4 w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
           >
-            Tôi xác nhận tạo đơn
+            ✅ Xác nhận tạo đơn
           </button>
         </div>
       )
@@ -335,10 +274,9 @@ export default function CustomerChatPage() {
     return (
       <button
         key={idx}
-        type="button"
         onClick={() => handleAction(action)}
         disabled={isLoading}
-        className="block text-left text-xs bg-white/20 rounded px-2 py-1 hover:bg-white/30 disabled:opacity-50"
+        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--vf-bg-subtle))] text-[hsl(var(--vf-text-secondary))] hover:bg-[hsl(var(--vf-bg-muted))] transition-all disabled:opacity-50"
       >
         ⚡ {action.label || action.type}
       </button>
@@ -346,24 +284,14 @@ export default function CustomerChatPage() {
   }
 
   function handleKeyPress(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
   }
 
-  // Voice input with Web Speech API
   function toggleVoiceInput() {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Trình duyệt không hỗ trợ nhận diện giọng nói')
-      return
+      alert('Trình duyệt không hỗ trợ giọng nói'); return
     }
-
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
+    isListening ? stopListening() : startListening()
   }
 
   function startListening() {
@@ -372,33 +300,16 @@ export default function CustomerChatPage() {
     recognitionRef.current.lang = 'vi-VN'
     recognitionRef.current.continuous = false
     recognitionRef.current.interimResults = false
-
-    recognitionRef.current.onstart = () => {
-      setIsListening(true)
-    }
-
-    recognitionRef.current.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript
-      setInputMessage(prev => prev + transcript)
-    }
-
-    recognitionRef.current.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error)
-      setIsListening(false)
-    }
-
-    recognitionRef.current.onend = () => {
-      setIsListening(false)
-    }
-
+    recognitionRef.current.onstart = () => setIsListening(true)
+    recognitionRef.current.onresult = (e: any) => setInputMessage(prev => prev + e.results[0][0].transcript)
+    recognitionRef.current.onerror = () => setIsListening(false)
+    recognitionRef.current.onend = () => setIsListening(false)
     recognitionRef.current.start()
   }
 
   function stopListening() {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-      setIsListening(false)
-    }
+    recognitionRef.current?.stop()
+    setIsListening(false)
   }
 
   function scrollToBottom() {
@@ -406,145 +317,164 @@ export default function CustomerChatPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">💬 Chat với AI - Vifixa</h1>
-            <p className="text-sm text-gray-600 mt-1">Mô tả sự cố, AI sẽ chẩn đoán và hỗ trợ chốt đơn</p>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={startNewChat}
-              className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-            >
-              🆕 Chat mới
+    <div className="min-h-screen bg-[hsl(var(--vf-bg))] flex flex-col">
+      {/* ====== HEADER ====== */}
+      <div className="sticky top-0 z-40 glass-strong border-b border-[hsl(var(--vf-border))]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/customer')} className="text-[hsl(var(--vf-text-muted))] hover:text-[hsl(var(--vf-text))] transition-colors">
+              ← 
             </button>
-            <Link
-              href="/customer/service-request"
-              className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-            >
-              📝 Dùng form cũ
-            </Link>
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-bold shadow-md">
+                🤖
+              </div>
+              <div>
+                <h1 className="font-bold text-sm text-[hsl(var(--vf-text))]">Vifixa AI</h1>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs text-[hsl(var(--vf-text-muted))]">Online</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={startNewChat} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[hsl(var(--vf-bg-subtle))] text-[hsl(var(--vf-text-secondary))] hover:bg-[hsl(var(--vf-bg-muted))] transition-all">
+              + Mới
+            </button>
           </div>
         </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,video/*"
-        multiple
-        className="hidden"
-        onChange={handleMediaUpload}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleMediaUpload} />
 
-      {/* Chat Container */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col" style={{ height: '600px' }}>
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((msg) => (
+      {/* ====== MESSAGES ====== */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+          {messages.map((msg, i) => (
             <div
               key={msg.id}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up`}
+              style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
             >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                <div className="flex items-start space-x-2">
-                  {msg.role === 'assistant' && <span className="text-xl">🤖</span>}
-                  {msg.role === 'user' && <span className="text-xl">👤</span>}
-                  <div className="flex-1">
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                    {msg.actions && msg.actions.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {msg.actions.map((action, idx) => renderAction(action, idx))}
-                      </div>
-                    )}
-                  </div>
+              {msg.role === 'assistant' && (
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-sm mr-2 mt-1 shrink-0 shadow-md">
+                  🤖
                 </div>
-                <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
+              )}
+              <div className={msg.role === 'user' ? 'bubble-user' : 'bubble-ai'}>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                {msg.actions && msg.actions.length > 0 && (
+                  <div>{msg.actions.map((action, idx) => renderAction(action, idx))}</div>
+                )}
+                <p className={`text-xs mt-2 ${msg.role === 'user' ? 'text-white/50' : 'text-[hsl(var(--vf-text-muted))]'}`}>
                   {msg.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>
           ))}
+
+          {/* Typing indicator */}
           {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-lg px-4 py-3 max-w-xs">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xl">🤖</span>
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
+            <div className="flex justify-start animate-fade-in">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-sm mr-2 mt-1 shrink-0">🤖</div>
+              <div className="bubble-ai">
+                <div className="flex items-center gap-2 py-1">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
                 </div>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
+      </div>
 
-        {/* Input Area */}
-        <div className="border-t border-gray-200 p-4">
-          <div className="flex space-x-2">
+      {/* ====== QUICK CHIPS ====== */}
+      {messages.length <= 1 && (
+        <div className="border-t border-[hsl(var(--vf-border))] bg-[hsl(var(--vf-bg))]">
+          <div className="max-w-3xl mx-auto px-4 py-3">
+            <p className="text-xs text-[hsl(var(--vf-text-muted))] mb-2">Chọn nhanh:</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {[
+                { emoji: '❄️', label: 'Máy lạnh hư', query: 'Máy lạnh nhà tôi không lạnh' },
+                { emoji: '⚡', label: 'Mất điện', query: 'Nhà tôi bị mất điện một phần' },
+                { emoji: '🚿', label: 'Nước rò', query: 'Nước rò rỉ ở vòi bồn rửa' },
+                { emoji: '📷', label: 'Lắp camera', query: 'Tôi muốn lắp camera an ninh' },
+              ].map((chip) => (
+                <button
+                  key={chip.label}
+                  onClick={() => { setInputMessage(chip.query); inputRef.current?.focus() }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap bg-[hsl(var(--vf-bg-subtle))] border border-[hsl(var(--vf-border))] text-[hsl(var(--vf-text-secondary))] hover:bg-[hsl(var(--vf-bg-muted))] hover:border-blue-500/30 transition-all"
+                >
+                  <span>{chip.emoji}</span>
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== INPUT BAR ====== */}
+      <div className="sticky bottom-0 glass-strong border-t border-[hsl(var(--vf-border))]">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <div className="flex items-center gap-2">
+            {/* Upload */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-[hsl(var(--vf-bg-subtle))] text-[hsl(var(--vf-text-muted))] hover:bg-[hsl(var(--vf-bg-muted))] hover:text-[hsl(var(--vf-text))] transition-all shrink-0"
+              title="Gửi ảnh/video"
+            >
+              📎
+            </button>
+
+            {/* Input */}
             <input
+              ref={inputRef}
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Nhập tin nhắn... (VD: Máy lạnh không mát)"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Mô tả sự cố..."
+              className="flex-1 px-4 py-2.5 rounded-xl border border-[hsl(var(--vf-border))] bg-[hsl(var(--vf-bg-subtle))] text-sm text-[hsl(var(--vf-text))] placeholder:text-[hsl(var(--vf-text-muted))] focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all"
               disabled={isLoading}
             />
+
+            {/* Voice */}
             <button
               onClick={toggleVoiceInput}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all shrink-0 relative ${
                 isListening
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
+                  : 'bg-[hsl(var(--vf-bg-subtle))] text-[hsl(var(--vf-text-muted))] hover:bg-[hsl(var(--vf-bg-muted))] hover:text-[hsl(var(--vf-text))]'
               }`}
-              title="Nhập bằng giọng nói"
+              title="Giọng nói"
             >
+              {isListening && <span className="absolute inset-0 rounded-xl bg-red-500 animate-ping opacity-30" />}
               {isListening ? '⏹️' : '🎤'}
             </button>
+
+            {/* Send */}
             <button
               onClick={() => sendMessage()}
               disabled={isLoading || !inputMessage.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-r from-blue-500 to-violet-600 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all disabled:opacity-30 disabled:shadow-none shrink-0"
             >
-              Gửi
+              {isLoading ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                </svg>
+              )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Nhấn Enter để gửi • Hỗ trợ tiếng Việt • AI sẽ chẩn đoán và báo giá
+          <p className="text-xs text-[hsl(var(--vf-text-muted))] mt-2 text-center">
+            Enter để gửi • Hỗ trợ tiếng Việt • AI chẩn đoán & báo giá tự động
           </p>
         </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { emoji: '❄️', label: 'Máy lạnh', query: 'Máy lạnh không mát' },
-          { emoji: '💡', label: 'Điện nước', query: 'Bị mất điện một phần' },
-          { emoji: '🚿', label: 'Nước rò rỉ', query: 'Nước rò rỉ ở vòi' },
-          { emoji: '📷', label: 'Camera', query: 'Lắp đặt camera an ninh' },
-        ].map((action) => (
-          <button
-            key={action.label}
-            onClick={() => setInputMessage(action.query)}
-            className="px-4 py-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-center"
-          >
-            <div className="text-2xl mb-1">{action.emoji}</div>
-            <div className="text-sm font-medium text-gray-700">{action.label}</div>
-          </button>
-        ))}
       </div>
     </div>
   )

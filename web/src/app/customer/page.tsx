@@ -1,5 +1,5 @@
-// Customer Dashboard - AI-Centric Design
-// Per user request: AI as centerpiece, form as foundation
+// Vifixa AI v2.0 — Premium Customer Dashboard
+// Glass cards, animated stats, premium service grid
 
 'use client'
 
@@ -29,31 +29,29 @@ interface Device {
   purchase_date?: string
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Chờ xử lý',
-  matched: 'Đã ghép thợ',
-  in_progress: 'Đang thực hiện',
-  completed: 'Hoàn thành',
-  cancelled: 'Đã hủy',
-  disputed: 'Khiếu nại',
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  matched: 'bg-purple-100 text-purple-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  cancelled: 'bg-gray-100 text-gray-800',
-  disputed: 'bg-red-100 text-red-800',
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  pending: { label: 'Chờ xử lý', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+  matched: { label: 'Đã ghép thợ', color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200' },
+  in_progress: { label: 'Đang thực hiện', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+  completed: { label: 'Hoàn thành', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+  cancelled: { label: 'Đã hủy', color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' },
+  disputed: { label: 'Khiếu nại', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
-  'electricity': '🔌',
-  'plumbing': '🚿',
-  'appliance': '🔧',
-  'air_conditioning': '❄️',
-  'camera': '📷',
+  electricity: '⚡', plumbing: '🚿', appliance: '🔧',
+  air_conditioning: '❄️', camera: '📷', ac_repair: '❄️',
+  water: '🚿', lock_smith: '🔑',
 }
+
+const NAV_ITEMS = [
+  { emoji: '💬', label: 'Chat AI', href: '/customer/chat', primary: true },
+  { emoji: '📋', label: 'Đơn hàng', href: '/customer/orders' },
+  { emoji: '🌿', label: 'Chăm sóc', href: '/customer/care' },
+  { emoji: '🔧', label: 'Thiết bị', href: '/customer/devices' },
+  { emoji: '👤', label: 'Tài khoản', href: '/customer/profile' },
+  { emoji: '⚙️', label: 'Cài đặt', href: '/customer/settings' },
+]
 
 export default function CustomerDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -65,20 +63,14 @@ export default function CustomerDashboard() {
   const router = useRouter()
   const { toast } = useToast()
 
-  useEffect(() => {
-    checkUser()
-  }, [])
+  useEffect(() => { checkUser() }, [])
 
   async function checkUser() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
+      if (!session) { router.push('/login'); return }
       await Promise.all([fetchOrders(), fetchDevices()])
     } catch (error: any) {
-      console.error('checkUser error:', error)
       toast(error.message || 'Lỗi tải dữ liệu', 'error')
     } finally {
       setLoading(false)
@@ -86,61 +78,41 @@ export default function CustomerDashboard() {
   }
 
   async function fetchOrders() {
-    try {
-      setError(null)
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session) {
-        router.push('/login')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('customer_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(5) // Only show 5 most recent
-
-      if (error) throw new Error(error.message)
-      setOrders(data || [])
-    } catch (error: any) {
-      console.error('fetchOrders error:', error)
-      setError(error.message || 'Không thể tải đơn hàng')
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const { data, error } = await supabase
+      .from('orders').select('*')
+      .eq('customer_id', session.user.id)
+      .order('created_at', { ascending: false }).limit(5)
+    if (error) throw new Error(error.message)
+    setOrders(data || [])
   }
 
   async function fetchDevices() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data, error } = await supabase
-        .from('device_profiles')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .limit(3) // Only show 3 devices on dashboard
-
-      if (error) {
-        console.error('fetchDevices error:', error)
-        return
-      }
-      setDevices(data || [])
-    } catch (error) {
-      console.error('fetchDevices error:', error)
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const { data } = await supabase
+      .from('device_profiles').select('*')
+      .eq('user_id', session.user.id).limit(3)
+    setDevices(data || [])
   }
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const matchesSearch =
-        !searchTerm ||
+      const matchesSearch = !searchTerm ||
         order.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesStatus =
-        statusFilter === 'all' || order.status === statusFilter
+      const matchesStatus = statusFilter === 'all' || order.status === statusFilter
       return matchesSearch && matchesStatus
     })
   }, [orders, searchTerm, statusFilter])
+
+  const stats = useMemo(() => ({
+    total: orders.length,
+    active: orders.filter(o => ['pending', 'matched', 'in_progress'].includes(o.status)).length,
+    completed: orders.filter(o => o.status === 'completed').length,
+    spent: orders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.final_price ?? o.estimated_price ?? 0), 0),
+  }), [orders])
 
   function formatPrice(price: number | undefined) {
     if (!price && price !== 0) return 'Chưa có giá'
@@ -149,297 +121,255 @@ export default function CustomerDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--vf-bg))]">
+        <div className="w-12 h-12 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Hero Section - AI Chat CTA */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-6 py-12 sm:px-12 sm:py-16 text-center sm:text-left">
-          <div className="max-w-2xl mx-auto sm:mx-0">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              💬 Chat với AI - Đặt dịch vụ thông minh
+    <div className="min-h-screen bg-[hsl(var(--vf-bg))]">
+      {/* ====== TOP NAV ====== */}
+      <nav className="sticky top-0 z-40 glass-strong border-b border-[hsl(var(--vf-border))]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs">V</div>
+            <span className="font-bold text-[hsl(var(--vf-text))]">Khách hàng</span>
+          </div>
+          <div className="flex gap-1 overflow-x-auto">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                  item.primary
+                    ? 'btn-primary !py-1.5 !px-4 !text-sm'
+                    : 'text-[hsl(var(--vf-text-secondary))] hover:bg-[hsl(var(--vf-bg-subtle))] hover:text-[hsl(var(--vf-text))]'
+                }`}
+              >
+                <span>{item.emoji}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* ====== HERO CTA ====== */}
+        <div className="relative overflow-hidden rounded-2xl bg-mesh p-8 sm:p-10 animate-fade-in-up">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/15 rounded-full blur-[80px]" />
+            <div className="absolute bottom-0 left-1/4 w-48 h-48 bg-violet-500/15 rounded-full blur-[60px]" />
+          </div>
+          <div className="relative z-10">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+              Xin chào! 👋
             </h1>
-            <p className="text-blue-100 text-lg mb-8">
-              Mô tả sự cố, AI sẽ chẩn đoán và báo giá minh bạch. 
-              Không cần điền form phức tạp.
+            <p className="text-blue-100/70 mb-6 max-w-lg">
+              Mô tả sự cố, AI sẽ chẩn đoán và báo giá minh bạch. Không cần điền form phức tạp.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => router.push('/customer/chat')}
-                className="inline-flex items-center justify-center gap-2 bg-white text-blue-600 px-8 py-3.5 rounded-xl font-semibold text-lg hover:bg-blue-50 transition-all shadow-md"
+                className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
               >
-                <span className="text-2xl">💬</span>
-                Bắt đầu chat ngay
+                💬 Chat với AI ngay
               </button>
               <button
                 onClick={() => router.push('/customer/service-request')}
-                className="inline-flex items-center justify-center gap-2 bg-blue-500 text-white px-6 py-3.5 rounded-xl font-medium hover:bg-blue-400 transition-all border border-blue-400"
+                className="inline-flex items-center justify-center gap-2 text-blue-200 border border-white/15 px-5 py-3 rounded-xl font-medium hover:bg-white/5 transition-all"
               >
-                📝 Dùng form cũ
+                📝 Dùng form
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">⚡ Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* ====== STATS ====== */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up delay-100">
           {[
-            { emoji: '❄️', label: 'Máy lạnh', desc: 'Sửa, lắp, vệ sinh' },
-            { emoji: '💡', label: 'Điện nước', desc: 'Sửa điện, nước' },
-            { emoji: '🚿', label: 'Nước rò rỉ', desc: 'Thông tắc, sửa ống' },
-            { emoji: '📷', label: 'Camera', desc: 'Lắp đặt camera' },
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={() => router.push('/customer/chat')}
-              className="p-4 bg-gray-50 rounded-xl hover:bg-blue-50 hover:shadow-md transition-all text-center group"
-            >
-              <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">
-                {action.emoji}
+            { icon: '📋', value: stats.total, label: 'Tổng đơn', color: 'from-blue-500/10 to-blue-500/5' },
+            { icon: '⏳', value: stats.active, label: 'Đang xử lý', color: 'from-amber-500/10 to-amber-500/5' },
+            { icon: '✅', value: stats.completed, label: 'Hoàn thành', color: 'from-emerald-500/10 to-emerald-500/5' },
+            { icon: '💰', value: formatPrice(stats.spent), label: 'Đã chi', color: 'from-violet-500/10 to-violet-500/5', isPrice: true },
+          ].map((stat) => (
+            <div key={stat.label} className={`card p-4 bg-gradient-to-br ${stat.color}`}>
+              <div className="text-2xl mb-2">{stat.icon}</div>
+              <div className="text-xl sm:text-2xl font-bold text-[hsl(var(--vf-text))]">
+                {typeof stat.value === 'number' ? stat.value : stat.value}
               </div>
-              <h3 className="font-semibold text-gray-900">{action.label}</h3>
-              <p className="text-xs text-gray-500 mt-1">{action.desc}</p>
-            </button>
+              <div className="text-xs text-[hsl(var(--vf-text-muted))] mt-0.5">{stat.label}</div>
+            </div>
           ))}
         </div>
-      </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orders - 2/3 width */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">📋 Đơn hàng gần đây</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {filteredOrders.length} / {orders.length} đơn hàng
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="🔍 Tìm kiếm..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="all">Tất cả</option>
-                  {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center mb-4">
-                <div className="text-5xl mb-4">⚠️</div>
-                <p className="text-red-700 mb-4">{error}</p>
-                <button
-                  onClick={() => { setError(null); fetchOrders(); }}
-                  className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                >
-                  Thử lại
-                </button>
-              </div>
-            )}
-
-            {filteredOrders.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4">📋</div>
-                <p className="text-gray-600 mb-6">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Không tìm thấy đơn hàng phù hợp' 
-                    : 'Bạn chưa có đơn hàng nào'}
-                </p>
-                {!searchTerm && statusFilter === 'all' && (
-                  <button
-                    onClick={() => router.push('/customer/chat')}
-                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700"
-                  >
-                    <span className="text-xl">💬</span>
-                    Chat với AI để đặt dịch vụ
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => router.push(`/customer/orders/${order.id}`)}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className="text-xl">{CATEGORY_ICONS[order.category] || '📦'}</span>
-                          <h3 className="text-lg font-semibold text-gray-900">{order.category}</h3>
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'}`}>
-                            {STATUS_LABELS[order.status] || order.status}
-                          </span>
-                        </div>
-                        <p className="text-gray-600 line-clamp-2 text-sm">{order.description}</p>
-                        {order.ai_diagnosis && (
-                          <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm">🤖</span>
-                              <span className="text-sm font-medium text-blue-700">AI Chẩn đoán</span>
-                            </div>
-                            <p className="text-sm text-gray-700">{order.ai_diagnosis.diagnosis}</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right sm:min-w-[120px]">
-                        <p className="text-lg font-bold text-gray-900">
-                          {formatPrice(order.final_price ?? order.estimated_price)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {new Date(order.created_at).toLocaleDateString('vi-VN', {
-                            year: 'numeric', month: 'short', day: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                          })}
-                        </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            router.push(`/customer/orders/${order.id}`)
-                          }}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                        >
-                          Xem chi tiết →
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {orders.length > 5 && (
-                  <div className="text-center pt-4">
-                    <button
-                      onClick={() => router.push('/customer/orders')}
-                      className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-                    >
-                      Xem tất cả đơn hàng →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+        {/* ====== QUICK SERVICES ====== */}
+        <div className="card p-5 animate-fade-in-up delay-200">
+          <h2 className="text-base font-bold text-[hsl(var(--vf-text))] mb-4">⚡ Dịch vụ phổ biến</h2>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { emoji: '❄️', label: 'Máy lạnh', gradient: 'from-cyan-500 to-blue-500' },
+              { emoji: '⚡', label: 'Điện nước', gradient: 'from-amber-500 to-orange-500' },
+              { emoji: '🚿', label: 'Nước rò', gradient: 'from-blue-500 to-indigo-500' },
+              { emoji: '📷', label: 'Camera', gradient: 'from-violet-500 to-purple-500' },
+            ].map((svc) => (
+              <button
+                key={svc.label}
+                onClick={() => router.push('/customer/chat')}
+                className="group p-3 rounded-xl bg-[hsl(var(--vf-bg-subtle))] hover:bg-[hsl(var(--vf-bg-muted))] transition-all text-center"
+              >
+                <div className={`w-10 h-10 mx-auto rounded-xl bg-gradient-to-br ${svc.gradient} flex items-center justify-center text-xl mb-2 group-hover:scale-110 transition-transform shadow-md`}>
+                  {svc.emoji}
+                </div>
+                <p className="text-xs font-medium text-[hsl(var(--vf-text))]">{svc.label}</p>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Right Sidebar - 1/3 width */}
-        <div className="space-y-6">
-          {/* Devices Preview */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">🔧 Thiết bị của tôi</h2>
-              <button
-                onClick={() => router.push('/customer/devices')}
-                className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
-              >
-                Xem tất cả →
-              </button>
+        {/* ====== TWO COLUMNS ====== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Orders — 2/3 */}
+          <div className="lg:col-span-2 animate-fade-in-up delay-300">
+            <div className="card p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <h2 className="text-base font-bold text-[hsl(var(--vf-text))]">📋 Đơn hàng gần đây</h2>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-[hsl(var(--vf-border))] bg-[hsl(var(--vf-bg-subtle))] text-sm text-[hsl(var(--vf-text))] placeholder:text-[hsl(var(--vf-text-muted))] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-2 py-1.5 rounded-lg border border-[hsl(var(--vf-border))] bg-[hsl(var(--vf-bg-subtle))] text-sm text-[hsl(var(--vf-text))] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  >
+                    <option value="all">Tất cả</option>
+                    {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                      <option key={key} value={key}>{cfg.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {filteredOrders.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4">📋</div>
+                  <p className="text-[hsl(var(--vf-text-secondary))] mb-4">
+                    {searchTerm || statusFilter !== 'all' ? 'Không tìm thấy' : 'Chưa có đơn hàng nào'}
+                  </p>
+                  {!searchTerm && statusFilter === 'all' && (
+                    <button onClick={() => router.push('/customer/chat')} className="btn-primary text-sm">
+                      💬 Đặt dịch vụ ngay
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredOrders.map((order, i) => {
+                    const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending
+                    return (
+                      <div
+                        key={order.id}
+                        className="p-4 rounded-xl border border-[hsl(var(--vf-border))] hover:border-blue-500/30 hover:shadow-md transition-all cursor-pointer group"
+                        style={{ animationDelay: `${i * 50}ms` }}
+                        onClick={() => router.push(`/customer/orders/${order.id}`)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                              <span className="text-lg">{CATEGORY_ICONS[order.category] || '📦'}</span>
+                              <span className="font-semibold text-[hsl(var(--vf-text))] text-sm">{order.category}</span>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.color}`}>
+                                {cfg.label}
+                              </span>
+                            </div>
+                            <p className="text-sm text-[hsl(var(--vf-text-secondary))] line-clamp-1">{order.description}</p>
+                            {order.ai_diagnosis && (
+                              <p className="mt-1.5 text-xs text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg inline-block">
+                                🤖 {order.ai_diagnosis.diagnosis?.substring(0, 60)}...
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-bold text-[hsl(var(--vf-text))]">
+                              {formatPrice(order.final_price ?? order.estimated_price)}
+                            </p>
+                            <p className="text-xs text-[hsl(var(--vf-text-muted))] mt-1">
+                              {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <button
+                    onClick={() => router.push('/customer/orders')}
+                    className="w-full text-center py-2 text-sm font-medium text-blue-500 hover:text-blue-400 transition-colors"
+                  >
+                    Xem tất cả đơn hàng →
+                  </button>
+                </div>
+              )}
             </div>
-            {devices.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-gray-600 mb-4">Chưa có thiết bị nào</p>
-                <button
-                  onClick={() => router.push('/customer/devices')}
-                  className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline"
-                >
-                  + Thêm thiết bị đầu tiên
+          </div>
+
+          {/* Sidebar — 1/3 */}
+          <div className="space-y-4 animate-fade-in-up delay-400">
+            {/* Devices */}
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-[hsl(var(--vf-text))]">🔧 Thiết bị</h2>
+                <button onClick={() => router.push('/customer/devices')} className="text-xs text-blue-500 hover:text-blue-400 font-medium">
+                  Quản lý →
                 </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {devices.map((device) => (
-                  <div key={device.id} className="p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
-                    onClick={() => router.push('/customer/devices')}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">
-                        {device.device_type === 'air_conditioning' ? '❄️' : '🔧'}
-                      </span>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 text-sm">
-                          {device.brand} {device.model}
-                        </p>
-                        {device.purchase_date && (
-                          <p className="text-xs text-gray-500">
-                            Mua: {new Date(device.purchase_date).toLocaleDateString('vi-VN')}
+              {devices.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-[hsl(var(--vf-text-muted))] mb-3">Chưa có thiết bị</p>
+                  <button onClick={() => router.push('/customer/devices')} className="text-sm text-blue-500 hover:text-blue-400 font-medium">
+                    + Thêm thiết bị
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {devices.map((d) => (
+                    <div key={d.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[hsl(var(--vf-bg-subtle))] hover:bg-[hsl(var(--vf-bg-muted))] transition-colors cursor-pointer"
+                      onClick={() => router.push('/customer/devices')}
+                    >
+                      <span className="text-xl">{d.device_type === 'air_conditioning' ? '❄️' : '🔧'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[hsl(var(--vf-text))] truncate">{d.brand} {d.model}</p>
+                        {d.purchase_date && (
+                          <p className="text-xs text-[hsl(var(--vf-text-muted))]">
+                            {new Date(d.purchase_date).toLocaleDateString('vi-VN')}
                           </p>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* Help Box */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-2">💡 Mẹo nhỏ</h3>
-            <p className="text-sm text-blue-800 mb-4">
-              Chat với AI để được tư vấn miễn phí. AI hỗ trợ tiếng Việt tự nhiên, 
-              chẩn đoán chính xác và báo giá minh bạch.
-            </p>
-            <button
-              onClick={() => router.push('/customer/chat')}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              💬 Chat ngay
-            </button>
+            {/* AI Tip */}
+            <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-500/10 via-violet-500/10 to-cyan-500/10 border border-blue-500/10">
+              <h3 className="font-bold text-[hsl(var(--vf-text))] mb-2 text-sm">💡 Mẹo</h3>
+              <p className="text-xs text-[hsl(var(--vf-text-secondary))] mb-4 leading-relaxed">
+                Chat với AI để được tư vấn miễn phí. AI hỗ trợ tiếng Việt, chẩn đoán chính xác và báo giá minh bạch.
+              </p>
+              <button
+                onClick={() => router.push('/customer/chat')}
+                className="w-full btn-primary !py-2 text-sm"
+              >
+                💬 Chat ngay
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Footer Links */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-wrap gap-6 justify-center text-sm">
-          <button
-            onClick={() => router.push('/customer/chat')}
-            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline font-medium"
-          >
-            <span className="text-xl">💬</span>
-            Chat với AI
-          </button>
-          <button
-            onClick={() => router.push('/customer/service-request')}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:underline"
-          >
-            <span>📝</span>
-            Dùng form cũ
-          </button>
-          <button
-            onClick={() => router.push('/customer/profile')}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:underline"
-          >
-            <span>👤</span>
-            Tài khoản
-          </button>
-          <button
-            onClick={() => router.push('/customer/complaint')}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:underline"
-          >
-            <span>⚠️</span>
-            Khiếu nại
-          </button>
         </div>
       </div>
     </div>
