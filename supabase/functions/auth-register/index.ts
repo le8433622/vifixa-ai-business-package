@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password, role, phone }: RegisterRequest = await req.json();
+    const { email, password, role, phone, referral_code }: RegisterRequest & { referral_code?: string } = await req.json();
 
     if (!email || !password || !role) {
       return new Response(
@@ -29,7 +29,19 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Register user with Supabase Auth
+    // 1. Handle Referral (Optional)
+    let referrerId: string | null = null;
+    if (referral_code) {
+      const refCheckRes = await fetch(`${supabaseUrl}/rest/v1/user_referral_codes?code=eq.${referral_code}&select=user_id`, {
+        headers: { 'Authorization': `Bearer ${serviceRoleKey}`, 'apikey': serviceRoleKey }
+      });
+      const refCheckData = await refCheckRes.json();
+      if (refCheckData && refCheckData.length > 0) {
+        referrerId = refCheckData[0].user_id;
+      }
+    }
+
+    // 2. Register user with Supabase Auth
     const authResponse = await fetch(`${supabaseUrl}/auth/v1/signup`, {
       method: 'POST',
       headers: {
@@ -53,13 +65,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Upsert profile record because the auth trigger may already create it.
+    // 3. Upsert profile record
     const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?on_conflict=id`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${serviceRoleKey}`,
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates,return=representation',
+        'apikey': serviceRoleKey,
       },
       body: JSON.stringify({
         id: authData.id,
@@ -70,6 +83,24 @@ Deno.serve(async (req) => {
     });
 
     const profileData = await profileResponse.json();
+
+    // 4. Record Referral link if applicable
+    if (referrerId && authData.id) {
+      await fetch(`${supabaseUrl}/rest/v1/referrals`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+          'apikey': serviceRoleKey,
+        },
+        body: JSON.stringify({
+          referrer_id: referrerId,
+          referred_id: authData.id,
+          status: 'pending',
+          reward_amount: 50000, // 50k VND bonus
+        }),
+      });
+    }
 
     return new Response(
       JSON.stringify({

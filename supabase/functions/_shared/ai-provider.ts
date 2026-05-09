@@ -134,6 +134,7 @@ export interface PriceInput {
   diagnosis: string;
   location: { lat: number; lng: number };
   urgency: 'low' | 'medium' | 'high' | 'emergency';
+  multipliers?: Record<string, number>;
 }
 
 export interface PriceOutput {
@@ -578,6 +579,16 @@ Mức độ khẩn cấp: ${input.urgency}
         userPrompt += `- ${pb.description || pb.subcategory || 'Chung'}: ${pb.min_price} - ${pb.max_price} VND (giá chuẩn: ${pb.standard_price} VND / ${pb.price_unit})\n`;
       });
       userPrompt += `\nHãy dựa vào bảng giá trên để đưa ra giá phù hợp. estimated_price nên nằm trong khoảng min-max.`;
+    }
+
+    if (input.multipliers) {
+      userPrompt += `\nÁp dụng các hệ số tăng giá (Surge Pricing):\n`;
+      for (const [key, val] of Object.entries(input.multipliers)) {
+        if (val > 1) {
+          userPrompt += `- ${key}: x${val}\n`;
+        }
+      }
+      userPrompt += `\nHãy nhân giá cơ sở với các hệ số này và giải thích rõ trong price_breakdown.`;
     }
 
     userPrompt += `\nTrả về JSON định giá:`;

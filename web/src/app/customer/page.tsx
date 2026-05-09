@@ -60,6 +60,7 @@ export default function CustomerDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [referralCode, setReferralCode] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -69,7 +70,7 @@ export default function CustomerDashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
-      await Promise.all([fetchOrders(), fetchDevices()])
+      await Promise.all([fetchOrders(), fetchDevices(), fetchReferralCode()])
     } catch (error: any) {
       toast(error.message || 'Lỗi tải dữ liệu', 'error')
     } finally {
@@ -95,6 +96,17 @@ export default function CustomerDashboard() {
       .from('device_profiles').select('*')
       .eq('user_id', session.user.id).limit(3)
     setDevices(data || [])
+  }
+
+  async function fetchReferralCode() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const { data } = await supabase
+      .from('user_referral_codes')
+      .select('code')
+      .eq('user_id', session.user.id)
+      .single()
+    if (data) setReferralCode(data.code)
   }
 
   const filteredOrders = useMemo(() => {
@@ -320,6 +332,50 @@ export default function CustomerDashboard() {
 
           {/* Sidebar — 1/3 */}
           <div className="space-y-4 animate-fade-in-up delay-400">
+            {/* Referral Program — NEW */}
+            <div className="card p-5 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-blue-500/20 transition-all duration-500" />
+              <h2 className="text-base font-bold text-[hsl(var(--vf-text))] mb-2 flex items-center gap-2">
+                🎁 Mời bạn bè
+              </h2>
+              <p className="text-xs text-[hsl(var(--vf-text-secondary))] mb-4 leading-relaxed">
+                Chia sẻ mã giới thiệu và nhận ngay 50.000₫ vào ví cho mỗi người bạn hoàn thành đơn hàng đầu tiên.
+              </p>
+              
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-[hsl(var(--vf-bg-subtle))] border border-dashed border-[hsl(var(--vf-border))] group-hover:border-blue-500/50 transition-colors">
+                <code className="flex-1 font-mono font-bold text-blue-600 text-center tracking-widest uppercase">
+                  {referralCode || 'ĐANG TẠO...'}
+                </code>
+                <button 
+                  onClick={() => {
+                    if (referralCode) {
+                      navigator.clipboard.writeText(referralCode);
+                      toast('Đã copy mã giới thiệu!', 'success');
+                    }
+                  }}
+                  className="p-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors shadow-sm"
+                  title="Copy mã"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
+              </div>
+              <button 
+                onClick={() => {
+                  if (referralCode) {
+                    const text = `Sửa đồ tại nhà chuyên nghiệp với Vifixa AI. Dùng mã ${referralCode} để được giảm 10% đơn đầu tiên: https://vifixa.com/register?ref=${referralCode}`;
+                    navigator.share?.({ title: 'Vifixa AI', text, url: 'https://vifixa.com' })
+                      .catch(() => {
+                        navigator.clipboard.writeText(text);
+                        toast('Đã copy link mời!', 'success');
+                      });
+                  }
+                }}
+                className="w-full mt-3 py-2 text-xs font-bold text-blue-500 hover:bg-blue-50 rounded-xl transition-colors"
+              >
+                Chia sẻ ngay →
+              </button>
+            </div>
+
             {/* Devices */}
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4">

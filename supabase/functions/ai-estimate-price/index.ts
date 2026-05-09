@@ -30,6 +30,29 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Missing required fields: category, diagnosis' }, 400);
     }
 
+    // --- SMART PRICING ENGINE: Calculate Multipliers ---
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const multipliers: Record<string, number> = {};
+
+    // 1. Time-based (Night shift: 20:00 - 06:00)
+    if (hour >= 20 || hour < 6) {
+      multipliers['Phụ phí ngoài giờ (Ca đêm)'] = 1.3;
+    }
+
+    // 2. Day-based (Weekend)
+    if (day === 0 || day === 6) {
+      multipliers['Phụ phí cuối tuần'] = 1.1;
+    }
+
+    // 3. Urgency-based
+    if (urgency === 'emergency') {
+      multipliers['Phí xử lý khẩn cấp (Emergency)'] = 1.5;
+    } else if (urgency === 'high') {
+      multipliers['Phí ưu tiên xử lý sớm (High)'] = 1.2;
+    }
+
     const requestId = crypto.randomUUID();
 
     // Fetch real price standards for this category & location
@@ -42,31 +65,18 @@ Deno.serve(async (req) => {
 
     const ai = createAIProvider(requestId);
 
-    // Inject price bands into the pricing call if available
-    if (priceBands && priceBands.length > 0) {
-      const priceEstimate = await ai.estimatePrice(
-        { category, diagnosis, location, urgency },
-        priceBands,
-      );
+    const priceInput = { category, diagnosis, location, urgency, multipliers };
 
-      await supabase.from('ai_logs').insert({
-        user_id: user.id,
-        request_id: requestId,
-        agent_type: 'pricing',
-        input: { category, diagnosis, location, urgency, price_bands_used: priceBands.length },
-        output: priceEstimate,
-      });
-
-      return jsonResponse(priceEstimate);
-    }
-
-    const priceEstimate = await ai.estimatePrice({ category, diagnosis, location, urgency });
+    const priceEstimate = await ai.estimatePrice(
+      priceInput,
+      priceBands || []
+    );
 
     await supabase.from('ai_logs').insert({
       user_id: user.id,
       request_id: requestId,
       agent_type: 'pricing',
-      input: { category, diagnosis, location, urgency },
+      input: priceInput,
       output: priceEstimate,
     });
 

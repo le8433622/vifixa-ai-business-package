@@ -3,10 +3,11 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function Register() {
+function RegisterForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -15,6 +16,13 @@ export default function Register() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [referralCode, setReferralCode] = useState('');
+
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) setReferralCode(ref);
+  }, [searchParams]);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
@@ -25,7 +33,7 @@ export default function Register() {
       const response = await fetch('/api/ai/auth-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, phone, role }),
+        body: JSON.stringify({ email, password, phone, role, referral_code: referralCode }),
       });
 
       const data = await response.json();
@@ -152,6 +160,13 @@ export default function Register() {
               />
             </div>
 
+            {referralCode && (
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 flex items-center justify-between">
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">🎁 Mã giới thiệu: <strong>{referralCode}</strong></span>
+                <button type="button" onClick={() => setReferralCode('')} className="text-blue-400 hover:text-blue-600">✕</button>
+              </div>
+            )}
+
             <button
               type="submit" disabled={loading}
               className="w-full btn-primary !py-3.5 text-base disabled:opacity-50 disabled:cursor-not-allowed"
@@ -178,5 +193,13 @@ export default function Register() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }
