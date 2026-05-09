@@ -1,22 +1,18 @@
 name: AI Functions CI
-
 on:
   push:
-    branches: [main, develop]
+    branches: [main, staging]
     paths:
-      - 'supabase/functions/_shared/**'
       - 'supabase/functions/ai-*/**'
       - 'scripts/test-ai-functions.sh'
   pull_request:
     paths:
-      - 'supabase/functions/_shared/**'
       - 'supabase/functions/ai-*/**'
+      - 'scripts/test-ai-functions.sh'
 
 env:
   SUPABASE_URL: https://lipjakzhzosrhttsltwo.supabase.co
   SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-  TEST_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-  TEST_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
 jobs:
   lint:
@@ -26,54 +22,22 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: TypeScript check
+      - name: TypeScript check AI functions
         run: |
           for fn in supabase/functions/ai-*/index.ts; do
             echo "Checking $fn..."
             deno check "$fn" 2>&1 || true
           done
 
-  test:
+  integration-test:
     needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Run AI function integration tests
-        run: |
-          chmod +x scripts/test-ai-functions.sh
-          ./scripts/test-ai-functions.sh "$TEST_EMAIL" "$TEST_PASSWORD"
         env:
           TEST_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-
-  deploy-staging:
-    needs: test
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: |
-          supabase link --project-ref "$STAGING_PROJECT_REF"
-          supabase functions deploy ai-diagnose ai-estimate-price ai-matching ai-quality ai-dispute ai-coach ai-predict ai-chat
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
-
-  deploy-production:
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: |
-          supabase link --project-ref "$PRODUCTION_PROJECT_REF"
-          supabase functions deploy ai-diagnose ai-estimate-price ai-matching ai-quality ai-dispute ai-coach ai-predict ai-chat
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
+        run: |
+          chmod +x scripts/test-ai-functions.sh
+          ./scripts/test-ai-functions.sh "$TEST_EMAIL" "$TEST_PASSWORD"

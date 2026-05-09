@@ -18,9 +18,20 @@ Bộ tài liệu này mô tả đầy đủ dự án kinh doanh **Vifixa AI**.
 
 - **AI API Docs**: `docs/ai-api.md` — tài liệu API 8 functions (endpoint, request/response, env vars)
 - **Rollback Plan**: `docs/rollback-plan.md` — hướng dẫn rollback functions + migrations
-- **CI/CD Secrets**: `docs/ci-secrets-guide.md` — cấu hình GitHub secrets
+- **CI/CD & Secrets**: `docs/ci-secrets-guide.md` — environments, secrets, workflows, branch protection
 - **Staging & Canary**: `docs/staging-canary.md` — staging project + chiến lược canary
 - **Checkpoint**: `docs/CHECKPOINT_SYSTEM_STATE.md` — snapshot hệ thống (tag v0.1.0-payment-smart-system)
+
+## CI/CD Pipeline
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | Every push/PR | Lint, typecheck, quality gates, build, integration tests |
+| `deploy-vercel.yml` | Push main/staging, PR | Vercel preview + staging + production |
+| `deploy-supabase.yml` | Push supabase/ changes | Deno check + all edge functions + migrations |
+| `ai-tests.yml` | AI function changes | Lint + integration tests |
+
+See `docs/ci-secrets-guide.md` for full secrets & environments setup.
 
 ## Quick Start (Developers)
 
