@@ -55,7 +55,7 @@ jobs:
           errors=0
           for fn in supabase/functions/*/index.ts; do
             echo "Checking $fn..."
-            if ! deno check "$fn" 2>/dev/null; then
+            if ! deno check --config supabase/deno.json "$fn" 2>&1; then
               echo "FAIL: $fn"
               errors=$((errors + 1))
             fi

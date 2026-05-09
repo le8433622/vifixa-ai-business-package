@@ -20,7 +20,7 @@ jobs:
       - name: Deno check all edge functions
         run: |
           for fn in supabase/functions/*/index.ts; do
-            deno check "$fn" 2>/dev/null || { echo "FAIL: $fn"; exit 1; }
+            deno check --config supabase/deno.json "$fn" 2>&1 || { echo "FAIL: $fn"; exit 1; }
           done
       - name: Quality gates
         run: |
