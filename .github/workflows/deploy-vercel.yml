@@ -19,6 +19,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Update Vercel CLI
         run: npm i -g vercel@latest
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: ./web
       - uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -37,6 +40,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Vercel CLI
         run: npm install -g vercel
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: ./web
       - name: Pull Vercel environment
         run: |
           cd web
@@ -70,6 +76,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Update Vercel CLI
+        run: npm i -g vercel@latest
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+        working-directory: ./web
       - uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -79,5 +90,3 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           working-directory: ./web
           scope: ${{ secrets.VERCEL_ORG_ID }}
-      - name: Update Vercel CLI
-        run: npm i -g vercel@latest
