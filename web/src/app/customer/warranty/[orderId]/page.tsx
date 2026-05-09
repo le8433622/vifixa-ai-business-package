@@ -9,6 +9,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
+interface WarrantyOrder {
+  id: string;
+  category: string;
+  description: string;
+  status: string;
+  completed_at?: string;
+}
+
 export default function CustomerWarrantyPage() {
   const router = useRouter();
   const params = useParams();
@@ -20,7 +28,7 @@ export default function CustomerWarrantyPage() {
   const [error, setError] = useState('');
 
   // Fetch order details and check warranty eligibility
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading } = useQuery<WarrantyOrder | null>({
     queryKey: ['order', orderId],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -29,14 +37,14 @@ export default function CustomerWarrantyPage() {
         return null;
       }
 
-      const { data, error } = await supabase
-        .from('orders' as any)
+      const { data, error } = await (supabase as any)
+        .from('orders')
         .select('*')
         .eq('id', orderId)
         .single();
 
       if (error) throw error;
-      return data;
+      return data as WarrantyOrder;
     },
   });
 
@@ -62,8 +70,8 @@ export default function CustomerWarrantyPage() {
       if (!session) throw new Error('Chưa đăng nhập');
 
       // Create warranty claim
-      const { error } = await supabase
-        .from('warranty_claims' as any)
+      const { error } = await (supabase as any)
+        .from('warranty_claims')
         .insert({
           order_id: orderId,
           customer_id: session.user.id,
@@ -74,8 +82,8 @@ export default function CustomerWarrantyPage() {
       if (error) throw error;
 
       // Create dispute for the order
-      const { error: disputeError } = await supabase
-        .from('orders' as any)
+      const { error: disputeError } = await (supabase as any)
+        .from('orders')
         .update({ status: 'disputed' } as any)
         .eq('id', orderId);
 

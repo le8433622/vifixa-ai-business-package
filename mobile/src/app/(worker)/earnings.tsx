@@ -56,7 +56,7 @@ export default function EarningsScreen() {
     try {
       const { data: orders, error } = await supabase
         .from('orders')
-        .select('id, category, completed_at, actual_price, estimated_price, status')
+        .select('id, category, completed_at, created_at, actual_price, estimated_price, status')
         .eq('worker_id', userId)
         .eq('status', 'completed')
         .order('completed_at', { ascending: false })

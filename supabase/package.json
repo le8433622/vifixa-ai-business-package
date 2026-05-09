@@ -2,6 +2,7 @@
   "name": "supabase-functions",
   "version": "1.0.0",
   "scripts": {
-    "test": "echo 'Edge Function tests not yet implemented' && exit 0"
-  }
+    "test": "node --test --experimental-strip-types functions/ai-chat/test.ts"
+  },
+  "type": "module"
 }

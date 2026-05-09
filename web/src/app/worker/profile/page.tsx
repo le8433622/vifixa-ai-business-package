@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -61,12 +61,12 @@ export default function WebWorkerProfile() {
   const [uploading, setUploading] = useState(false);
 
   // Update local state when profile loads
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setSkills(profile.skills || []);
       setServiceAreas(profile.service_areas || []);
     }
-  });
+  }, [profile]);
 
   async function saveProfile() {
     setSaving(true);
@@ -74,7 +74,7 @@ export default function WebWorkerProfile() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('workers')
         .update({ skills, service_areas: serviceAreas })
         .eq('user_id', session.user.id);

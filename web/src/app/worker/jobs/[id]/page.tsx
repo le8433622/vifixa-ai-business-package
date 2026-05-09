@@ -61,7 +61,7 @@ export default function WorkerJobDetailPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('orders')
         .select(`
           *,
@@ -72,11 +72,13 @@ export default function WorkerJobDetailPage() {
         .single()
 
       if (error) throw error
+      const row = data as (Job & { profiles?: { full_name?: string; phone?: string } }) | null
+      if (!row) throw new Error('Không tìm thấy công việc')
       
       setJob({
-        ...data,
-        customer_name: data.profiles?.full_name,
-        customer_phone: data.profiles?.phone,
+        ...row,
+        customer_name: row.profiles?.full_name,
+        customer_phone: row.profiles?.phone,
       })
     } catch (error: any) {
       console.error('fetchJob error:', error)
@@ -98,7 +100,7 @@ export default function WorkerJobDetailPage() {
         updates.completed_at = new Date().toISOString()
       }
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('orders')
         .update(updates)
         .eq('id', jobId)
