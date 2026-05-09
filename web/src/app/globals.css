@@ -1,26 +1,350 @@
 @import "tailwindcss";
 
+/* ========================================
+   VIFIXA AI v2.0 — DESIGN SYSTEM
+   Premium Dark/Light Mode
+   ======================================== */
+
 :root {
+  /* Brand Colors */
+  --vf-primary: 222 100% 61%;
+  --vf-primary-light: 217 100% 96%;
+  --vf-accent: 165 82% 51%;
+  --vf-accent-glow: 165 100% 70%;
+
+  /* Semantic Colors */
+  --vf-success: 160 84% 39%;
+  --vf-warning: 38 92% 50%;
+  --vf-danger: 0 84% 60%;
+  --vf-info: 217 91% 60%;
+
+  /* Surfaces */
+  --vf-bg: 0 0% 100%;
+  --vf-bg-subtle: 220 14% 96%;
+  --vf-bg-muted: 220 13% 91%;
+  --vf-surface: 0 0% 100%;
+  --vf-surface-raised: 0 0% 100%;
+  --vf-overlay: 0 0% 0%;
+
+  /* Text */
+  --vf-text: 222 47% 11%;
+  --vf-text-secondary: 215 16% 47%;
+  --vf-text-muted: 215 20% 65%;
+  --vf-text-inverse: 0 0% 100%;
+
+  /* Borders */
+  --vf-border: 220 13% 91%;
+  --vf-border-subtle: 220 14% 96%;
+
+  /* Shadows */
+  --vf-shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+  --vf-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.07), 0 2px 4px -2px hsl(0 0% 0% / 0.05);
+  --vf-shadow-lg: 0 10px 25px -3px hsl(0 0% 0% / 0.08), 0 4px 10px -4px hsl(0 0% 0% / 0.04);
+  --vf-shadow-xl: 0 20px 50px -12px hsl(0 0% 0% / 0.15);
+  --vf-shadow-glow: 0 0 30px hsl(var(--vf-primary) / 0.15);
+
+  /* Gradients */
+  --vf-gradient-primary: linear-gradient(135deg, hsl(222 100% 61%), hsl(265 83% 57%));
+  --vf-gradient-accent: linear-gradient(135deg, hsl(165 82% 51%), hsl(190 95% 39%));
+  --vf-gradient-warm: linear-gradient(135deg, hsl(25 95% 53%), hsl(350 80% 60%));
+  --vf-gradient-hero: linear-gradient(135deg, hsl(222 89% 12%) 0%, hsl(250 60% 20%) 50%, hsl(280 50% 15%) 100%);
+
+  /* Spacing & Radius */
+  --vf-radius-sm: 8px;
+  --vf-radius: 12px;
+  --vf-radius-lg: 16px;
+  --vf-radius-xl: 24px;
+  --vf-radius-full: 9999px;
+
+  /* Glass */
+  --vf-glass-bg: hsl(0 0% 100% / 0.7);
+  --vf-glass-border: hsl(0 0% 100% / 0.2);
+  --vf-glass-blur: 16px;
+
+  /* Fonts */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-jakarta), var(--font-inter), system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --vf-bg: 222 47% 6%;
+    --vf-bg-subtle: 222 40% 10%;
+    --vf-bg-muted: 222 30% 15%;
+    --vf-surface: 222 40% 10%;
+    --vf-surface-raised: 222 35% 13%;
+    --vf-text: 210 40% 98%;
+    --vf-text-secondary: 215 20% 65%;
+    --vf-text-muted: 215 15% 45%;
+    --vf-border: 222 30% 18%;
+    --vf-border-subtle: 222 30% 14%;
+    --vf-glass-bg: hsl(222 40% 10% / 0.7);
+    --vf-glass-border: hsl(0 0% 100% / 0.08);
+    --vf-shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.2);
+    --vf-shadow: 0 4px 6px -1px hsl(0 0% 0% / 0.3);
+    --vf-shadow-lg: 0 10px 25px -3px hsl(0 0% 0% / 0.4);
+    --background: #0a0f1e;
+    --foreground: #f1f5f9;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-8px); opacity: 1; }
+}
+
+.animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+.animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+.animate-slide-right { animation: slideInRight 0.5s ease-out forwards; }
+.animate-slide-left { animation: slideInLeft 0.5s ease-out forwards; }
+.animate-scale-in { animation: scaleIn 0.4s ease-out forwards; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-gradient { animation: gradient-shift 8s ease infinite; background-size: 200% 200%; }
+.animate-shimmer { animation: shimmer 2s infinite; background-size: 200% 100%; }
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* ========================================
+   GLASSMORPHISM UTILITIES
+   ======================================== */
+
+.glass {
+  background: var(--vf-glass-bg);
+  backdrop-filter: blur(var(--vf-glass-blur));
+  -webkit-backdrop-filter: blur(var(--vf-glass-blur));
+  border: 1px solid var(--vf-glass-border);
+}
+
+.glass-strong {
+  background: hsl(var(--vf-surface) / 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--vf-glass-border);
+}
+
+/* ========================================
+   GRADIENT BACKGROUNDS
+   ======================================== */
+
+.bg-gradient-hero {
+  background: var(--vf-gradient-hero);
+}
+
+.bg-gradient-primary {
+  background: var(--vf-gradient-primary);
+}
+
+.bg-gradient-accent {
+  background: var(--vf-gradient-accent);
+}
+
+.bg-mesh {
+  background-color: hsl(222 89% 6%);
+  background-image:
+    radial-gradient(at 40% 20%, hsl(265 83% 25% / 0.4) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, hsl(222 100% 30% / 0.3) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, hsl(190 95% 25% / 0.2) 0px, transparent 50%),
+    radial-gradient(at 80% 80%, hsl(340 80% 20% / 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, hsl(222 100% 20% / 0.2) 0px, transparent 50%);
+}
+
+/* ========================================
+   CARD STYLES
+   ======================================== */
+
+.card {
+  background: hsl(var(--vf-surface));
+  border: 1px solid hsl(var(--vf-border));
+  border-radius: var(--vf-radius-lg);
+  box-shadow: var(--vf-shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  box-shadow: var(--vf-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.card-glass {
+  background: var(--vf-glass-bg);
+  backdrop-filter: blur(var(--vf-glass-blur));
+  -webkit-backdrop-filter: blur(var(--vf-glass-blur));
+  border: 1px solid var(--vf-glass-border);
+  border-radius: var(--vf-radius-lg);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-glass:hover {
+  background: hsl(var(--vf-surface) / 0.8);
+  transform: translateY(-2px);
+  box-shadow: var(--vf-shadow-glow);
+}
+
+/* ========================================
+   BUTTON STYLES
+   ======================================== */
+
+.btn-primary {
+  background: var(--vf-gradient-primary);
+  color: white;
+  font-weight: 600;
+  border-radius: var(--vf-radius);
+  padding: 12px 28px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px hsl(var(--vf-primary) / 0.3);
+  cursor: pointer;
+  border: none;
+  font-size: 0.95rem;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px hsl(var(--vf-primary) / 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: hsl(var(--vf-text));
+  font-weight: 500;
+  border-radius: var(--vf-radius);
+  padding: 12px 28px;
+  border: 1px solid hsl(var(--vf-border));
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.btn-ghost:hover {
+  background: hsl(var(--vf-bg-subtle));
+  border-color: hsl(var(--vf-text-muted));
+}
+
+/* ========================================
+   CHAT BUBBLE STYLES
+   ======================================== */
+
+.bubble-user {
+  background: var(--vf-gradient-primary);
+  color: white;
+  border-radius: 20px 20px 4px 20px;
+  padding: 14px 18px;
+  max-width: 80%;
+  box-shadow: 0 2px 10px hsl(var(--vf-primary) / 0.2);
+}
+
+.bubble-ai {
+  background: hsl(var(--vf-bg-subtle));
+  color: hsl(var(--vf-text));
+  border-radius: 20px 20px 20px 4px;
+  padding: 14px 18px;
+  max-width: 80%;
+  border: 1px solid hsl(var(--vf-border));
+}
+
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(var(--vf-text-muted));
+  display: inline-block;
+}
+
+.typing-dot:nth-child(1) { animation: typing-dot 1.4s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation: typing-dot 1.4s ease-in-out 0.2s infinite; }
+.typing-dot:nth-child(3) { animation: typing-dot 1.4s ease-in-out 0.4s infinite; }
+
+/* ========================================
+   SCROLLBAR
+   ======================================== */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--vf-text-muted) / 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--vf-text-muted) / 0.5); }
+
+/* ========================================
+   SELECTION
+   ======================================== */
+
+::selection {
+  background: hsl(var(--vf-primary) / 0.2);
+  color: hsl(var(--vf-text));
 }
