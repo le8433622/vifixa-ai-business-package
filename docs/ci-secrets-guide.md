@@ -72,7 +72,7 @@ echo -n "lipjakzhzosrhttsltwo" | gh secret set SUPABASE_PROJECT_REF --env Produc
 - ✅ Require status checks: `typecheck`, `build`
 - ✅ Strict status checks (branch must be up-to-date)
 - ✅ Require linear history
-- ✅ Enforce for admins
+- ❌ Enforce for admins *(disabled for solo dev — admins can push directly)*
 - ❌ Force pushes disabled
 - ❌ Deletions disabled
 
