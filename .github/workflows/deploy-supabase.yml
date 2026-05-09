@@ -53,7 +53,7 @@ jobs:
   deploy-production:
     name: Deploy to Production Supabase
     if: github.ref == 'refs/heads/main'
-    needs: [lint, deploy-staging]
+    needs: [lint]
     environment: Production
     runs-on: ubuntu-latest
     steps:
