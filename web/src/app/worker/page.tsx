@@ -1,6 +1,5 @@
-// Worker Dashboard Page
-// Per 05_PRODUCT_SOLUTION.md - Worker flow
-// Per Step 3: Build worker flows
+// Vifixa AI v2.0 — Premium Worker Dashboard
+// Gradient stats, earnings overview, job cards with status
 
 'use client';
 
@@ -25,40 +24,58 @@ interface Earnings {
   trust_score: number;
 }
 
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  pending: { label: 'Chờ nhận', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+  matched: { label: 'Đã ghép', color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200' },
+  in_progress: { label: 'Đang làm', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+  completed: { label: 'Hoàn thành', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+  cancelled: { label: 'Đã hủy', color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' },
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  electricity: '⚡', plumbing: '🚿', appliance: '🔧',
+  air_conditioning: '❄️', camera: '📷', painting: '🎨',
+  lock_smith: '🔑',
+};
+
+const NAV_ITEMS = [
+  { emoji: '📋', label: 'Việc mới', href: '/worker/jobs' },
+  { emoji: '💰', label: 'Thu nhập', href: '/worker/earnings' },
+  { emoji: '📜', label: 'Lịch sử', href: '/worker/history' },
+  { emoji: '🤖', label: 'AI Coach', href: '/worker/coach' },
+  { emoji: '🛡️', label: 'Trust', href: '/worker/trust' },
+  { emoji: '👤', label: 'Hồ sơ', href: '/worker/profile' },
+];
+
+function formatVnd(amount: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+}
+
 export default function WorkerDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/');
-        return;
-      }
+      if (!session) { router.push('/'); return; }
 
-      // Fetch jobs
-      const jobsResponse = await fetch('/api/ai/worker-jobs?action=jobs', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-      const jobsData = await jobsResponse.json();
+      const [jobsRes, earningsRes] = await Promise.all([
+        fetch('/api/ai/worker-jobs?action=jobs', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        }),
+        fetch('/api/ai/worker-jobs?action=earnings', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        }),
+      ]);
+
+      const jobsData = await jobsRes.json();
+      const earningsData = await earningsRes.json();
       setJobs(jobsData.jobs || []);
-
-      // Fetch earnings
-      const earningsResponse = await fetch('/api/ai/worker-jobs?action=earnings', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-      const earningsData = await earningsResponse.json();
       setEarnings(earningsData);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -67,85 +84,148 @@ export default function WorkerDashboard() {
     }
   }
 
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Worker Dashboard</h1>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--vf-bg))]">
+        <div className="w-12 h-12 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-      {earnings && (
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Total Earnings</p>
-            <p className="text-2xl font-bold">${earnings.total_earnings}</p>
+  return (
+    <div className="min-h-screen bg-[hsl(var(--vf-bg))]">
+      {/* Nav */}
+      <nav className="sticky top-0 z-40 glass-strong border-b border-[hsl(var(--vf-border))]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">V</div>
+            <span className="font-bold text-[hsl(var(--vf-text))]">Thợ chuyên nghiệp</span>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Completed Jobs</p>
-            <p className="text-2xl font-bold">{earnings.completed_jobs}</p>
-          </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Avg per Job</p>
-            <p className="text-2xl font-bold">${earnings.avg_earnings}</p>
-          </div>
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Trust Score</p>
-            <p className="text-2xl font-bold">{earnings.trust_score}</p>
+          <div className="flex gap-1 overflow-x-auto">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap text-[hsl(var(--vf-text-secondary))] hover:bg-[hsl(var(--vf-bg-subtle))] hover:text-[hsl(var(--vf-text))] transition-all"
+              >
+                <span>{item.emoji}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </nav>
 
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => router.push('/worker/jobs')}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-        >
-          View All Jobs
-        </button>
-        <button
-          onClick={() => router.push('/worker/profile')}
-          className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={() => router.push('/worker/earnings')}
-          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
-        >
-          Earnings Details
-        </button>
-      </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 p-8 animate-fade-in-up">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-[60px]" />
+            <div className="absolute bottom-0 left-1/4 w-32 h-32 bg-white/5 rounded-full blur-[40px]" />
+          </div>
+          <div className="relative z-10">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-display)' }}>
+              Xin chào! 🔧
+            </h1>
+            <p className="text-emerald-100/70 mb-4">
+              Hôm nay có {jobs.filter(j => j.status === 'pending' || j.status === 'matched').length} việc đang chờ bạn.
+            </p>
+            <button
+              onClick={() => router.push('/worker/jobs')}
+              className="inline-flex items-center gap-2 bg-white text-emerald-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-50 transition-all shadow-lg"
+            >
+              📋 Xem việc mới
+            </button>
+          </div>
+        </div>
 
-      <h2 className="text-2xl font-semibold mb-4">Recent Jobs</h2>
-
-      {loading ? (
-        <p>Loading...</p>
-      ) : jobs.length === 0 ? (
-        <p className="text-gray-600">No jobs assigned yet.</p>
-      ) : (
-        <div className="space-y-4">
-          {jobs.slice(0, 5).map((job) => (
-            <div key={job.id} className="border rounded-lg p-4 hover:shadow-lg transition">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-semibold">{job.category}</h3>
-                  <p className="text-gray-600 mt-2">{job.description}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-sm ${
-                  job.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {job.status}
-                </span>
-              </div>
-              <button
-                onClick={() => router.push(`/worker/jobs/${job.id}`)}
-                className="mt-3 text-blue-600 hover:underline"
-              >
-                View Details
-              </button>
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up delay-100">
+          {[
+            { icon: '💰', value: earnings ? formatVnd(earnings.total_earnings) : '0₫', label: 'Thu nhập', color: 'from-emerald-500/10 to-emerald-500/5' },
+            { icon: '✅', value: earnings?.completed_jobs || 0, label: 'Đơn hoàn thành', color: 'from-blue-500/10 to-blue-500/5' },
+            { icon: '📊', value: earnings ? formatVnd(earnings.avg_earnings) : '0₫', label: 'TB/đơn', color: 'from-violet-500/10 to-violet-500/5' },
+            { icon: '🛡️', value: earnings?.trust_score || 0, label: 'Trust Score', color: 'from-amber-500/10 to-amber-500/5' },
+          ].map((stat) => (
+            <div key={stat.label} className={`card p-4 bg-gradient-to-br ${stat.color}`}>
+              <div className="text-2xl mb-2">{stat.icon}</div>
+              <div className="text-lg sm:text-xl font-bold text-[hsl(var(--vf-text))] truncate">{stat.value}</div>
+              <div className="text-xs text-[hsl(var(--vf-text-muted))] mt-0.5">{stat.label}</div>
             </div>
           ))}
         </div>
-      )}
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up delay-200">
+          {[
+            { emoji: '📋', label: 'Việc mới', href: '/worker/jobs', gradient: 'from-blue-500 to-indigo-500' },
+            { emoji: '💰', label: 'Thu nhập', href: '/worker/earnings', gradient: 'from-emerald-500 to-teal-500' },
+            { emoji: '🤖', label: 'AI Coach', href: '/worker/coach', gradient: 'from-violet-500 to-purple-500' },
+            { emoji: '🛡️', label: 'Xác minh', href: '/worker/verify', gradient: 'from-amber-500 to-orange-500' },
+          ].map((action) => (
+            <button
+              key={action.label}
+              onClick={() => router.push(action.href)}
+              className="group card p-4 text-center hover:!shadow-xl"
+            >
+              <div className={`w-12 h-12 mx-auto rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform shadow-md`}>
+                {action.emoji}
+              </div>
+              <p className="text-sm font-medium text-[hsl(var(--vf-text))]">{action.label}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Recent Jobs */}
+        <div className="card p-5 animate-fade-in-up delay-300">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-bold text-[hsl(var(--vf-text))]">📋 Việc gần đây</h2>
+            <button onClick={() => router.push('/worker/jobs')} className="text-sm text-blue-500 hover:text-blue-400 font-medium">
+              Xem tất cả →
+            </button>
+          </div>
+
+          {jobs.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-5xl mb-4">📭</div>
+              <p className="text-[hsl(var(--vf-text-secondary))]">Chưa có việc nào</p>
+              <p className="text-sm text-[hsl(var(--vf-text-muted))] mt-1">Hoàn tất hồ sơ và xác minh để nhận việc</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {jobs.slice(0, 5).map((job, i) => {
+                const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
+                return (
+                  <div
+                    key={job.id}
+                    className="p-4 rounded-xl border border-[hsl(var(--vf-border))] hover:border-emerald-500/30 hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => router.push(`/worker/jobs/${job.id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{CATEGORY_ICONS[job.category] || '📦'}</span>
+                          <span className="font-semibold text-[hsl(var(--vf-text))] text-sm capitalize">{job.category?.replace('_', ' ')}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.color}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[hsl(var(--vf-text-secondary))] line-clamp-1">{job.description}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-[hsl(var(--vf-text))]">{formatVnd(job.estimated_price)}</p>
+                        <p className="text-xs text-[hsl(var(--vf-text-muted))] mt-1">
+                          {new Date(job.created_at).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
