@@ -28,44 +28,43 @@ export default function WorkerHistoryPage() {
   const router = useRouter()
 
   useEffect(() => {
+    async function fetchJobs() {
+      try {
+        setError(null)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('worker_id', session.user.id)
+          .in('status', ['completed', 'cancelled'])
+          .order('completed_at', { ascending: false, nullsFirst: false })
+
+        if (error) throw error
+        setJobs(data as Job[])
+      } catch (error: unknown) {
+        console.error('fetchJobs error:', error)
+        setError(error instanceof Error ? error.message : 'Không thể tải lịch sử')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        fetchJobs()
+      } catch (error: unknown) {
+        console.error('checkUser error:', error)
+      }
+    }
     checkUser()
   }, [])
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-      fetchJobs()
-    } catch (error: any) {
-      console.error('checkUser error:', error)
-    }
-  }
-
-  async function fetchJobs() {
-    try {
-      setError(null)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data, error } = await supabase
-        .from('orders' as any)
-        .select('*')
-        .eq('worker_id', session.user.id)
-        .in('status', ['completed', 'cancelled'])
-        .order('completed_at', { ascending: false, nullsFirst: false })
-
-      if (error) throw error
-      setJobs(data as Job[])
-    } catch (error: any) {
-      console.error('fetchJobs error:', error)
-      setError(error.message || 'Không thể tải lịch sử')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function getCategoryIcon(category: string) {
     const icons: Record<string, string> = {
@@ -233,7 +232,7 @@ export default function WorkerHistoryPage() {
 
                   {job.feedback && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600 italic">"{job.feedback}"</p>
+                      <p className="text-sm text-gray-600 italic">&ldquo;{job.feedback}&rdquo;</p>
                     </div>
                   )}
                 </div>

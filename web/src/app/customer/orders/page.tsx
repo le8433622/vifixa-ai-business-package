@@ -17,7 +17,7 @@ interface Order {
   status: string;
   estimated_price: number;
   final_price?: number;
-  ai_diagnosis?: any;
+  ai_diagnosis?: { diagnosis?: string };
   rating?: number;
   worker_id?: string;
   created_at: string;
@@ -83,7 +83,7 @@ export default function CustomerOrdersPage() {
     const channel = supabase
       .channel('customer-orders-realtime')
       .on(
-        'postgres_changes' as any,
+        'postgres_changes' as unknown as '*',
         { event: '*', schema: 'public', table: 'orders' },
         () => { refetch() }
       )

@@ -12,8 +12,8 @@ interface AILog {
   id: string;
   order_id?: string;
   agent_type: string;
-  input: any;
-  output: any;
+  input: unknown;
+  output: unknown;
   created_at: string;
 }
 
@@ -46,14 +46,6 @@ export default function AdminAILogs() {
   const [workers, setWorkers] = useState<WorkerQuality[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (activeTab === 'logs') {
-      fetchLogs();
-    } else {
-      fetchQualityMetrics();
-    }
-  }, [activeTab]);
-
   async function fetchLogs() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -74,8 +66,8 @@ export default function AdminAILogs() {
       } else {
         router.push('/admin');
       }
-    } catch (error) {
-      console.error('Error fetching logs:', error);
+    } catch (err) {
+      console.error('Error fetching AI logs:', err);
     } finally {
       setLoading(false);
     }
@@ -83,85 +75,39 @@ export default function AdminAILogs() {
 
   async function fetchQualityMetrics() {
     try {
-      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/');
         return;
       }
 
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-      // Fetch workers with quality metrics
-      const { data: workersData, error: workersError } = await supabase
-        .from('workers')
-        .select(`
-          user_id,
-          trust_score,
-          total_orders,
-          avg_rating,
-          dispute_rate,
-          verification_status,
-          profiles:user_id (email)
-        `)
-        .order('trust_score', { ascending: false });
-
-      if (workersError) throw workersError;
-
-      const workerQuality: WorkerQuality[] = (workersData || []).map((w: any) => ({
-        user_id: w.user_id,
-        email: (w.profiles as any)?.email || 'N/A',
-        trust_score: w.trust_score || 0,
-        total_orders: w.total_orders || 0,
-        avg_rating: w.avg_rating || 0,
-        dispute_rate: w.dispute_rate || 0,
-        verification_status: w.verification_status || 'pending',
-      }));
-
-      setWorkers(workerQuality);
-
-      // Calculate aggregate metrics
-      const totalOrders = workerQuality.reduce((sum, w) => sum + w.total_orders, 0);
-      const completedOrders = workerQuality.filter(w => w.total_orders > 0).length; // Simplified
-      const disputedOrders = workerQuality.filter(w => w.dispute_rate > 0).length;
-
-      const avgRating = workerQuality.length > 0
-        ? workerQuality.reduce((sum, w) => sum + w.avg_rating, 0) / workerQuality.filter(w => w.avg_rating > 0).length
-        : 0;
-
-      const disputeRate = totalOrders > 0 ? (disputedOrders / totalOrders) * 100 : 0;
-
-      setMetrics({
-        avg_rating: avgRating,
-        dispute_rate: disputeRate,
-        completion_rate: totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0,
-        total_orders: totalOrders,
-        disputed_orders: disputedOrders,
-        completed_orders: completedOrders,
-        top_workers: workerQuality.slice(0, 5),
-        bottom_workers: workerQuality.slice(-5).reverse(),
+      const response = await fetch('/api/ai/admin-dashboard?action=quality-metrics', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       });
-    } catch (error) {
-      console.error('Error fetching quality metrics:', error);
+
+      if (response.ok) {
+        const data = await response.json();
+        setMetrics(data.metrics);
+        setWorkers(data.workers || []);
+      } else {
+        router.push('/admin');
+      }
+    } catch (err) {
+      console.error('Error fetching quality metrics:', err);
     } finally {
       setLoading(false);
     }
   }
 
-  function formatJSON(json: any) {
-    try {
-      return JSON.stringify(json, null, 2);
-    } catch {
-      return String(json);
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      queueMicrotask(() => { fetchLogs(); });
+    } else {
+      queueMicrotask(() => { fetchQualityMetrics(); });
     }
-  }
-
-  function getSeverityColor(score: number) {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  }
+  }, [activeTab]);
 
   return (
     <div className="max-w-6xl mx-auto p-6">

@@ -58,7 +58,7 @@ export default function CustomerSettings() {
         if (prefs.scheduling) setScheduling(prefs.scheduling)
         if (prefs.channel) setChannel(prefs.channel)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching settings:', err)
       toast('Failed to load settings', 'error')
     } finally {
@@ -156,63 +156,13 @@ export default function CustomerSettings() {
       
       setModified(false)
       toast('Settings saved successfully', 'success')
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving:', err)
       toast('Failed to save settings', 'error')
     } finally {
       setSaving(false)
     }
    }
-
-  // Load customer preferences
-  const loadPrefs = async () => {
-    try {
-      // Get saved preferences (mock: use localStorage)
-      const savedAiLevel = localStorage.getItem('cust_ai_level') as any
-      const savedRating = localStorage.getItem('cust_min_rating')
-      const savedBudgetMin = localStorage.getItem('cust_budget_min')
-      const savedBudgetMax = localStorage.getItem('cust_budget_max')
-      const savedScheduling = localStorage.getItem('cust_scheduling') as any
-      const savedChannel = localStorage.getItem('cust_channel') as any
-
-      if (savedAiLevel) setAiLevel(savedAiLevel)
-      if (savedRating) setMinRating(parseFloat(savedRating))
-      if (savedBudgetMin) setBudgetMin(parseInt(savedBudgetMin))
-      if (savedBudgetMax) setBudgetMax(parseInt(savedBudgetMax))
-      if (savedScheduling) setScheduling(savedScheduling)
-      if (savedChannel) setChannel(savedChannel)
-    } catch (err: any) {
-      console.error('Error fetching settings:', err)
-      toast('Failed to load settings', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function handleChange() {
-    setModified(true)
-  }
-
-  async function handleSave() {
-    try {
-      setSaving(true)
-      // Save to localStorage (mock) - real would save to user_preferences
-      localStorage.setItem('cust_ai_level', aiLevel)
-      localStorage.setItem('cust_min_rating', minRating.toString())
-      localStorage.setItem('cust_budget_min', budgetMin.toString())
-      localStorage.setItem('cust_budget_max', budgetMax.toString())
-      localStorage.setItem('cust_scheduling', scheduling)
-      localStorage.setItem('cust_channel', channel)
-
-      setModified(false)
-      toast('Settings saved successfully', 'success')
-    } catch (err: any) {
-      console.error('Error saving:', err)
-      toast('Failed to save settings', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -262,7 +212,7 @@ export default function CustomerSettings() {
                 type="radio"
                 name="ai_level"
                 checked={aiLevel === level.value}
-                onChange={() => { setAiLevel(level.value as any); handleChange() }}
+                onChange={() => { setAiLevel(level.value as 'auto' | 'confirm' | 'manual'); handleChange() }}
                 className="w-4 h-4 text-blue-600"
               />
               <div className="flex-1">
@@ -339,7 +289,7 @@ export default function CustomerSettings() {
           ].map((opt) => (
             <button
               key={opt.value}
-              onClick={() => { setScheduling(opt.value as any); handleChange() }}
+              onClick={() => { setScheduling(opt.value as 'asap' | 'flexible' | 'scheduled'); handleChange() }}
               className={`p-4 border-2 rounded-lg text-center transition-all ${
                 scheduling === opt.value
                   ? 'border-blue-500 bg-blue-50'
@@ -381,7 +331,7 @@ export default function CustomerSettings() {
                 type="radio"
                 name="channel"
                 checked={channel === ch.value}
-                onChange={() => { setChannel(ch.value as any); handleChange() }}
+                onChange={() => { setChannel(ch.value as 'app' | 'sms' | 'email'); handleChange() }}
                 className="w-4 h-4 text-blue-600"
               />
               <span className="text-xl">{ch.icon}</span>

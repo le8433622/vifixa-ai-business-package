@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
       id_document_url: urlData.publicUrl,
       verification_status: 'pending',
     });
-  } catch (error: any) {
-    console.error('Worker verification error:', error);
+  } catch (err: unknown) {
+    console.error('Worker verification error:', err);
     return NextResponse.json(
-      { error: error.message },
+      { error: err instanceof Error ? err.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -126,10 +126,10 @@ export async function PATCH(request: NextRequest) {
       message: `Worker verification status updated to: ${status}`,
       worker,
     });
-  } catch (error: any) {
-    console.error('Verification status update error:', error);
+  } catch (err: unknown) {
+    console.error('Verification status update error:', err);
     return NextResponse.json(
-      { error: error.message },
+      { error: err instanceof Error ? err.message : 'Unknown error' },
       { status: 500 }
     );
   }

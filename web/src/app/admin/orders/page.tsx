@@ -18,7 +18,7 @@ interface Order {
   final_price?: number;
   customer_email?: string;
   created_at: string;
-  fraud_alerts?: any[];
+  fraud_alerts?: unknown[];
 }
 
 export default function AdminOrders() {
@@ -84,8 +84,8 @@ export default function AdminOrders() {
         }
         fetchOrders();
       }
-    } catch (error: any) {
-      alert(`Lỗi: ${error.message}`);
+    } catch (error) {
+      alert(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

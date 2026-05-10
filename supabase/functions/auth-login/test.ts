@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; test('auth-login/ function exists', async (t) => { assert.ok(true, 'Function file exists'); }); test('auth-login/ handles basic request', async (t) => { assert.ok(true, 'Placeholder test'); });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Vifixa AI v2.0 — Premium Chat Interface
 // Gradient bubbles, rich action cards, typing animation, voice input
 
@@ -7,14 +6,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
+
+interface ActionData {
+  type: string
+  label?: string
+  value?: string
+  data?: Record<string, unknown>
+  items?: Array<{ item: string; cost: number }>
+}
 
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
-  actions?: any[];
+  actions?: ActionData[];
 }
 
 interface ChatSession {
@@ -23,26 +29,34 @@ interface ChatSession {
   created_at: Date;
 }
 
+interface SpeechRecognitionLike {
+  stop: () => void
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  start: () => void
+  onstart: (() => void) | null
+  onresult: ((event: { results: Array<Array<{ transcript: string }>> }) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+}
+
 export default function CustomerChatPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
   const [session, setSession] = useState<ChatSession | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => { checkUser() }, [])
-  useEffect(() => { scrollToBottom() }, [messages])
+  const idCounter = useRef(0)
 
   async function checkUser() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
-    setUser(session.user)
     loadOrCreateSession(session.user.id)
   }
 
@@ -54,8 +68,8 @@ export default function CustomerChatPage() {
         .order('created_at', { ascending: false }).limit(1)
       if (error) throw error
       if (sessions && sessions.length > 0) {
-        setSession(sessions[0] as any)
-        await loadMessages((sessions[0] as any).id)
+        setSession(sessions[0] as unknown as ChatSession)
+        await loadMessages((sessions[0] as unknown as ChatSession).id)
       } else {
         await startNewChat()
       }
@@ -63,6 +77,13 @@ export default function CustomerChatPage() {
       console.error('Error loading session:', error)
     }
   }
+
+  function scrollToBottom() {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => { checkUser() }, [checkUser])
+  useEffect(() => { scrollToBottom() }, [messages])
 
   async function loadMessages(sessionId: string) {
     try {
@@ -72,7 +93,7 @@ export default function CustomerChatPage() {
         .order('created_at', { ascending: true })
       if (error) throw error
       if (msgs) {
-        setMessages((msgs as any[]).map(msg => ({
+        setMessages((msgs as Array<Record<string, unknown>>).map(msg => ({
           id: msg.id, role: msg.role, content: msg.content,
           timestamp: new Date(msg.created_at), actions: msg.metadata?.actions
         })))
@@ -92,7 +113,7 @@ export default function CustomerChatPage() {
     setSession(null)
   }
 
-  async function sendMessage(messageOverride?: string, contextOverride?: Record<string, any>) {
+  async function sendMessage(messageOverride?: string, contextOverride?: Record<string, unknown>) {
     const textToSend = messageOverride || inputMessage
     if (!textToSend.trim() || isLoading) return
 
@@ -101,7 +122,7 @@ export default function CustomerChatPage() {
     setIsLoading(true)
 
     const tempUserMsg: Message = {
-      id: `temp-${Date.now()}`, role: 'user', content: userMessage, timestamp: new Date()
+      id: `temp-${++idCounter.current}`, role: 'user', content: userMessage, timestamp: new Date()
     }
     setMessages(prev => [...prev, tempUserMsg])
 
@@ -134,7 +155,7 @@ export default function CustomerChatPage() {
       }
 
       const aiMessage: Message = {
-        id: `ai-${Date.now()}`, role: 'assistant',
+        id: `ai-${++idCounter.current}`, role: 'assistant',
         content: data.reply, timestamp: new Date(), actions: data.actions
       }
       setMessages(prev => [...prev, aiMessage])
@@ -147,11 +168,12 @@ export default function CustomerChatPage() {
           else { alert('Đơn dịch vụ đã được chốt thành công!'); router.push('/customer') }
         }, 1000)
       }
-    } catch (error: any) {
-      console.error('Send message error:', error)
+    } catch (err) {
+      console.error('Send message error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định'
       setMessages(prev => [...prev, {
-        id: `err-${Date.now()}`, role: 'assistant',
-        content: `⚠️ Xin lỗi, đã có lỗi xảy ra: ${error.message}. Vui lòng thử lại.`,
+        id: `err-${++idCounter.current}`, role: 'assistant',
+        content: `⚠️ Xin lỗi, đã có lỗi xảy ra: ${errorMessage}. Vui lòng thử lại.`,
         timestamp: new Date()
       }])
     } finally {
@@ -160,7 +182,7 @@ export default function CustomerChatPage() {
     }
   }
 
-  async function handleAction(action: any) {
+  async function handleAction(action: ActionData) {
     if (action.type === 'share_location') {
       if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ vị trí'); return }
       navigator.geolocation.getCurrentPosition(
@@ -192,15 +214,15 @@ export default function CustomerChatPage() {
         if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) throw new Error('Chỉ hỗ trợ ảnh hoặc video')
         if (file.size > 20 * 1024 * 1024) throw new Error('File quá lớn (max 20MB)')
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-        const fileName = `${authSession.user.id}/${session?.id || 'new'}/${Date.now()}-${safeName}`
+        const fileName = `${authSession.user.id}/${session?.id || 'new'}/${++idCounter.current}-${safeName}`
         const { data, error } = await supabase.storage.from('service-media').upload(fileName, file, { upsert: false })
         if (error) throw error
         const { data: { publicUrl } } = supabase.storage.from('service-media').getPublicUrl(data.path)
         mediaUrls.push(publicUrl)
       }
       await sendMessage(`Tôi đã gửi ${mediaUrls.length} ảnh/video sự cố`, { media_urls: mediaUrls })
-    } catch (error: any) {
-      alert(`Lỗi upload: ${error.message}`)
+    } catch (err) {
+      alert(`Lỗi upload: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`)
     } finally {
       event.target.value = ''
       setIsLoading(false)
@@ -211,7 +233,7 @@ export default function CustomerChatPage() {
     return typeof value === 'number' ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value) : 'Đang cập nhật'
   }
 
-  function renderAction(action: any, idx: number) {
+  function renderAction(action: ActionData, idx: number) {
     if (action.type === 'quote_card') {
       const quote = action.data || {}
       return (
@@ -234,7 +256,7 @@ export default function CustomerChatPage() {
           )}
           {Array.isArray(quote.price_breakdown) && quote.price_breakdown.length > 0 && (
             <div className="mt-3 space-y-1">
-              {quote.price_breakdown.map((item: any, i: number) => (
+              {quote.price_breakdown.map((item: { item: string; cost: number }, i: number) => (
                 <div key={i} className="flex justify-between text-xs text-[hsl(var(--vf-text-secondary))]">
                   <span>{item.item}</span>
                   <span className="font-medium">{formatVnd(item.cost)}</span>
@@ -295,25 +317,24 @@ export default function CustomerChatPage() {
   }
 
   function startListening() {
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
-    recognitionRef.current = new SpeechRecognition()
-    recognitionRef.current.lang = 'vi-VN'
-    recognitionRef.current.continuous = false
-    recognitionRef.current.interimResults = false
-    recognitionRef.current.onstart = () => setIsListening(true)
-    recognitionRef.current.onresult = (e: any) => setInputMessage(prev => prev + e.results[0][0].transcript)
-    recognitionRef.current.onerror = () => setIsListening(false)
-    recognitionRef.current.onend = () => setIsListening(false)
-    recognitionRef.current.start()
+    const win = window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike; SpeechRecognition?: new () => SpeechRecognitionLike }
+    const SpeechRecognition = win.webkitSpeechRecognition || win.SpeechRecognition
+    if (!SpeechRecognition) { alert('Trình duyệt không hỗ trợ giọng nói'); return }
+    const instance = new SpeechRecognition()
+    instance.lang = 'vi-VN'
+    instance.continuous = false
+    instance.interimResults = false
+    instance.onstart = () => setIsListening(true)
+    instance.onresult = (e) => setInputMessage(prev => prev + e.results[0][0].transcript)
+    instance.onerror = () => setIsListening(false)
+    instance.onend = () => setIsListening(false)
+    instance.start()
+    recognitionRef.current = instance
   }
 
   function stopListening() {
     recognitionRef.current?.stop()
     setIsListening(false)
-  }
-
-  function scrollToBottom() {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   return (

@@ -32,7 +32,7 @@ function ServiceRequestContent() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [description, setDescription] = useState('');
   const [mediaFiles, setMediaFiles] = useState<FileList | null>(null);
-  const [diagnosis, setDiagnosis] = useState<any>(null);
+  const [diagnosis, setDiagnosis] = useState<Record<string, unknown> | null>(null);
   const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,7 +53,7 @@ function ServiceRequestContent() {
     setSubmitting(true);
     try {
       // Upload media files
-      let mediaUrls: string[] = [];
+      const mediaUrls: string[] = [];
       if (mediaFiles) {
         for (let i = 0; i < mediaFiles.length; i++) {
           const file = mediaFiles[i];
@@ -108,8 +108,8 @@ function ServiceRequestContent() {
       setDiagnosis(data.ai_diagnosis);
       setEstimatedPrice(data.estimated_price);
       setStep(3);
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (err: unknown) {
+      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setSubmitting(false);
     }

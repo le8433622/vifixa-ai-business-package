@@ -106,10 +106,6 @@ export default function AdminPriceAccuracyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchPriceAccuracy(days);
-  }, [days]);
-
   async function fetchPriceAccuracy(nextDays: DaysFilter) {
     setLoading(true);
     setError(null);
@@ -126,12 +122,16 @@ export default function AdminPriceAccuracyPage() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Không tải được price accuracy');
       setData(payload);
-    } catch (err: any) {
-      setError(err.message || 'Không tải được price accuracy');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tải được price accuracy');
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchPriceAccuracy(days); });
+  }, [days]);
 
   const summary = data?.summary;
 

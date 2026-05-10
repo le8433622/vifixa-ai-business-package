@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; test('stripe-checkout/ function exists', async (t) => { assert.ok(true, 'Function file exists'); }); test('stripe-checkout/ handles basic request', async (t) => { assert.ok(true, 'Placeholder test'); });

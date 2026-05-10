@@ -7,6 +7,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
+import SettingsPage from '@/components/admin/SettingsPage'
+import LoadingSkeleton from '@/components/admin/LoadingSkeleton'
+import SaveBar from '@/components/admin/SaveBar'
 
 interface AppSetting {
   key: string
@@ -41,7 +44,7 @@ export default function GeneralSettings() {
 
       if (error) throw error
       setSettings(data || [])
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching settings:', err)
       toast('Failed to load settings', 'error')
     } finally {
@@ -70,9 +73,8 @@ export default function GeneralSettings() {
 
       // Update each modified setting
       for (const [key, val] of Object.entries(modified)) {
-        // @ts-ignore - Supabase type generation needs update
         const { error } = await supabase
-          .from('app_settings' as any)
+          .from('app_settings')
           .update({ value: val, updated_at: new Date().toISOString() })
           .eq('key', key)
 
@@ -82,7 +84,7 @@ export default function GeneralSettings() {
       setModified({})
       toast('Settings saved successfully', 'success')
       fetchSettings()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving settings:', err)
       toast('Failed to save settings', 'error')
     } finally {
@@ -100,22 +102,14 @@ export default function GeneralSettings() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">General Settings</h1>
-        <div className="animate-pulse space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-16 rounded-lg" />
-          ))}
-        </div>
-      </div>
+      <SettingsPage title="General Settings" description="Configure application name, description, and contact information.">
+        <LoadingSkeleton rows={4} height="h-16" />
+      </SettingsPage>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">General Settings</h1>
-      <p className="text-gray-600 mb-6">Configure application name, description, and contact information.</p>
-
+    <SettingsPage title="General Settings" description="Configure application name, description, and contact information.">
       <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
         {settings.map((setting) => (
           <div key={setting.key} className="p-6">
@@ -159,28 +153,12 @@ export default function GeneralSettings() {
         ))}
       </div>
 
-      {Object.keys(modified).length > 0 && (
-        <div className="mt-6 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-700">
-            {Object.keys(modified).length} change(s) pending
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setModified({})}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      <SaveBar
+        pendingCount={Object.keys(modified).length}
+        saving={saving}
+        onSave={handleSave}
+        onCancel={() => setModified({})}
+      />
+    </SettingsPage>
   )
 }

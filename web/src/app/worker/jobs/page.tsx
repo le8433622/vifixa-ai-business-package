@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type Job = {
@@ -22,46 +22,44 @@ export default function WorkerJobsPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const router = useRouter()
-  const pathname = usePathname()
 
   useEffect(() => {
+    async function fetchJobs() {
+      try {
+        setError(null)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('worker_id', session.user.id)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+        setJobs(data as Job[])
+      } catch (error: unknown) {
+        console.error('fetchJobs error:', error)
+        setError(error instanceof Error ? error.message : 'Không thể tải việc làm')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        fetchJobs()
+      } catch (error: unknown) {
+        console.error('checkUser error:', error)
+      }
+    }
     checkUser()
   }, [])
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-      fetchJobs()
-    } catch (error: any) {
-      console.error('checkUser error:', error)
-    }
-  }
-
-  async function fetchJobs() {
-    try {
-      setError(null)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('worker_id', session.user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setJobs(data as Job[])
-    } catch (error: any) {
-      console.error('fetchJobs error:', error)
-      setError(error.message || 'Không thể tải việc làm')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function getStatusColor(status: string) {
     switch (status) {

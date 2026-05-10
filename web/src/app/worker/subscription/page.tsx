@@ -72,28 +72,27 @@ export default function WorkerSubscription() {
   const { toast } = useToast();
 
   useEffect(() => {
+    async function fetchCurrentSubscription() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { router.push('/login'); return; }
+
+        const { data } = await supabase
+          .from('worker_subscriptions')
+          .select('tier')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .single();
+
+        if (data) setCurrentTier(data.tier);
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchCurrentSubscription();
   }, []);
-
-  async function fetchCurrentSubscription() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return; }
-
-      const { data, error } = await supabase
-        .from('worker_subscriptions')
-        .select('tier')
-        .eq('user_id', session.user.id)
-        .eq('status', 'active')
-        .single();
-
-      if (data) setCurrentTier(data.tier);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleUpgrade(tierId: string) {
     if (tierId === currentTier) return;
@@ -118,8 +117,8 @@ export default function WorkerSubscription() {
 
       toast(`Nâng cấp lên gói ${tierId.toUpperCase()} thành công!`, 'success');
       setCurrentTier(tierId);
-    } catch (error: any) {
-      toast(error.message || 'Lỗi nâng cấp', 'error');
+    } catch (error: unknown) {
+      toast(error instanceof Error ? error.message : 'Lỗi nâng cấp', 'error');
     } finally {
       setProcessingId(null);
     }

@@ -37,77 +37,75 @@ export default function WorkerJobDetailPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (jobId) {
-      checkUser()
-    }
-  }, [jobId])
+    if (!jobId) return
 
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
+    async function fetchJob() {
+      try {
+        setError(null)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            profiles:customer_id (full_name, phone)
+          `)
+          .eq('id', jobId)
+          .eq('worker_id', session.user.id)
+          .single()
+
+        if (error) throw error
+        const row = data as (Job & { profiles?: { full_name?: string; phone?: string } }) | null
+        if (!row) throw new Error('Không tìm thấy công việc')
+
+        setJob({
+          ...row,
+          customer_name: row.profiles?.full_name,
+          customer_phone: row.profiles?.phone,
+        })
+      } catch (error: unknown) {
+        console.error('fetchJob error:', error)
+        setError(error instanceof Error ? error.message : 'Không tìm thấy công việc')
+      } finally {
+        setLoading(false)
       }
-      fetchJob()
-    } catch (error: any) {
-      console.error('checkUser error:', error)
     }
-  }
 
-  async function fetchJob() {
-    try {
-      setError(null)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data, error } = await (supabase as any)
-        .from('orders')
-        .select(`
-          *,
-          profiles:customer_id (full_name, phone)
-        `)
-        .eq('id', jobId)
-        .eq('worker_id', session.user.id)
-        .single()
-
-      if (error) throw error
-      const row = data as (Job & { profiles?: { full_name?: string; phone?: string } }) | null
-      if (!row) throw new Error('Không tìm thấy công việc')
-      
-      setJob({
-        ...row,
-        customer_name: row.profiles?.full_name,
-        customer_phone: row.profiles?.phone,
-      })
-    } catch (error: any) {
-      console.error('fetchJob error:', error)
-      setError(error.message || 'Không tìm thấy công việc')
-    } finally {
-      setLoading(false)
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        fetchJob()
+      } catch (error: unknown) {
+        console.error('checkUser error:', error)
+      }
     }
-  }
+    checkUser()
+  }, [jobId])
 
   async function updateStatus(newStatus: string) {
     setUpdating(true)
     try {
-      const updates: any = { 
+      const updates: Record<string, unknown> = {
         status: newStatus,
         updated_at: new Date().toISOString(),
       }
-      
+
       if (newStatus === 'completed') {
         updates.completed_at = new Date().toISOString()
       }
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('orders')
         .update(updates)
         .eq('id', jobId)
 
       if (error) throw error
 
-      // Call AI quality check when marking complete
       if (newStatus === 'completed') {
         try {
           const { data: { session } } = await supabase.auth.getSession()
@@ -136,10 +134,10 @@ export default function WorkerJobDetailPage() {
       }
 
       alert('Cập nhật thành công!')
-      fetchJob()
-    } catch (error: any) {
+      window.location.reload()
+    } catch (error: unknown) {
       console.error('updateStatus error:', error)
-      alert('Lỗi: ' + error.message)
+      alert('Lỗi: ' + (error instanceof Error ? error.message : 'Unknown error'))
     } finally {
       setUpdating(false)
     }
@@ -282,7 +280,7 @@ export default function WorkerJobDetailPage() {
                 </span>
                 <span className="font-medium">{job.rating}/5</span>
               </div>
-              {job.feedback && <p className="text-gray-700 italic">"{job.feedback}"</p>}
+              {job.feedback && <p className="text-gray-700 italic">&ldquo;{job.feedback}&rdquo;</p>}
             </div>
           </div>
         )}

@@ -37,15 +37,6 @@ const CATEGORY_ICONS: Record<string, string> = {
   'camera': '📷',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Chờ xử lý',
-  matched: 'Đã ghép thợ',
-  in_progress: 'Đang thực hiện',
-  completed: 'Hoàn thành',
-  cancelled: 'Đã hủy',
-  disputed: 'Khiếu nại',
-}
-
 const DEVICE_ICONS: Record<string, string> = {
   'air_conditioning': '❄️',
   'refrigerator': '🧊',
@@ -100,7 +91,7 @@ export default function CustomerCarePage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   async function loadData() {
     try {
@@ -111,10 +102,11 @@ export default function CustomerCarePage() {
         return
       }
       await Promise.all([fetchOrders(session.user.id), fetchDevices(session.user.id)])
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Lỗi tải dữ liệu'
       console.error('loadData error:', err)
-      setError(err.message || 'Lỗi tải dữ liệu')
-      toast(err.message || 'Lỗi tải dữ liệu', 'error')
+      setError(message)
+      toast(message, 'error')
     } finally {
       setLoading(false)
     }
@@ -172,9 +164,9 @@ export default function CustomerCarePage() {
 
   useEffect(() => {
     if (!loading && orders.length > 0) {
-      fetchCarePlan()
+      queueMicrotask(() => { fetchCarePlan() })
     }
-  }, [loading, orders.length])
+  }, [loading, orders.length, fetchCarePlan])
 
   async function fetchSubscriptions() {
     try {
@@ -208,13 +200,12 @@ export default function CustomerCarePage() {
   }
 
   useEffect(() => {
-    fetchSubscriptions()
+    queueMicrotask(() => { fetchSubscriptions() })
   }, [])
 
   // Derived stats
   const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed'), [orders])
   const pendingOrders = useMemo(() => orders.filter(o => ['pending', 'matched', 'in_progress'].includes(o.status)), [orders])
-  const recentOrders = useMemo(() => orders.slice(0, 5), [orders])
   const unratedCompleted = useMemo(() => completedOrders.filter(o => !o.rating), [completedOrders])
   const warrantableOrders = useMemo(() => completedOrders.filter(o => {
     if (!o.completed_at) return false
@@ -257,7 +248,7 @@ export default function CustomerCarePage() {
       return { emoji: '🔧', title: 'Thêm thiết bị', desc: 'Lưu thiết bị để được nhắc bảo trì', href: '/customer/devices' }
     }
     return { emoji: '💬', title: 'Hỏi AI', desc: 'Nhờ AI tư vấn bảo trì', href: '/customer/chat' }
-  }, [orders, pendingOrders.length, unratedCompleted.length, devices.length])
+  }, [orders, pendingOrders.length, unratedCompleted, devices.length])
 
   function formatPrice(price: number | undefined) {
     if (!price && price !== 0) return '0₫'
@@ -289,8 +280,8 @@ export default function CustomerCarePage() {
         const err = await res.json()
         toast(err.error || 'Đăng ký thất bại', 'error')
       }
-    } catch (err: any) {
-      toast(err.message || 'Lỗi đăng ký', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Lỗi đăng ký', 'error')
     } finally {
       setSubscribing(false)
     }
@@ -319,8 +310,8 @@ export default function CustomerCarePage() {
         const err = await res.json()
         toast(err.error || 'Hủy thất bại', 'error')
       }
-    } catch (err: any) {
-      toast(err.message || 'Lỗi hủy', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Lỗi hủy', 'error')
     } finally {
       setSubscribing(false)
     }
@@ -358,8 +349,8 @@ export default function CustomerCarePage() {
           toast(err.error || 'Tạo thanh toán thất bại', 'error')
         }
       }
-    } catch (err: any) {
-      toast(err.message || 'Lỗi thanh toán', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Lỗi thanh toán', 'error')
     } finally {
       setStripeLoading(null)
     }

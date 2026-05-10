@@ -80,8 +80,8 @@ export default function AdminWorkers() {
       }
 
       fetchWorkers();
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

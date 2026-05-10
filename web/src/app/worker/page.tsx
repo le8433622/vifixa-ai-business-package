@@ -57,32 +57,33 @@ export default function WorkerDashboard() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { router.push('/'); return; }
 
-  async function fetchData() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
+        const [jobsRes, earningsRes] = await Promise.all([
+          fetch('/api/ai/worker-jobs?action=jobs', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          }),
+          fetch('/api/ai/worker-jobs?action=earnings', {
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+          }),
+        ]);
 
-      const [jobsRes, earningsRes] = await Promise.all([
-        fetch('/api/ai/worker-jobs?action=jobs', {
-          headers: { 'Authorization': `Bearer ${session.access_token}` },
-        }),
-        fetch('/api/ai/worker-jobs?action=earnings', {
-          headers: { 'Authorization': `Bearer ${session.access_token}` },
-        }),
-      ]);
-
-      const jobsData = await jobsRes.json();
-      const earningsData = await earningsRes.json();
-      setJobs(jobsData.jobs || []);
-      setEarnings(earningsData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
+        const jobsData = await jobsRes.json();
+        const earningsData = await earningsRes.json();
+        setJobs(jobsData.jobs || []);
+        setEarnings(earningsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
     }
-  }
+    fetchData();
+  }, []);
 
   if (loading) {
     return (
@@ -193,7 +194,7 @@ export default function WorkerDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {jobs.slice(0, 5).map((job, i) => {
+              {jobs.slice(0, 5).map((job) => {
                 const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
                 return (
                   <div

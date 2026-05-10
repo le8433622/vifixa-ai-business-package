@@ -63,8 +63,10 @@ export default function WebWorkerProfile() {
   // Update local state when profile loads
   useEffect(() => {
     if (profile) {
-      setSkills(profile.skills || []);
-      setServiceAreas(profile.service_areas || []);
+      queueMicrotask(() => {
+        setSkills(profile.skills || []);
+        setServiceAreas(profile.service_areas || []);
+      });
     }
   }, [profile]);
 
@@ -74,7 +76,7 @@ export default function WebWorkerProfile() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('workers')
         .update({ skills, service_areas: serviceAreas })
         .eq('user_id', session.user.id);
@@ -82,8 +84,8 @@ export default function WebWorkerProfile() {
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['web-worker-profile'] });
       alert('Profile updated successfully!');
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -95,12 +97,12 @@ export default function WebWorkerProfile() {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*,.pdf';
-      input.onchange = async (e: any) => {
-        const file = e.target.files[0];
+      input.onchange = async (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) return;
 
         const fileName = `id-${Date.now()}-${file.name}`;
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
           .from('worker-documents')
           .upload(fileName, file);
 
@@ -108,8 +110,8 @@ export default function WebWorkerProfile() {
         alert('ID document uploaded! Admin will review for verification.');
       };
       input.click();
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (error: unknown) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setUploading(false);
     }

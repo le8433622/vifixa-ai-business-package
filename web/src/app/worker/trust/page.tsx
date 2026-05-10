@@ -13,7 +13,7 @@ type Profile = {
   trust_score?: number
   id_front_url?: string
   id_back_url?: string
-  bank_account?: any
+  bank_account?: Record<string, unknown>
   verification_status?: string
 }
 
@@ -23,51 +23,43 @@ export default function WorkerTrustPage() {
   const router = useRouter()
 
   useEffect(() => {
+    async function fetchProfile(userId: string) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+
+        if (error) throw error
+        setProfile(data)
+      } catch (error: unknown) {
+        console.error('fetchProfile error:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        fetchProfile(session.user.id)
+      } catch (error: unknown) {
+        console.error('checkUser error:', error)
+      }
+    }
     checkUser()
   }, [])
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-      fetchProfile(session.user.id)
-    } catch (error: any) {
-      console.error('checkUser error:', error)
-    }
-  }
-
-  async function fetchProfile(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) throw error
-      setProfile(data)
-    } catch (error: any) {
-      console.error('fetchProfile error:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function getTrustColor(score?: number) {
     if (!score) return '#6b7280'
     if (score >= 80) return '#16a34a'
     if (score >= 60) return '#ca8a04'
     return '#dc2626'
-  }
-
-  function getTrustLabel(score?: number) {
-    if (!score) return 'Chưa đánh giá'
-    if (score >= 80) return 'Rất tốt'
-    if (score >= 60) return 'Tốt'
-    return 'Cần cải thiện'
   }
 
   function getVerificationStatus(status?: string) {

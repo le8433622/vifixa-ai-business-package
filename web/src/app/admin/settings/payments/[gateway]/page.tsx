@@ -44,7 +44,7 @@ export default function GatewayConfig() {
       setSandboxMode(data.sandbox)
       setSandboxKeys(data.sandbox_keys || {})
       setLiveKeys(data.live_keys || {})
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching gateway config:', err)
       toast('Failed to load gateway config', 'error')
     } finally {
@@ -77,7 +77,7 @@ export default function GatewayConfig() {
         return
       }
 
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         sandbox: sandboxMode,
         updated_at: new Date().toISOString(),
         updated_by: session.user.id,
@@ -89,18 +89,17 @@ export default function GatewayConfig() {
         updateData.live_keys = liveKeys
       }
 
-      // @ts-ignore - Supabase type generation needs update
-      const { error } = await (supabase
+      const { error } = await supabase
         .from('gateway_configs')
         .update(updateData)
-        .eq('key', gatewayKey) as any)
+        .eq('key', gatewayKey)
 
       if (error) throw error
 
       toast('Gateway config saved successfully', 'success')
       setModified(false)
       fetchConfig()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving config:', err)
       toast('Failed to save config', 'error')
     } finally {
@@ -115,7 +114,7 @@ export default function GatewayConfig() {
       // For now, just simulate a test
       await new Promise(resolve => setTimeout(resolve, 1500))
       toast('Connection test successful (mock)', 'success')
-    } catch (err: any) {
+    } catch (err) {
       toast('Connection test failed', 'error')
     } finally {
       setTesting(false)
@@ -131,21 +130,20 @@ export default function GatewayConfig() {
         return
       }
 
-      // @ts-ignore - Supabase type generation needs update
-      const { error } = await (supabase
+      const { error } = await supabase
         .from('gateway_configs')
         .update({
           active: !config.active,
           updated_at: new Date().toISOString(),
           updated_by: session.user.id,
         })
-        .eq('key', gatewayKey) as any)
+        .eq('key', gatewayKey)
 
       if (error) throw error
 
       toast(`Gateway ${!config.active ? 'activated' : 'deactivated'}`, 'success')
       fetchConfig()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error toggling gateway:', err)
       toast('Failed to toggle gateway', 'error')
     }

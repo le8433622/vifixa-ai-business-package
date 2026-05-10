@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 // Customer Complaint Page
 // Per 12_OPERATIONS_AND_TRUST.md - Complaint handling
@@ -62,7 +61,7 @@ export default function CustomerComplaintPage({
   // Pre-select order from URL parameter
   useEffect(() => {
     if (prefilledOrderId && orders?.some(o => o.id === prefilledOrderId)) {
-      setOrderId(prefilledOrderId);
+      queueMicrotask(() => { setOrderId(prefilledOrderId) });
     }
   }, [orders, prefilledOrderId]);
 
@@ -124,7 +123,7 @@ export default function CustomerComplaintPage({
       alert(message);
       router.push('/customer/orders');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setError(error.message);
     },
   });
@@ -154,7 +153,7 @@ export default function CustomerComplaintPage({
                 required
               >
                 <option value="">-- Chọn đơn hàng --</option>
-                {orders.map((order: any) => (
+                {orders.map((order) => (
                   <option key={order.id} value={order.id}>
                     {order.category} - {new Date(order.completed_at || order.created_at).toLocaleDateString('vi-VN')} ({order.status})
                   </option>

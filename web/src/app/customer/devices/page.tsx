@@ -17,7 +17,7 @@ interface Device {
   purchase_date?: string
   warranty_expiry?: string
   location_in_home?: string
-  specifications?: any
+  specifications?: Record<string, unknown>
   notes?: string
   created_at: string
 }
@@ -49,8 +49,8 @@ export default function DevicesPage() {
         return
       }
       await fetchDevices()
-    } catch (error: any) {
-      toast(error.message || 'Lỗi tải dữ liệu', 'error')
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Lỗi tải dữ liệu', 'error')
     } finally {
       setLoading(false)
     }
@@ -59,13 +59,13 @@ export default function DevicesPage() {
   async function fetchDevices() {
     try {
       const { data, error } = await supabase
-        .from('device_profiles' as any)
+        .from('device_profiles')
         .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
       setDevices(data || [])
-    } catch (error: any) {
+    } catch (err: unknown) {
       toast(error.message || 'Không thể tải thiết bị', 'error')
     }
   }
@@ -216,18 +216,18 @@ function AddDeviceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
       if (!session) return
 
       const { error } = await supabase
-        .from('device_profiles' as any)
+        .from('device_profiles')
         .insert({
           user_id: session.user.id,
           ...formData,
           purchase_date: formData.purchase_date || null,
           warranty_expiry: formData.warranty_expiry || null,
-        } as any)
+        })
 
       if (error) throw error
       onSuccess()
-    } catch (error: any) {
-      alert('Lỗi: ' + error.message)
+    } catch (err: unknown) {
+      alert('Lỗi: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'))
     } finally {
       setSaving(false)
     }

@@ -31,7 +31,7 @@ export default function PaymentsSettings() {
 
       if (error) throw error
       setGateways(data || [])
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching gateways:', err)
       toast('Failed to load gateways', 'error')
     } finally {
@@ -63,7 +63,7 @@ export default function PaymentsSettings() {
       if (!response.ok) throw new Error('Failed to toggle')
       toast(`Gateway ${!currentState ? 'enabled' : 'disabled'}`, 'success')
       fetchGateways()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error toggling gateway:', err)
       toast('Failed to toggle gateway', 'error')
     } finally {
@@ -165,7 +165,7 @@ export default function PaymentsSettings() {
         <h3 className="font-semibold text-blue-900 mb-2">💡 How to configure</h3>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Enable sandbox mode first for testing</li>
-          <li>• Click "Configure" to enter API keys</li>
+          <li>Click &quot;Configure&quot; to enter API keys</li>
           <li>• Toggle switch to activate gateway for customers</li>
           <li>• Test with sandbox before going live</li>
         </ul>

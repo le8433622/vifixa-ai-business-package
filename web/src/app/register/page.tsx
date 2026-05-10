@@ -21,7 +21,7 @@ function RegisterForm() {
 
   useEffect(() => {
     const ref = searchParams.get('ref');
-    if (ref) setReferralCode(ref);
+    if (ref) queueMicrotask(() => { setReferralCode(ref) });
   }, [searchParams]);
 
   async function handleRegister(e: React.FormEvent) {
@@ -41,8 +41,8 @@ function RegisterForm() {
 
       alert('Đăng ký thành công! Vui lòng đăng nhập.');
       router.push('/login');
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setLoading(false);
     }

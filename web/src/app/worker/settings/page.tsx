@@ -8,14 +8,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
-import { useFeatureFlags } from '@/components/FeatureFlagProvider'
-import { FeatureDisabled } from '@/components/FeatureGuard'
+
 
 export default function WorkerSettings() {
   const router = useRouter()
   const { toast } = useToast()
-  const { isEnabled } = useFeatureFlags()
-
   const [workMode, setWorkMode] = useState<'active' | 'selective' | 'standby' | 'offline'>('active')
   const [minPay, setMinPay] = useState<number>(200000)
   const [maxDistance, setMaxDistance] = useState<number>(10)
@@ -25,45 +22,46 @@ export default function WorkerSettings() {
   const [modified, setModified] = useState(false)
 
   useEffect(() => {
-    fetchSettings()
-    loadPrefs()
-  }, [])
-
-  async function fetchSettings() {
-    try {
-      setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-
-      // Fetch from user-references Edge Function
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-references`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
+    async function loadData() {
+      try {
+        setLoading(true)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
         }
-      )
 
-      if (response.ok) {
-        const data = await response.json()
-        const prefs = data.preferences || {}
-        
-        if (prefs.work_mode) setWorkMode(prefs.work_mode)
-        if (prefs.min_pay) setMinPay(prefs.min_pay)
-        if (prefs.max_distance) setMaxDistance(prefs.max_distance)
-        if (prefs.ai_level) setAiLevel(prefs.ai_level)
+        const [refsResp, prefsResp] = await Promise.all([
+          fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-references`,
+            { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+          ),
+          fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences?key=work_mode`,
+            { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+          ),
+        ])
+
+        if (refsResp.ok) {
+          const data = await refsResp.json()
+          const prefs = data.preferences || {}
+          if (prefs.work_mode) setWorkMode(prefs.work_mode)
+          if (prefs.min_pay) setMinPay(prefs.min_pay)
+          if (prefs.max_distance) setMaxDistance(prefs.max_distance)
+          if (prefs.ai_level) setAiLevel(prefs.ai_level)
+        }
+
+        const modeData = prefsResp.ok ? await prefsResp.json() : null
+        if (modeData?.value) setWorkMode(modeData.value)
+      } catch (err: unknown) {
+        console.error('Error fetching settings:', err)
+        toast('Failed to load settings', 'error')
+      } finally {
+        setLoading(false)
       }
-    } catch (err: any) {
-      console.error('Error fetching settings:', err)
-      toast('Failed to load settings', 'error')
-    } finally {
-      setLoading(false)
     }
-  }
+    loadData()
+  }, [])
 
   function handleChange() {
     setModified(true)
@@ -78,7 +76,6 @@ export default function WorkerSettings() {
         return
       }
 
-      // Save to user-references Edge Function
       const savePromises = [
         fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-references`,
@@ -128,155 +125,12 @@ export default function WorkerSettings() {
 
       const results = await Promise.all(savePromises)
       const allOk = results.every(r => r.ok)
-      
+
       if (!allOk) throw new Error('Failed to save some settings')
-      
-      setModified(false)
-      toast('Settings saved successfully', 'success')
-     } catch (err: any) {
-      console.error('Error saving:', err)
-      toast('Failed to save settings', 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Load worker preferences from user_preferences function
-  const loadPrefs = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      // Get worker preferences from user_preferences function
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences?key=work_mode`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      )
-      const modeData = response.ok ? await response.json() : null
-      if (modeData?.value) setWorkMode(modeData.value)
-
-      const minPayResp = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences?key=min_pay`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      )
-      const minPayData = minPayResp.ok ? await minPayResp.json() : null
-      if (minPayData?.value) setMinPay(minPayData.value)
-
-      const distanceResp = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences?key=max_distance`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      )
-      const distanceData = distanceResp.ok ? await distanceResp.json() : null
-      if (distanceData?.value) setMaxDistance(distanceData.value)
-
-      const aiLevelResp = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences?key=ai_level`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      )
-      const aiLevelData = aiLevelResp.ok ? await aiLevelResp.json() : null
-      if (aiLevelData?.value) setAiLevel(aiLevelData.value)
-
-    } catch (err: any) {
-      console.error('Error fetching settings:', err)
-      toast('Failed to load settings', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function handleChange() {
-    setModified(true)
-  }
-
-  async function handleSave() {
-    try {
-      setSaving(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-
-      // Save to user_preferences function
-      await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            key: 'work_mode',
-            value: workMode,
-          }),
-        }
-      )
-
-      await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            key: 'min_pay',
-            value: minPay,
-          }),
-        }
-      )
-
-      await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            key: 'max_distance',
-            value: maxDistance,
-          }),
-        }
-      )
-
-      await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-preferences`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            key: 'ai_level',
-            value: aiLevel,
-          }),
-        }
-      )
 
       setModified(false)
       toast('Settings saved successfully', 'success')
-    } catch (err: any) {
+     } catch (err: unknown) {
       console.error('Error saving:', err)
       toast('Failed to save settings', 'error')
     } finally {
@@ -415,7 +269,7 @@ export default function WorkerSettings() {
                 type="radio"
                 name="ai_level"
                 checked={aiLevel === level.value}
-                onChange={() => { setAiLevel(level.value as any); handleChange() }}
+                onChange={() => { setAiLevel(level.value); handleChange() }}
                 className="w-4 h-4 text-blue-600"
               />
               <div className="flex-1">

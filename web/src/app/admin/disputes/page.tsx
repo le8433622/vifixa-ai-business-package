@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Admin Disputes Management Page
 // Per 05_PRODUCT_SOLUTION.md - Admin flow: Handle disputes
 // Per Step 3: Build admin flows
@@ -13,7 +12,7 @@ interface Dispute {
   id: string;
   entity_id: string;
   entity_type: string;
-  ai_decision: any;
+  ai_decision: Record<string, unknown>;
   review_status: string;
   created_at: string;
   created_by: string;
@@ -78,15 +77,15 @@ export default function AdminDisputes() {
 
       // Update order status
       const { error } = await supabase
-        .from('orders' as any)
-        .update({ status: newStatus } as any)
+        .from('orders')
+        .update({ status: newStatus })
         .eq('id', orderId);
 
       if (error) throw error;
       alert(`Đã giải quyết: ${action === 'complete' ? 'Đơn hàng hoàn thành' : 'Đã hoàn tiền'}`);
       fetchDisputes();
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

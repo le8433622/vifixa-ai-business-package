@@ -84,10 +84,6 @@ export default function AdminChatKpisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchKpis(days);
-  }, [days]);
-
   async function fetchKpis(nextDays: DaysFilter) {
     setLoading(true);
     setError(null);
@@ -104,12 +100,16 @@ export default function AdminChatKpisPage() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Không tải được chat KPI');
       setData(payload);
-    } catch (err: any) {
-      setError(err.message || 'Không tải được chat KPI');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tải được chat KPI');
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchKpis(days); });
+  }, [days]);
 
   const summary = data?.summary;
 

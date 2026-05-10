@@ -68,38 +68,37 @@ function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
 }
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+
+          const profile = data as { role?: string } | null;
+          const role = profile?.role;
+
+          if (role === 'customer') { router.replace('/customer'); return; }
+          if (role === 'worker') { router.replace('/worker'); return; }
+          if (role === 'admin') { router.replace('/admin'); return; }
+          setUser({ ...session.user, role });
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
     checkUser();
   }, []);
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data } = await (supabase as any)
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-
-        const profile = data as { role?: string } | null;
-        const role = profile?.role;
-
-        if (role === 'customer') { router.replace('/customer'); return; }
-        if (role === 'worker') { router.replace('/worker'); return; }
-        if (role === 'admin') { router.replace('/admin'); return; }
-        setUser({ ...session.user, role });
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   if (loading) {
     return (

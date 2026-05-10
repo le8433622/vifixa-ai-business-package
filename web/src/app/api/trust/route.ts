@@ -56,10 +56,10 @@ export async function GET(request: NextRequest) {
       verification_status: worker.verification_status || 'pending',
       history: history || [],
     });
-  } catch (error: any) {
-    console.error('Trust score GET error:', error);
+  } catch (err: unknown) {
+    console.error('Trust score GET error:', err);
     return NextResponse.json(
-      { error: error.message },
+      { error: err instanceof Error ? err.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -117,10 +117,10 @@ export async function POST(request: NextRequest) {
       new_trust_score: newScore,
       message: 'Trust score recalculated successfully',
     });
-  } catch (error: any) {
-    console.error('Trust score POST error:', error);
+  } catch (err: unknown) {
+    console.error('Trust score POST error:', err);
     return NextResponse.json(
-      { error: error.message },
+      { error: err instanceof Error ? err.message : 'Unknown error' },
       { status: 500 }
     );
   }

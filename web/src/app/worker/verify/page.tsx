@@ -13,7 +13,7 @@ type Profile = {
   phone?: string
   id_front_url?: string
   id_back_url?: string
-  bank_account?: any
+  bank_account?: Record<string, unknown>
   verification_status?: string
   id_number?: string
   address?: string
@@ -33,42 +33,41 @@ export default function WorkerVerifyPage() {
   const [agreeTerms, setAgreeTerms] = useState(false)
 
   useEffect(() => {
+    async function fetchProfile(userId: string) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+
+        if (error) throw error
+        const profileData = data as Profile | null
+        if (!profileData) throw new Error('Không tìm thấy hồ sơ')
+        setProfile(profileData)
+        setIdNumber(profileData.id_number || '')
+        setAddress(profileData.address || '')
+      } catch (error: unknown) {
+        console.error('fetchProfile error:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        fetchProfile(session.user.id)
+      } catch (error: unknown) {
+        console.error('checkUser error:', error)
+      }
+    }
     checkUser()
   }, [])
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-      fetchProfile(session.user.id)
-    } catch (error: any) {
-      console.error('checkUser error:', error)
-    }
-  }
-
-  async function fetchProfile(userId: string) {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) throw error
-      const profileData = data as Profile | null
-      if (!profileData) throw new Error('Không tìm thấy hồ sơ')
-      setProfile(profileData)
-      setIdNumber(profileData.id_number || '')
-      setAddress(profileData.address || '')
-    } catch (error: any) {
-      console.error('fetchProfile error:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -84,7 +83,7 @@ export default function WorkerVerifyPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('profiles')
         .update({
           id_number: idNumber,
@@ -100,9 +99,9 @@ export default function WorkerVerifyPage() {
       setTimeout(() => {
         router.push('/worker')
       }, 2000)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('submit error:', error)
-      setError(error.message || 'Có lỗi xảy ra')
+      setError(error instanceof Error ? error.message : 'Có lỗi xảy ra')
     } finally {
       setSubmitting(false)
     }

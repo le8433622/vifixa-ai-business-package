@@ -23,7 +23,7 @@ export default function Login() {
 
   async function checkRoleAndRedirect(userId: string) {
     try {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', userId)
@@ -49,8 +49,8 @@ export default function Login() {
       if (error) throw error;
       await supabase.auth.refreshSession();
       checkRoleAndRedirect(data.user.id);
-    } catch (error: any) {
-      setError(error.message || 'Đăng nhập thất bại');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
     } finally {
       setLoading(false);
     }

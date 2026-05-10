@@ -54,7 +54,7 @@ export interface PaymentIntent {
   qr_code?: string
   deep_link?: string
   idempotency_key?: string
-  gateway_response?: any
+  gateway_response?: Record<string, unknown>
   succeeded_at?: string
   failed_at?: string
   error_message?: string
@@ -92,7 +92,7 @@ export interface CreatePaymentResponse {
   redirectUrl?: string
   qrCode?: string
   deepLink?: string
-  raw: any  // Full response from gateway
+  raw: Record<string, unknown>  // Full response from gateway
 }
 
 export interface NormalizedEvent {
@@ -104,7 +104,7 @@ export interface NormalizedEvent {
   gatewayTransactionId: string
   amount: Money
   metadata: Record<string, string>
-  raw: any
+  raw: Record<string, unknown>
   timestamp: Date
 }
 
@@ -112,7 +112,7 @@ export interface RefundResult {
   id: string
   status: PaymentStatus
   amount: Money
-  raw: any
+  raw: Record<string, unknown>
 }
 
 // ========== Webhook ==========
@@ -123,7 +123,7 @@ export interface WebhookEvent {
   type: string
   status?: string
   payment_intent_id?: string
-  raw: any
+  raw: Record<string, unknown>
   processed: boolean
   created_at?: string
 }
@@ -141,7 +141,7 @@ export interface PaymentGateway {
   refundPayment(paymentId: string, amount?: Money): Promise<RefundResult>
   
   verifyWebhook(payload: string, signature: string): boolean
-  normalizeWebhook(payload: any, headers: Record<string, string>): NormalizedEvent
+  normalizeWebhook(payload: unknown, headers: Record<string, string>): NormalizedEvent
   
   healthCheck(): Promise<{ ok: boolean; message?: string }>
 }
@@ -178,7 +178,7 @@ export interface Payout {
   user_id: string
   amount: number
   fee?: number
-  bank_account?: any  // { bank_name, account_number, holder }
+  bank_account?: Record<string, unknown>  // { bank_name, account_number, holder }
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
   admin_id?: string
   note?: string

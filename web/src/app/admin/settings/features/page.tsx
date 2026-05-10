@@ -9,6 +9,9 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import type { FeatureFlag } from '@/types/featureFlags'
+import SettingsPage from '@/components/admin/SettingsPage'
+import LoadingSkeleton from '@/components/admin/LoadingSkeleton'
+import ToggleSwitch from '@/components/admin/ToggleSwitch'
 
 interface FeatureFlagWithToggle extends FeatureFlag {
   toggling?: boolean
@@ -47,7 +50,7 @@ export default function FeaturesSettings() {
 
       if (error) throw error
       setFlags(data || [])
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching flags:', err)
       toast('Failed to load feature flags', 'error')
     } finally {
@@ -83,9 +86,9 @@ export default function FeaturesSettings() {
 
       toast(`Feature ${!currentState ? 'enabled' : 'disabled'} successfully`, 'success')
       fetchFlags()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error toggling flag:', err)
-      toast(err.message || 'Failed to toggle feature', 'error')
+      toast(err instanceof Error ? err.message : 'Failed to toggle feature', 'error')
     } finally {
       setSaving(null)
     }
@@ -103,36 +106,14 @@ export default function FeaturesSettings() {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Feature Flags</h1>
-        </div>
-        <div className="animate-pulse space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-20 rounded-lg" />
-          ))}
-        </div>
-      </div>
+      <SettingsPage title="Feature Flags" description="Toggle features ON/OFF without code deployment. Safe for production.">
+        <LoadingSkeleton rows={4} height="h-20" />
+      </SettingsPage>
     )
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Feature Flags</h1>
-          <p className="text-gray-600 mt-1">
-            Toggle features ON/OFF without code deployment. Safe for production.
-          </p>
-        </div>
-        <Link
-          href="/admin/settings"
-          className="text-sm text-blue-600 hover:underline"
-        >
-          ← Back to Settings
-        </Link>
-      </div>
-
+    <SettingsPage title="Feature Flags" description="Toggle features ON/OFF without code deployment. Safe for production.">
       {/* Category Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {categories.map(cat => (
@@ -186,26 +167,12 @@ export default function FeaturesSettings() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      {/* Toggle Switch */}
-                      <button
-                        onClick={() => toggleFlag(flag.key, flag.enabled)}
-                        disabled={saving === flag.key || (flag.requires_config && !flag.config_completed && !flag.enabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          flag.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                        } ${saving === flag.key ? 'opacity-50' : ''}`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            flag.enabled ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-
-                      {saving === flag.key && (
-                        <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                      )}
-                    </div>
+                    <ToggleSwitch
+                      enabled={flag.enabled}
+                      loading={saving === flag.key}
+                      disabled={flag.requires_config && !flag.config_completed && !flag.enabled}
+                      onToggle={() => toggleFlag(flag.key, flag.enabled)}
+                    />
                   </div>
 
                   {/* Warning if trying to enable without config */}
@@ -233,10 +200,10 @@ export default function FeaturesSettings() {
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Features default to OFF for safety</li>
           <li>• Toggle ON when ready for production</li>
-          <li>• Features with "Needs Config" require setup first</li>
+          <li>Features with &quot;Needs Config&quot; require setup first</li>
           <li>• Changes take effect immediately (no deployment needed)</li>
         </ul>
       </div>
-    </div>
+    </SettingsPage>
   )
 }

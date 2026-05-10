@@ -39,7 +39,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 
         if (cancelled) return
 
-        if (error || (profile as any)?.role !== 'admin') {
+        if (error || profile?.role !== 'admin') {
           router.replace('/')
           return
         }

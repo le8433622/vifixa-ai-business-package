@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    command: 'PATH="/usr/local/Cellar/node/26.0.0/bin:$PATH" npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },

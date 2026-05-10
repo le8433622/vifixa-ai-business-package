@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Customer Order Details Page
 // Per 05_PRODUCT_SOLUTION.md - Customer flow
 // Per Step 7: Trust & Quality - Review, warranty, complaint
@@ -24,10 +23,10 @@ interface OrderDetails {
   created_at: string;
   completed_at?: string;
   payment_status?: string;
-  ai_diagnosis?: any;
-  before_media?: any[];
-  after_media?: any[];
-  media_urls?: any[];
+  ai_diagnosis?: { diagnosis?: string; severity?: string; recommended_skills?: string[]; estimated_price_range?: { min: number; max: number } };
+  before_media?: string[];
+  after_media?: string[];
+  media_urls?: string[];
   workers?: {
     user_id: string;
     trust_score?: number;
@@ -124,7 +123,7 @@ export default function CustomerOrderDetailsPage() {
       const completedDate = new Date(order.completed_at);
       const thirtyDaysLater = new Date(completedDate);
       thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
-      setIsWarrantyEligible(new Date() <= thirtyDaysLater);
+      queueMicrotask(() => { setIsWarrantyEligible(new Date() <= thirtyDaysLater) });
     }
   }, [order]);
 
@@ -134,15 +133,15 @@ export default function CustomerOrderDetailsPage() {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() } as any)
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', orderId);
 
       if (error) throw error;
       toast('Đã hủy đơn hàng', 'success');
       queryClient.invalidateQueries({ queryKey: ['order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-    } catch (error: any) {
-      toast(error.message || 'Không thể hủy đơn hàng', 'error');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Không thể hủy đơn hàng', 'error');
     } finally {
       setCancelling(false);
     }
@@ -176,7 +175,7 @@ export default function CustomerOrderDetailsPage() {
         <p className="text-xs text-gray-400 mb-2">Session user: {sessionUserId || 'not logged in'}</p>
         {orderError && (
           <p className="text-xs text-red-500 mb-4">
-            Error: {(orderError as any).code ? `${(orderError as any).code} - ` : ''}{orderError.message}
+            Error: {orderError instanceof Error && 'code' in orderError ? `${(orderError as Error & { code: string }).code} - ` : ''}{orderError.message}
           </p>
         )}
         <button onClick={() => refetch()} className="mt-2 mr-4 text-blue-600 hover:underline">
@@ -327,7 +326,7 @@ export default function CustomerOrderDetailsPage() {
                 <div>
                   <span className="text-xs font-medium text-gray-500 uppercase mb-2 block">Ảnh mô tả ban đầu</span>
                   <div className="flex gap-3 overflow-x-auto pb-2">
-                    {order.media_urls.map((url: string, i: number) => (
+                    {order.media_urls.map((url, i) => (
                       <img
                         key={i}
                         src={url}
@@ -343,7 +342,7 @@ export default function CustomerOrderDetailsPage() {
                 <div className={order.media_urls?.length ? 'mt-4' : ''}>
                   <span className="text-xs font-medium text-gray-500 uppercase mb-2 block">Ảnh trước khi sửa</span>
                   <div className="flex gap-3 overflow-x-auto pb-2">
-                    {order.before_media.map((url: string, i: number) => (
+                    {order.before_media.map((url, i) => (
                       <img
                         key={i}
                         src={url}
@@ -359,7 +358,7 @@ export default function CustomerOrderDetailsPage() {
                 <div className={(order.media_urls?.length || order.before_media?.length) ? 'mt-4' : ''}>
                   <span className="text-xs font-medium text-gray-500 uppercase mb-2 block">Ảnh sau khi sửa</span>
                   <div className="flex gap-3 overflow-x-auto pb-2">
-                    {order.after_media.map((url: string, i: number) => (
+                    {order.after_media.map((url, i) => (
                       <img
                         key={i}
                         src={url}
@@ -386,7 +385,7 @@ export default function CustomerOrderDetailsPage() {
                 <span className="ml-2 text-base text-gray-600">({order.rating}/5)</span>
               </div>
               {order.review_comment && (
-                <p className="mt-2 text-gray-700 italic">"{order.review_comment}"</p>
+                <p className="mt-2 text-gray-700 italic">{'\u201C'}{order.review_comment}{'\u201D'}</p>
               )}
             </div>
           )}

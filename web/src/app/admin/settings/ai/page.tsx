@@ -114,9 +114,9 @@ export default function AISettings() {
       if (error) throw error
       setSettings(data || [])
 
-      const provider = (data as any)?.find((s: any) => s.key === 'ai_provider') as any
+      const provider = (data ?? []).find((s: AppSetting) => s.key === 'ai_provider')
       if (provider?.value) setSelectedProvider(provider.value)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching AI settings:', err)
       toast('Failed to load AI settings', 'error')
     } finally {
@@ -154,9 +154,8 @@ export default function AISettings() {
       }
 
       for (const [key, val] of Object.entries(modified)) {
-        // @ts-ignore - Supabase type generation needs update
         const { error } = await supabase
-          .from('app_settings' as any)
+          .from('app_settings')
           .update({ value: val, updated_at: new Date().toISOString() })
           .eq('key', key)
 
@@ -166,7 +165,7 @@ export default function AISettings() {
       setModified({})
       toast('AI settings saved successfully', 'success')
       fetchSettings()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving AI settings:', err)
       toast('Failed to save settings', 'error')
     } finally {

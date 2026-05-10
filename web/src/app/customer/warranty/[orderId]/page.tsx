@@ -37,7 +37,7 @@ export default function CustomerWarrantyPage() {
         return null;
       }
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('orders')
         .select('*')
         .eq('id', orderId)
@@ -55,7 +55,7 @@ export default function CustomerWarrantyPage() {
       const thirtyDaysLater = new Date(completedDate);
       thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
       const now = new Date();
-      setIsEligible(now <= thirtyDaysLater);
+      queueMicrotask(() => { setIsEligible(now <= thirtyDaysLater) });
     }
   }, [order]);
 
@@ -70,21 +70,21 @@ export default function CustomerWarrantyPage() {
       if (!session) throw new Error('Chưa đăng nhập');
 
       // Create warranty claim
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('warranty_claims')
         .insert({
           order_id: orderId,
           customer_id: session.user.id,
           claim_reason: claimReason,
           status: 'pending',
-        } as any);
+        });
 
       if (error) throw error;
 
       // Create dispute for the order
-      const { error: disputeError } = await (supabase as any)
+      const { error: disputeError } = await supabase
         .from('orders')
-        .update({ status: 'disputed' } as any)
+        .update({ status: 'disputed' })
         .eq('id', orderId);
 
       if (disputeError) throw disputeError;
@@ -124,7 +124,7 @@ export default function CustomerWarrantyPage() {
       alert(message);
       router.push('/customer');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setError(error.message);
     },
   });

@@ -94,38 +94,27 @@ CREATE TABLE IF NOT EXISTS public.membership_plans (
 );
 
 -- Bảng subscription của khách hàng
-CREATE TABLE IF NOT EXISTS public.customer_subscriptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    plan_id UUID REFERENCES public.membership_plans(id),
-    
-    -- Status
-    status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'expired', 'past_due', 'trialing')),
-    
-    -- Billing
-    billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'yearly')),
-    current_period_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    current_period_end TIMESTAMPTZ NOT NULL,
-    cancelled_at TIMESTAMPTZ DEFAULT NULL,
-    cancel_reason TEXT DEFAULT NULL,
-    
-    -- Payment
-    last_payment_at TIMESTAMPTZ DEFAULT NULL,
-    last_payment_amount DECIMAL(10,2) DEFAULT 0,
-    next_billing_date TIMESTAMPTZ DEFAULT NULL,
-    
-    -- Usage tracking
-    bookings_used_this_month INT DEFAULT 0,
-    free_diagnostics_used INT DEFAULT 0,
-    free_cancellations_used INT DEFAULT 0,
-    
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Table already exists from migration 20260508000000, ensure columns exist
+ALTER TABLE public.customer_subscriptions
+    ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly',
+    ADD COLUMN IF NOT EXISTS cancel_reason TEXT DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS last_payment_at TIMESTAMPTZ DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS last_payment_amount DECIMAL(10,2) DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMPTZ DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS bookings_used_this_month INT DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS free_diagnostics_used INT DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS free_cancellations_used INT DEFAULT 0;
 
-CREATE INDEX idx_customer_subscriptions_user ON public.customer_subscriptions(user_id);
-CREATE INDEX idx_customer_subscriptions_status ON public.customer_subscriptions(status);
-CREATE INDEX idx_customer_subscriptions_period ON public.customer_subscriptions(current_period_end);
+-- Add billing_cycle check constraint if not already present
+DO $$ BEGIN
+    ALTER TABLE public.customer_subscriptions ADD CONSTRAINT customer_subscriptions_billing_cycle_check
+        CHECK (billing_cycle IN ('monthly', 'yearly'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_customer_subscriptions_user ON public.customer_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_customer_subscriptions_status ON public.customer_subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_customer_subscriptions_period ON public.customer_subscriptions(end_date);
 
 -- ============================================
 -- 3. ADS & PROMOTION SYSTEM FOR WORKERS
@@ -178,7 +167,7 @@ CREATE TABLE IF NOT EXISTS public.worker_ad_purchases (
     clicks_count INT DEFAULT 0,
     conversions_count INT DEFAULT 0,
     
-    payment_id UUID REFERENCES public.payments(id),
+    payment_id UUID,
     
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -395,28 +384,28 @@ ALTER TABLE public.pricing_rules ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Pricing rules are viewable by everyone" ON public.pricing_rules
     FOR SELECT USING (true);
 CREATE POLICY "Pricing rules manageable by admins" ON public.pricing_rules
-    FOR ALL USING (public.is_admin(auth.uid()));
+    FOR ALL USING (is_admin());
 
 -- Membership plans: public read, admin write
 ALTER TABLE public.membership_plans ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Membership plans viewable by everyone" ON public.membership_plans
     FOR SELECT USING (true);
 CREATE POLICY "Membership plans manageable by admins" ON public.membership_plans
-    FOR ALL USING (public.is_admin(auth.uid()));
+    FOR ALL USING (is_admin());
 
 -- Customer subscriptions: users can see their own
 ALTER TABLE public.customer_subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own subscriptions" ON public.customer_subscriptions
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Admins can manage all subscriptions" ON public.customer_subscriptions
-    FOR ALL USING (public.is_admin(auth.uid()));
+    FOR ALL USING (is_admin());
 
 -- Worker ad packages: public read, admin write
 ALTER TABLE public.worker_ad_packages ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Ad packages viewable by everyone" ON public.worker_ad_packages
     FOR SELECT USING (true);
 CREATE POLICY "Ad packages manageable by admins" ON public.worker_ad_packages
-    FOR ALL USING (public.is_admin(auth.uid()));
+    FOR ALL USING (is_admin());
 
 -- Worker ad purchases: workers can see their own
 ALTER TABLE public.worker_ad_purchases ENABLE ROW LEVEL SECURITY;
@@ -425,7 +414,7 @@ CREATE POLICY "Workers can view own ad purchases" ON public.worker_ad_purchases
 CREATE POLICY "Workers can create own ad purchases" ON public.worker_ad_purchases
     FOR INSERT WITH CHECK (auth.uid() = worker_id);
 CREATE POLICY "Admins can manage all ad purchases" ON public.worker_ad_purchases
-    FOR ALL USING (public.is_admin(auth.uid()));
+    FOR ALL USING (is_admin());
 
 -- Boost sessions: workers can see their own
 ALTER TABLE public.worker_boost_sessions ENABLE ROW LEVEL SECURITY;
@@ -434,7 +423,7 @@ CREATE POLICY "Workers can view own boost sessions" ON public.worker_boost_sessi
 CREATE POLICY "Workers can create own boost sessions" ON public.worker_boost_sessions
     FOR INSERT WITH CHECK (auth.uid() = worker_id);
 CREATE POLICY "Admins can manage all boost sessions" ON public.worker_boost_sessions
-    FOR ALL USING (public.is_admin(auth.uid()));
+    FOR ALL USING (is_admin());
 
 COMMENT ON TABLE public.pricing_rules IS 'Dynamic pricing rules for surge, location, skill-based pricing';
 COMMENT ON TABLE public.membership_plans IS 'Customer membership subscription plans';

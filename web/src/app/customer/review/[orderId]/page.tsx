@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Customer Review Page
 // Per 12_OPERATIONS_AND_TRUST.md - Review/rating system
 // Per Step 7: Trust & Quality - Task 4
@@ -34,7 +33,7 @@ export default function CustomerReviewPage({ params }: ReviewPageProps) {
       }
 
       const { data, error } = await supabase
-        .from('orders' as any)
+        .from('orders')
         .select(`
           *,
           workers:worker_id (
@@ -62,11 +61,11 @@ export default function CustomerReviewPage({ params }: ReviewPageProps) {
 
       // Update order with rating and review
       const { error } = await supabase
-        .from('orders' as any)
+        .from('orders')
         .update({
           rating,
           review_comment: comment,
-        } as any)
+        })
         .eq('id', orderId);
 
       if (error) throw error;
@@ -89,7 +88,7 @@ export default function CustomerReviewPage({ params }: ReviewPageProps) {
       alert('Cảm ơn bạn đã đánh giá!');
       router.push('/customer');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setError(error.message);
     },
   });

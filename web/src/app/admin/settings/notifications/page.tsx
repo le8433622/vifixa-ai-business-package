@@ -7,6 +7,10 @@ import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import { useFeatureFlags } from '@/components/FeatureFlagProvider'
 import { FeatureDisabled } from '@/components/FeatureGuard'
+import SettingsPage from '@/components/admin/SettingsPage'
+import LoadingSkeleton from '@/components/admin/LoadingSkeleton'
+import ToggleSwitch from '@/components/admin/ToggleSwitch'
+import SaveBar from '@/components/admin/SaveBar'
 
 interface AppSetting {
   key: string
@@ -66,9 +70,9 @@ export default function NotificationsSettings() {
 
       if (error) throw error
       setSettings(data || [])
-    } catch (err: any) {
-      console.error('Error fetching notification settings:', err)
-      toast('Failed to load notification settings', 'error')
+    } catch (err) {
+      console.error('Error fetching notification settings:', err instanceof Error ? err.message : err)
+      toast('Không thể tải cài đặt thông báo', 'error')
     } finally {
       setLoading(false)
     }
@@ -108,9 +112,8 @@ export default function NotificationsSettings() {
       }
 
       for (const [key, val] of Object.entries(modified)) {
-        // @ts-ignore - Supabase type generation needs update
         const { error } = await supabase
-          .from('app_settings' as any)
+          .from('app_settings')
           .update({ value: val, updated_at: new Date().toISOString() })
           .eq('key', key)
 
@@ -120,9 +123,9 @@ export default function NotificationsSettings() {
       setModified({})
       toast('Notification settings saved', 'success')
       fetchSettings()
-    } catch (err: any) {
-      console.error('Error saving notification settings:', err)
-      toast('Failed to save settings', 'error')
+    } catch (err) {
+      console.error('Error saving notification settings:', err instanceof Error ? err.message : err)
+      toast('Không thể lưu cài đặt', 'error')
     } finally {
       setSaving(false)
     }
@@ -132,16 +135,7 @@ export default function NotificationsSettings() {
 
   if (!anyNotifEnabled) {
     return (
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Notifications Settings</h1>
-            <p className="text-gray-600 mt-1">Configure email, SMS, and push notification channels</p>
-          </div>
-          <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-            ← Back to Settings
-          </Link>
-        </div>
+      <SettingsPage title="Notifications Settings" description="Configure email (SMTP), SMS, and push notification providers.">
         <FeatureDisabled
           feature="Notifications"
           message="All notification features are currently disabled. Enable them in Features settings first."
@@ -153,35 +147,20 @@ export default function NotificationsSettings() {
             <li>Then return here to configure providers</li>
           </ol>
         </div>
-      </div>
+      </SettingsPage>
     )
   }
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Notifications Settings</h1>
-        <div className="animate-pulse space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-24 rounded-lg" />
-          ))}
-        </div>
-      </div>
+      <SettingsPage title="Notifications Settings" description="Configure email (SMTP), SMS, and push notification providers.">
+        <LoadingSkeleton rows={4} height="h-24" />
+      </SettingsPage>
     )
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Notifications Settings</h1>
-          <p className="text-gray-600 mt-1">Configure email (SMTP), SMS, and push notification providers.</p>
-        </div>
-        <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-          ← Back to Settings
-        </Link>
-      </div>
-
+    <SettingsPage title="Notifications Settings" description="Configure email (SMTP), SMS, and push notification providers.">
       {/* Channel Status */}
       <div className="mb-6 bg-white rounded-lg shadow p-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Channel Status</h3>
@@ -245,16 +224,10 @@ export default function NotificationsSettings() {
                   <h2 className="text-lg font-semibold text-gray-900">Email Configuration</h2>
                   <p className="text-sm text-gray-600 mt-1">SMTP settings for transactional emails.</p>
                 </div>
-                <button
-                  onClick={() => handleToggle('notif_email_enabled', getBooleanValue('notif_email_enabled'))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    getBooleanValue('notif_email_enabled') ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    getBooleanValue('notif_email_enabled') ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
+                <ToggleSwitch
+                  enabled={getBooleanValue('notif_email_enabled')}
+                  onToggle={() => handleToggle('notif_email_enabled', getBooleanValue('notif_email_enabled'))}
+                />
               </div>
             </div>
             {getBooleanValue('notif_email_enabled') && (
@@ -346,16 +319,10 @@ export default function NotificationsSettings() {
                   <h2 className="text-lg font-semibold text-gray-900">SMS Configuration</h2>
                   <p className="text-sm text-gray-600 mt-1">SMS gateway for transactional text messages.</p>
                 </div>
-                <button
-                  onClick={() => handleToggle('notif_sms_enabled', getBooleanValue('notif_sms_enabled'))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    getBooleanValue('notif_sms_enabled') ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    getBooleanValue('notif_sms_enabled') ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
+                <ToggleSwitch
+                  enabled={getBooleanValue('notif_sms_enabled')}
+                  onToggle={() => handleToggle('notif_sms_enabled', getBooleanValue('notif_sms_enabled'))}
+                />
               </div>
             </div>
             {getBooleanValue('notif_sms_enabled') && (
@@ -413,16 +380,10 @@ export default function NotificationsSettings() {
                   <h2 className="text-lg font-semibold text-gray-900">Push Notifications</h2>
                   <p className="text-sm text-gray-600 mt-1">Mobile push notifications via Expo Push.</p>
                 </div>
-                <button
-                  onClick={() => handleToggle('notif_push_enabled', getBooleanValue('notif_push_enabled'))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    getBooleanValue('notif_push_enabled') ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    getBooleanValue('notif_push_enabled') ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
+                <ToggleSwitch
+                  enabled={getBooleanValue('notif_push_enabled')}
+                  onToggle={() => handleToggle('notif_push_enabled', getBooleanValue('notif_push_enabled'))}
+                />
               </div>
             </div>
             {getBooleanValue('notif_push_enabled') && (
@@ -473,16 +434,10 @@ export default function NotificationsSettings() {
                           <p className="text-sm text-gray-600">{event.description}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleToggle(event.settingKey, enabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          enabled ? 'bg-blue-600' : 'bg-gray-300'
-                        }`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                      </button>
+                      <ToggleSwitch
+                        enabled={enabled}
+                        onToggle={() => handleToggle(event.settingKey, enabled)}
+                      />
                     </div>
                   </div>
                 )
@@ -492,29 +447,12 @@ export default function NotificationsSettings() {
         </div>
       )}
 
-      {/* Pending Changes Bar */}
-      {Object.keys(modified).length > 0 && (
-        <div className="mt-6 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-700">
-            {Object.keys(modified).length} change(s) pending
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setModified({})}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 bg-white"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-6 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      <SaveBar
+        pendingCount={Object.keys(modified).length}
+        saving={saving}
+        onSave={handleSave}
+        onCancel={() => setModified({})}
+      />
+    </SettingsPage>
   )
 }

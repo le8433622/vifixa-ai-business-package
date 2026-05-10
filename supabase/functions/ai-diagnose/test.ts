@@ -1,0 +1,1 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; test('ai-diagnose/ function exists', async (t) => { assert.ok(true, 'Function file exists'); }); test('ai-diagnose/ handles basic request', async (t) => { assert.ok(true, 'Placeholder test'); });

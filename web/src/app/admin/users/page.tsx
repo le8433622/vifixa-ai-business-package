@@ -21,10 +21,6 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   async function fetchUsers() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -51,6 +47,10 @@ export default function AdminUsers() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchUsers(); });
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto p-6">

@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
-import { useFeatureFlags } from '@/components/FeatureFlagProvider'
 import type { FeatureFlag } from '@/types/featureFlags'
+import SettingsPage from '@/components/admin/SettingsPage'
+import LoadingSkeleton from '@/components/admin/LoadingSkeleton'
+import ToggleSwitch from '@/components/admin/ToggleSwitch'
 
 interface FeatureFlagWithState extends FeatureFlag {
   toggling?: boolean
@@ -15,7 +17,6 @@ interface FeatureFlagWithState extends FeatureFlag {
 export default function SecuritySettings() {
   const router = useRouter()
   const { toast } = useToast()
-  const { } = useFeatureFlags()
   const [securityFlags, setSecurityFlags] = useState<FeatureFlagWithState[]>([])
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
   const [originalMaintenanceMessage, setOriginalMaintenanceMessage] = useState('')
@@ -46,10 +47,10 @@ export default function SecuritySettings() {
       if (flagsResult.error) throw flagsResult.error
       setSecurityFlags(flagsResult.data || [])
 
-      const msg = (settingsResult.data as any)?.value || ''
+      const msg = (settingsResult.data?.value as string) || ''
       setMaintenanceMessage(msg)
       setOriginalMaintenanceMessage(msg)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching security data:', err)
       toast('Failed to load security settings', 'error')
     } finally {
@@ -88,9 +89,9 @@ export default function SecuritySettings() {
 
       toast(`Flag ${!currentState ? 'enabled' : 'disabled'}`, 'success')
       await fetchData()
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error toggling security flag:', err)
-      toast(err.message || 'Failed to toggle', 'error')
+      toast(err instanceof Error ? err.message : 'Failed to toggle', 'error')
     } finally {
       setSecurityFlags(prev =>
         prev.map(f => f.key === key ? { ...f, toggling: false } : f)
@@ -112,9 +113,8 @@ export default function SecuritySettings() {
         return
       }
 
-      // @ts-ignore - Supabase type generation needs update
       const { error } = await supabase
-        .from('app_settings' as any)
+        .from('app_settings')
         .update({ value: maintenanceMessage, updated_at: new Date().toISOString() })
         .eq('key', 'maintenance_message')
 
@@ -124,7 +124,7 @@ export default function SecuritySettings() {
       setMessageSaved(true)
       toast('Maintenance message saved', 'success')
       setTimeout(() => setMessageSaved(false), 3000)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving maintenance message:', err)
       toast('Failed to save message', 'error')
     } finally {
@@ -157,28 +157,14 @@ export default function SecuritySettings() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Security Settings</h1>
-        <div className="animate-pulse space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-24 rounded-lg" />
-          ))}
-        </div>
-      </div>
+      <SettingsPage title="Security Settings" description="Configure security flags, maintenance mode, and rate limiting.">
+        <LoadingSkeleton rows={4} height="h-24" />
+      </SettingsPage>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Security Settings</h1>
-          <p className="text-gray-600 mt-1">Configure security flags, maintenance mode, and rate limiting.</p>
-        </div>
-        <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-          ← Back to Settings
-        </Link>
-      </div>
+    <SettingsPage title="Security Settings" description="Configure security flags, maintenance mode, and rate limiting.">
 
       {/* Security Feature Flags */}
       <div className="space-y-4">
@@ -207,24 +193,11 @@ export default function SecuritySettings() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleFlag(key, enabled)}
-                      disabled={toggling}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      } ${toggling ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          enabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                    {toggling && (
-                      <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                    )}
-                  </div>
+                  <ToggleSwitch
+                    enabled={enabled}
+                    loading={toggling}
+                    onToggle={() => toggleFlag(key, enabled)}
+                  />
                 </div>
               </div>
             </div>
@@ -277,6 +250,6 @@ export default function SecuritySettings() {
           <li>• Changes take effect immediately across all clients</li>
         </ul>
       </div>
-    </div>
+    </SettingsPage>
   )
 }

@@ -32,9 +32,9 @@ export function FeatureFlagProvider({ children }: { children: ReactNode }) {
       })
 
       setFlags(flagsMap)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching feature flags:', err)
-      setError(err.message || 'Failed to fetch flags')
+      setError(err instanceof Error ? err.message : 'Failed to fetch flags')
       // Safe default: all flags false
       setFlags({})
     } finally {
@@ -43,7 +43,7 @@ export function FeatureFlagProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    fetchFlags()
+    queueMicrotask(() => { fetchFlags() })
 
     // Optional: Realtime subscription to update when admin toggles
     const channel = supabase

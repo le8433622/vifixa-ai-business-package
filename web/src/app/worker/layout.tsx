@@ -15,17 +15,16 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+      setUserEmail(session.user.email || '')
+    }
     checkUser()
   }, [])
-
-  async function checkUser() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      router.push('/login')
-      return
-    }
-    setUserEmail(session.user.email || '')
-  }
 
   async function handleLogout() {
     await supabase.auth.signOut()

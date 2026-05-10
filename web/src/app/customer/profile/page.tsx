@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Customer Profile Page
 // Per 15_CODEX_BUSINESS_CONTEXT.md - User profile management
 
@@ -8,8 +7,19 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 
+interface Profile {
+  id: string
+  full_name?: string
+  phone?: string
+  email?: string
+  total_orders?: number
+  completed_orders?: number
+  pending_orders?: number
+  avg_rating?: number
+}
+
 export default function CustomerProfilePage() {
-  const [profile, setProfile] = useState<any>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -22,10 +32,6 @@ export default function CustomerProfilePage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchProfile()
-  }, [])
-
   async function fetchProfile() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -36,40 +42,42 @@ export default function CustomerProfilePage() {
       setEmail(session.user.email || '')
 
       const { data: profiles, error } = await supabase
-        .from('profiles' as any)
+        .from('profiles')
         .select('*')
         .eq('id', session.user.id)
 
       if (error) throw error
       
       // Handle profile not found
-      let profileData: any = profiles?.[0]
+      let profileData = profiles?.[0] as Profile | undefined
       if (!profileData) {
         console.log('Profile not found, creating...')
         const { data: newProfile, error: createError } = await supabase
-          .from('profiles' as any)
-          .insert([{ 
-            id: session.user.id, 
+          .from('profiles')
+          .insert({
+            id: session.user.id,
             email: session.user.email,
             full_name: session.user.user_metadata?.full_name || '',
-            role: session.user.user_metadata?.role || 'customer'
-          }] as any)
+            role: session.user.user_metadata?.role || 'customer',
+          })
           .select()
           .single()
         
         if (createError) throw createError
-        profileData = newProfile
+        profileData = newProfile as Profile
       }
 
-      setProfile(profileData as any)
+      setProfile(profileData)
       setName(profileData.full_name || '')
       setPhone(profileData.phone || '')
-    } catch (error: any) {
-      toast(error.message || 'Không thể tải thông tin', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Không thể tải thông tin', 'error')
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => { queueMicrotask(() => { fetchProfile() }) }, [fetchProfile])
 
   async function saveProfile() {
     try {
@@ -78,19 +86,19 @@ export default function CustomerProfilePage() {
       if (!session) return
 
       const { error } = await supabase
-        .from('profiles' as any)
+        .from('profiles')
         .update({
           full_name: name,
           phone,
           updated_at: new Date().toISOString(),
-        } as any)
+        })
         .eq('id', session.user.id)
 
       if (error) throw error
       toast('Cập nhật thông tin thành công', 'success')
       setEditing(false)
-    } catch (error: any) {
-      toast(error.message || 'Lỗi cập nhật', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Lỗi cập nhật', 'error')
     } finally {
       setSaving(false)
     }
@@ -129,8 +137,8 @@ export default function CustomerProfilePage() {
       setCurrentPassword('')
       setNewPassword('')
       setShowPasswordForm(false)
-    } catch (error: any) {
-      toast(error.message || 'Lỗi đổi mật khẩu', 'error')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Lỗi đổi mật khẩu', 'error')
     } finally {
       setSaving(false)
     }

@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
@@ -17,7 +17,7 @@ interface Device {
   purchase_date?: string
   warranty_expiry?: string
   location_in_home?: string
-  specifications?: any
+  specifications?: Record<string, unknown>
   notes?: string
   created_at: string
 }
@@ -62,45 +62,7 @@ export default function DeviceDetailPage() {
   const [serviceHistory, setServiceHistory] = useState<ServiceRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (id) {
-      fetchDevice()
-    }
-  }, [id])
-
-  async function fetchDevice() {
-    try {
-      setError(null)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('device_profiles' as any)
-        .select('*')
-        .eq('id', id as string)
-        .single()
-
-      if (error) throw error
-      setDevice(data)
-
-      if (data) {
-        const device = data as Device
-        await Promise.all([
-          fetchPrediction(device),
-          fetchServiceHistory(session.user.id, device.device_type),
-        ])
-      }
-    } catch (error: any) {
-      console.error('fetchDevice error:', error)
-      setError(error.message || 'Không thể tải thiết bị')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [now] = useState(() => new Date())
 
   async function fetchServiceHistory(userId: string, deviceType: string) {
     try {
@@ -152,6 +114,45 @@ export default function DeviceDetailPage() {
     }
   }
 
+  async function fetchDevice() {
+    try {
+      setError(null)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('device_profiles')
+        .select('*')
+        .eq('id', id as string)
+        .single()
+
+      if (error) throw error
+      setDevice(data)
+
+      if (data) {
+        const device = data as Device
+        await Promise.all([
+          fetchPrediction(device),
+          fetchServiceHistory(session.user.id, device.device_type),
+        ])
+      }
+    } catch (error) {
+      console.error('fetchDevice error:', error)
+      setError(error instanceof Error ? error.message : 'Không thể tải thiết bị')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (id) {
+      queueMicrotask(() => { fetchDevice() })
+    }
+  }, [id, fetchDevice])
+
   function getDeviceIcon(type: string) {
     const icons: Record<string, string> = {
       'air_conditioning': '❄️',
@@ -185,6 +186,14 @@ export default function DeviceDetailPage() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
   }
 
+  const deviceAge = useMemo(() => {
+    return device?.purchase_date
+      ? Math.floor((now.getTime() - new Date(device.purchase_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+      : 0
+  }, [device, now])
+
+  const maintenanceCutoff = useMemo(() => now.getTime() + 90 * 24 * 60 * 60 * 1000, [now])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -207,10 +216,6 @@ export default function DeviceDetailPage() {
       </div>
     )
   }
-
-  const deviceAge = device.purchase_date
-    ? Math.floor((Date.now() - new Date(device.purchase_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    : 0
 
   return (
     <div className="space-y-6">
@@ -424,8 +429,8 @@ export default function DeviceDetailPage() {
             ].map((item) => {
               const dueDate = new Date(device.purchase_date!)
               dueDate.setMonth(dueDate.getMonth() + item.months)
-              const isOverdue = dueDate < new Date()
-              const isUpcoming = !isOverdue && dueDate < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+              const isOverdue = dueDate < now
+              const isUpcoming = !isOverdue && dueDate.getTime() < maintenanceCutoff
               return (
                 <div key={item.months} className={`flex items-center gap-3 p-3 rounded-xl ${
                   isOverdue ? 'bg-red-50' : isUpcoming ? 'bg-yellow-50' : 'bg-gray-50'
@@ -492,7 +497,7 @@ export default function DeviceDetailPage() {
   async function deleteDevice() {
     try {
       const { error } = await supabase
-        .from('device_profiles' as any)
+        .from('device_profiles')
         .delete()
         .eq('id', id as string)
 
@@ -500,8 +505,8 @@ export default function DeviceDetailPage() {
 
       toast('Đã xóa thiết bị', 'success')
       router.push('/customer/devices')
-    } catch (error: any) {
-      toast(error.message || 'Lỗi khi xóa', 'error')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Lỗi khi xóa', 'error')
     }
   }
 }

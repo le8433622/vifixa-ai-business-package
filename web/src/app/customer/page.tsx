@@ -15,7 +15,7 @@ interface Order {
   status: string
   estimated_price: number
   final_price?: number
-  ai_diagnosis?: any
+  ai_diagnosis?: { diagnosis?: string }
   rating?: number
   worker_id?: string
   created_at: string
@@ -57,26 +57,11 @@ export default function CustomerDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
   const [devices, setDevices] = useState<Device[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
-
-  useEffect(() => { checkUser() }, [])
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
-      await Promise.all([fetchOrders(), fetchDevices(), fetchReferralCode()])
-    } catch (error: any) {
-      toast(error.message || 'Lỗi tải dữ liệu', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function fetchOrders() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -108,6 +93,20 @@ export default function CustomerDashboard() {
       .single()
     if (data) setReferralCode(data.code)
   }
+
+  async function checkUser() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+      await Promise.all([fetchOrders(), fetchDevices(), fetchReferralCode()])
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Lỗi tải dữ liệu', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { queueMicrotask(() => { checkUser() }) }, [])
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {

@@ -27,13 +27,14 @@ describe('useFeatureFlag Hook', () => {
       error: null,
     })
     
-    ;(supabase.from as any).mockImplementation(() => ({
-      select: () => ({
-        eq: () => ({
-          single: mockSingle,
-        }),
-      }),
-    }))
+// @ts-expect-error Mocking supabase client
+supabase.from.mockImplementation(() => ({
+       select: () => ({
+         eq: () => ({
+           single: mockSingle,
+         }),
+       }),
+     }))
 
     const { result } = renderHook(() => useFeatureFlag('test-flag'))
 
@@ -51,13 +52,14 @@ describe('useFeatureFlag Hook', () => {
       error: null,
     })
     
-    ;(supabase.from as any).mockImplementation(() => ({
-      select: () => ({
-        eq: () => ({
-          single: mockSingle,
-        }),
-      }),
-    }))
+// @ts-expect-error Mocking supabase client
+supabase.from.mockImplementation(() => ({
+       select: () => ({
+         eq: () => ({
+           single: mockSingle,
+         }),
+       }),
+     }))
 
     const { result } = renderHook(() => useFeatureFlag('test-flag'))
 
@@ -72,13 +74,14 @@ describe('useFeatureFlag Hook', () => {
       error: { code: 'PGRST116', message: 'No rows found' },
     })
     
-    ;(supabase.from as any).mockImplementation(() => ({
-      select: () => ({
-        eq: () => ({
-          single: mockSingle,
-        }),
-      }),
-    }))
+// @ts-expect-error Mocking supabase client
+supabase.from.mockImplementation(() => ({
+       select: () => ({
+         eq: () => ({
+           single: mockSingle,
+         }),
+       }),
+     }))
 
     const { result } = renderHook(() => useFeatureFlag('non-existent'))
 

@@ -123,8 +123,8 @@ export default function AdminApprovalsPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Không tải được approval queue');
       setRequests(data.requests || []);
-    } catch (err: any) {
-      setError(err.message || 'Không tải được approval queue');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tải được approval queue');
     } finally {
       setLoading(false);
     }
@@ -156,8 +156,8 @@ export default function AdminApprovalsPage() {
         alert(`Đã thực thi và tạo đơn ${data.order_id}`);
       }
       await fetchRequests(status);
-    } catch (err: any) {
-      setError(err.message || 'Không cập nhật được approval request');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không cập nhật được approval request');
     } finally {
       setActingId(null);
     }

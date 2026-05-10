@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { FeatureFlag, FeatureCategory, FeatureFlagContextType } from '@/types/featureFlags'
+import type { FeatureFlag, FeatureCategory } from '@/types/featureFlags'
 
 interface UseFeatureFlagReturn {
   isEnabled: boolean
@@ -39,18 +39,17 @@ export function useFeatureFlag(key: string): UseFeatureFlagReturn {
         } else {
           throw fetchError
         }
-      } else if (data as any) {
-        const flagData = data as any
-        setIsEnabled(flagData.enabled)
-        setFlag(flagData as FeatureFlag)
+      } else if (data) {
+        setIsEnabled(data.enabled)
+        setFlag(data as FeatureFlag)
       } else {
         // Should not happen, but safe default
         setIsEnabled(false)
         setFlag(undefined)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error fetching feature flag '${key}':`, err)
-      setError(err.message || 'Failed to fetch feature flag')
+      setError(err instanceof Error ? err.message : 'Failed to fetch feature flag')
       setIsEnabled(false) // Safe default
     } finally {
       setLoading(false)
@@ -58,7 +57,7 @@ export function useFeatureFlag(key: string): UseFeatureFlagReturn {
   }, [key])
 
   useEffect(() => {
-    fetchFlag()
+    queueMicrotask(() => { fetchFlag() })
   }, [fetchFlag])
 
   return { isEnabled, loading, error, flag }
@@ -90,16 +89,16 @@ export function useAllFeatureFlags(category?: FeatureCategory) {
       if (fetchError) throw fetchError
 
       setFlags(data || [])
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching feature flags:', err)
-      setError(err.message || 'Failed to fetch flags')
+      setError(err instanceof Error ? err.message : 'Failed to fetch flags')
     } finally {
       setLoading(false)
     }
   }, [category])
 
   useEffect(() => {
-    fetchFlags()
+    queueMicrotask(() => { fetchFlags() })
   }, [fetchFlags])
 
   return { flags, loading, error, refetch: fetchFlags }
@@ -136,9 +135,9 @@ export function useToggleFeatureFlag() {
       }
 
       return true
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error toggling feature flag:', err)
-      setError(err.message || 'Failed to toggle flag')
+      setError(err instanceof Error ? err.message : 'Failed to toggle flag')
       return false
     } finally {
       setLoading(false)

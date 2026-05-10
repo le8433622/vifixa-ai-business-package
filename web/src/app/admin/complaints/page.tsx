@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client';
 
 // Admin Complaints Management Page
@@ -51,7 +50,7 @@ export default function AdminComplaints() {
       }
 
       let query = supabase
-        .from('complaints' as any)
+        .from('complaints')
         .select(`
           *,
           profiles:customer_id (email),
@@ -66,7 +65,7 @@ export default function AdminComplaints() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setComplaints((data as any) || []);
+      setComplaints(data || []);
     } catch (error) {
       console.error('Error fetching complaints:', error);
     } finally {
@@ -79,7 +78,7 @@ export default function AdminComplaints() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const updateData: any = {
+      const updateData: Record<string, unknown> = {
         status: newStatus,
       };
 
@@ -93,8 +92,8 @@ export default function AdminComplaints() {
       }
 
       const { error } = await supabase
-        .from('complaints' as any)
-        .update(updateData as any as any)
+        .from('complaints')
+        .update(updateData)
         .eq('id', complaintId);
 
       if (error) throw error;
@@ -103,8 +102,8 @@ export default function AdminComplaints() {
       setSelectedComplaint(null);
       setResolution('');
       fetchComplaints();
-    } catch (error: any) {
-      alert(`Lỗi: ${error.message}`);
+    } catch (error) {
+      alert(`Lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

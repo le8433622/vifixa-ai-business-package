@@ -58,14 +58,142 @@ export default function WorkerEarningsPage() {
   // Wallet / payout state
   const [showWithdrawForm, setShowWithdrawForm] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
-  const [ledgerEntries, setLedgerEntries] = useState<any[]>([])
-  const [payoutHistory, setPayoutHistory] = useState<any[]>([])
+  const [ledgerEntries, setLedgerEntries] = useState<Record<string, unknown>[]>([])
+  const [payoutHistory, setPayoutHistory] = useState<Record<string, unknown>[]>([])
   const [withdrawAmount, setWithdrawAmount] = useState(50000)
   const [bankAccount, setBankAccount] = useState({ bank_name: '', account_number: '', holder: '' })
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawError, setWithdrawError] = useState<string | null>(null)
 
   useEffect(() => {
+    async function fetchEarnings(userId: string) {
+      try {
+        setError(null)
+
+        const balanceResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=balance`,
+          { headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
+        )
+        const balanceData = balanceResponse.ok ? await balanceResponse.json() : { balance: 0, locked_amount: 0 }
+
+        const { data: ordersData, error } = await supabase
+          .from('orders')
+          .select('id, category, completed_at, actual_price, estimated_price, status')
+          .eq('worker_id', userId)
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+
+        if (error) throw error
+        const orders = (ordersData || []) as WorkerEarningOrder[]
+
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
+
+        let total = 0
+        let thisMonth = 0
+        let thisWeek = 0
+        let todayEarnings = 0
+        let pending = 0
+
+        const jobs = orders.map(order => {
+          const price = order.actual_price || order.estimated_price || 0
+          total += price
+
+          const completedDate = new Date(order.completed_at || order.created_at)
+
+          if (completedDate >= monthAgo) {
+            thisMonth += price
+          }
+          if (completedDate >= weekAgo) {
+            thisWeek += price
+          }
+          if (completedDate >= today) {
+            todayEarnings += price
+          }
+
+          return {
+            id: order.id,
+            category: order.category,
+            completed_at: order.completed_at || order.created_at,
+            actual_price: price,
+            status: order.status,
+          }
+        })
+
+        const { data: pendingJobsData } = await supabase
+          .from('orders')
+          .select('estimated_price')
+          .eq('worker_id', userId)
+          .eq('status', 'in_progress')
+
+        const pendingJobs = (pendingJobsData || []) as PendingPaymentOrder[]
+        pending = pendingJobs.reduce((sum, job) => sum + (job.estimated_price || 0), 0)
+
+        setEarnings({
+          today: todayEarnings,
+          thisWeek,
+          thisMonth,
+          total,
+          pending,
+          balance: balanceData.balance || 0,
+          locked: balanceData.locked_amount || 0,
+          available: (balanceData.balance || 0) - (balanceData.locked_amount || 0),
+          jobs: jobs.filter(job => {
+            const completedDate = new Date(job.completed_at)
+            if (timeframe === 'week') return completedDate >= weekAgo
+            if (timeframe === 'month') return completedDate >= monthAgo
+            return true
+          }),
+        })
+      } catch (error: unknown) {
+        console.error('fetchEarnings error:', error)
+        setError(error instanceof Error ? error.message : 'Không thể tải thu nhập')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    async function fetchLedger() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=ledger&limit=50`,
+          { headers: { 'Authorization': `Bearer ${session.access_token}` } }
+        )
+        if (response.ok) setLedgerEntries((await response.json()).entries || [])
+      } catch (err) {
+        console.error('Fetch ledger error:', err)
+      }
+    }
+
+    async function fetchPayouts() {
+      try {
+        const { data, error } = await supabase
+          .from('payouts').select('*').eq('worker_id', session.user.id)
+          .order('created_at', { ascending: false }).limit(10)
+        if (!error) setPayoutHistory(data || [])
+      } catch (err) {
+        console.error('Fetch payouts error:', err)
+      }
+    }
+
+    async function checkUser() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        fetchEarnings(session.user.id)
+        fetchLedger()
+        fetchPayouts()
+      } catch (error: unknown) {
+        console.error('checkUser error:', error)
+      }
+    }
     checkUser()
   }, [timeframe])
 
@@ -89,143 +217,12 @@ export default function WorkerEarningsPage() {
       setWithdrawAmount(50000)
       setShowWithdrawForm(false)
       toast('Yêu cầu rút tiền đã được gửi', 'success')
-      checkUser()
-    } catch (err: any) {
+      window.location.reload()
+    } catch (err: unknown) {
       console.error('Withdraw error:', err)
-      setWithdrawError(err.message || 'Yêu cầu rút tiền thất bại')
+      setWithdrawError(err instanceof Error ? err.message : 'Yêu cầu rút tiền thất bại')
     } finally {
       setWithdrawLoading(false)
-    }
-  }
-
-  async function fetchLedger(userId: string) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=ledger&limit=50`,
-        { headers: { 'Authorization': `Bearer ${session.access_token}` } }
-      )
-      if (response.ok) setLedgerEntries((await response.json()).entries || [])
-    } catch (err) {
-      console.error('Fetch ledger error:', err)
-    }
-  }
-
-  async function fetchPayouts(userId: string) {
-    try {
-      const { data, error } = await supabase
-        .from('payouts').select('*').eq('worker_id', userId)
-        .order('created_at', { ascending: false }).limit(10)
-      if (!error) setPayoutHistory(data || [])
-    } catch (err) {
-      console.error('Fetch payouts error:', err)
-    }
-  }
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
-      fetchEarnings(session.user.id)
-      fetchLedger(session.user.id)
-      fetchPayouts(session.user.id)
-    } catch (error: any) {
-      console.error('checkUser error:', error)
-    }
-  }
-
-  async function fetchEarnings(userId: string) {
-    try {
-      setError(null)
-
-      // Fetch wallet balance from wallet-manager
-      const balanceResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=balance`,
-        { headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
-      )
-      const balanceData = balanceResponse.ok ? await balanceResponse.json() : { balance: 0, locked_amount: 0 }
-
-      const { data: ordersData, error } = await (supabase as any)
-        .from('orders')
-        .select('id, category, completed_at, actual_price, estimated_price, status')
-        .eq('worker_id', userId)
-        .eq('status', 'completed')
-        .order('completed_at', { ascending: false })
-
-      if (error) throw error
-      const orders = (ordersData || []) as WorkerEarningOrder[]
-
-      const now = new Date()
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-
-      let total = 0
-      let thisMonth = 0
-      let thisWeek = 0
-      let todayEarnings = 0
-      let pending = 0
-
-      const jobs = orders.map(order => {
-        const price = order.actual_price || order.estimated_price || 0
-        total += price
-        
-        const completedDate = new Date(order.completed_at || order.created_at)
-        
-        if (completedDate >= monthAgo) {
-          thisMonth += price
-        }
-        if (completedDate >= weekAgo) {
-          thisWeek += price
-        }
-        if (completedDate >= today) {
-          todayEarnings += price
-        }
-
-        return {
-          id: order.id,
-          category: order.category,
-          completed_at: order.completed_at || order.created_at,
-          actual_price: price,
-          status: order.status,
-        }
-      })
-
-      // Fetch pending payments (in_progress jobs with estimated price)
-      const { data: pendingJobsData } = await (supabase as any)
-        .from('orders')
-        .select('estimated_price')
-        .eq('worker_id', userId)
-        .eq('status', 'in_progress')
-
-      const pendingJobs = (pendingJobsData || []) as PendingPaymentOrder[]
-      pending = pendingJobs.reduce((sum, job) => sum + (job.estimated_price || 0), 0)
-
-      setEarnings({
-        today: todayEarnings,
-        thisWeek,
-        thisMonth,
-        total,
-        pending,
-        balance: balanceData.balance || 0,
-        locked: balanceData.locked_amount || 0,
-        available: (balanceData.balance || 0) - (balanceData.locked_amount || 0),
-        jobs: jobs.filter(job => {
-          const completedDate = new Date(job.completed_at)
-          if (timeframe === 'week') return completedDate >= weekAgo
-          if (timeframe === 'month') return completedDate >= monthAgo
-          return true
-        }),
-      })
-    } catch (error: any) {
-      console.error('fetchEarnings error:', error)
-      setError(error.message || 'Không thể tải thu nhập')
-    } finally {
-      setLoading(false)
     }
   }
 

@@ -81,10 +81,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('Verify worker error:', error);
+  } catch (err: unknown) {
+    console.error('Verify worker error:', err);
     return NextResponse.json(
-      { error: error.message },
+      { error: err instanceof Error ? err.message : 'Unknown error' },
       { status: 500 }
     );
   }

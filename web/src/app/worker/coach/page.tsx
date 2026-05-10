@@ -1,30 +1,26 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-// @ts-ignore
+// @ts-expect-error - supabase client type mismatch from external package
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function WorkerCoachPage() {
-  const [messages, setMessages] = useState<any[]>([
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([
     { role: 'assitant', content: 'Xin chao! Toi la AI Coach cua Vifixa. Toi co the giup ban.' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  useEffect(() => { checkUser() }, [])
-
-  async function checkUser() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
-    fetchStats(session.user.id)
-  }
-
-  async function fetchStats(userId: string) {
-    // Simplified - just load data
-  }
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+    }
+    checkUser()
+  }, [])
 
   async function sendMessage() {
     if (!input.trim()) return
@@ -56,7 +52,7 @@ export default function WorkerCoachPage() {
       if (!response.ok) throw new Error('AI error')
       const data = await response.json()
       setMessages(prev => [...prev, { role: 'assitant', content: data.message || 'Reply' }])
-    } catch (error: any) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assitant', content: 'Loi ket noi' }])
     } finally {
       setLoading(false)
