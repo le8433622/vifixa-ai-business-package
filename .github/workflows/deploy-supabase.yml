@@ -48,7 +48,7 @@ jobs:
             supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1 || echo "WARN: $name deploy failed"
           done
       - name: Push migrations
-        run: supabase db push --linked
+        run: supabase db push --linked --include-all
 
   deploy-production:
     name: Deploy to Production Supabase
@@ -71,4 +71,4 @@ jobs:
             supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1
           done
       - name: Push migrations
-        run: supabase db push --linked
+        run: supabase db push --linked --include-all
