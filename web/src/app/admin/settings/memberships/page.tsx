@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, Crown, CheckCircle2, DollarSign, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MembershipPlan {
@@ -20,7 +20,7 @@ interface MembershipPlan {
   slug: string;
   price_monthly: number;
   price_yearly: number;
-  features: any;
+  features: Record<string, unknown>;
   discount_percent: number;
   priority_level: number;
   is_active: boolean;
@@ -30,7 +30,7 @@ interface MembershipPlan {
 export default function MembershipsSettings() {
   const supabase = createClientComponentClient();
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null);
   const [formData, setFormData] = useState({
@@ -50,10 +50,6 @@ export default function MembershipsSettings() {
     },
   });
 
-  useEffect(() => {
-    fetchPlans();
-  }, []);
-
   async function fetchPlans() {
     try {
       const { data, error } = await supabase
@@ -63,13 +59,17 @@ export default function MembershipsSettings() {
 
       if (error) throw error;
       setPlans(data || []);
-    } catch (error: any) {
-      console.error('Error fetching membership plans:', error);
+    } catch (err) {
+      console.error('Error fetching membership plans:', err);
       toast.error('Không thể tải danh sách gói membership');
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchPlans(); });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,9 +111,9 @@ export default function MembershipsSettings() {
         },
       });
       fetchPlans();
-    } catch (error: any) {
-      console.error('Error saving membership plan:', error);
-      toast.error('Không thể lưu gói membership: ' + error.message);
+    } catch (err) {
+      console.error('Error saving membership plan:', err);
+      toast.error('Không thể lưu gói membership: ' + (err instanceof Error ? err.message : ''));
     }
   }
 
@@ -127,8 +127,8 @@ export default function MembershipsSettings() {
       if (error) throw error;
       toast.success(plan.is_active ? 'Đã vô hiệu hóa gói' : 'Đã kích hoạt gói');
       fetchPlans();
-    } catch (error: any) {
-      toast.error('Không thể cập nhật trạng thái: ' + error.message);
+    } catch (err) {
+      toast.error('Không thể cập nhật trạng thái: ' + (err instanceof Error ? err.message : ''));
     }
   }
 
@@ -144,8 +144,8 @@ export default function MembershipsSettings() {
       if (error) throw error;
       toast.success('Đã xóa gói membership');
       fetchPlans();
-    } catch (error: any) {
-      toast.error('Không thể xóa: ' + error.message);
+    } catch (err) {
+      toast.error('Không thể xóa: ' + (err instanceof Error ? err.message : ''));
     }
   }
 

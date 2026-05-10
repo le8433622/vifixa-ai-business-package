@@ -117,7 +117,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Failed to purchase ad package',
+        error: error instanceof Error ? error.message : 'Failed to purchase ad package',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

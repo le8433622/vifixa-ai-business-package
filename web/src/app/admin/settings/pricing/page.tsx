@@ -27,14 +27,14 @@ interface PricingRule {
   location_ids: string[] | null;
   service_categories: string[] | null;
   worker_skill_levels: number[] | null;
-  time_ranges: any;
+  time_ranges: Record<string, unknown> | null;
   demand_threshold: number | null;
 }
 
 export default function PricingSettings() {
   const supabase = createClientComponentClient();
   const [rules, setRules] = useState<PricingRule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<PricingRule | null>(null);
   const [formData, setFormData] = useState({
@@ -47,10 +47,6 @@ export default function PricingSettings() {
     is_active: true,
   });
 
-  useEffect(() => {
-    fetchRules();
-  }, []);
-
   async function fetchRules() {
     try {
       const { data, error } = await supabase
@@ -60,13 +56,17 @@ export default function PricingSettings() {
 
       if (error) throw error;
       setRules(data || []);
-    } catch (error: any) {
-      console.error('Error fetching pricing rules:', error);
+    } catch (err) {
+      console.error('Error fetching pricing rules:', err);
       toast.error('Không thể tải danh sách quy tắc giá');
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchRules(); });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -101,9 +101,9 @@ export default function PricingSettings() {
         is_active: true,
       });
       fetchRules();
-    } catch (error: any) {
-      console.error('Error saving pricing rule:', error);
-      toast.error('Không thể lưu quy tắc giá: ' + error.message);
+    } catch (err) {
+      console.error('Error saving pricing rule:', err);
+      toast.error('Không thể lưu quy tắc giá: ' + (err instanceof Error ? err.message : ''));
     }
   }
 
@@ -117,8 +117,8 @@ export default function PricingSettings() {
       if (error) throw error;
       toast.success(rule.is_active ? 'Đã vô hiệu hóa quy tắc' : 'Đã kích hoạt quy tắc');
       fetchRules();
-    } catch (error: any) {
-      toast.error('Không thể cập nhật trạng thái: ' + error.message);
+    } catch (err) {
+      toast.error('Không thể cập nhật trạng thái: ' + (err instanceof Error ? err.message : ''));
     }
   }
 
@@ -134,8 +134,8 @@ export default function PricingSettings() {
       if (error) throw error;
       toast.success('Đã xóa quy tắc giá');
       fetchRules();
-    } catch (error: any) {
-      toast.error('Không thể xóa: ' + error.message);
+    } catch (err) {
+      toast.error('Không thể xóa: ' + (err instanceof Error ? err.message : ''));
     }
   }
 

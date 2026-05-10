@@ -1,62 +1,51 @@
-# Vifixa AI — Business Package
+# Vifixa AI
 
-Bộ tài liệu này mô tả đầy đủ dự án kinh doanh **Vifixa AI**.
+**AI-powered repair & maintenance marketplace.**  
+Smart services for real life. | Dịch vụ thông minh cho đời sống thật.
 
-**Tên thương hiệu đề xuất:** Vifixa AI  
-**Tên nội bộ / codename:** VFIX — Vietnam Fix / Verified Fix / Virtual Fix  
-**Slogan quốc tế:** Smart services for real life.  
-**Slogan tiếng Việt:** Dịch vụ thông minh cho đời sống thật.
+## Stack
+| Layer | Tech |
+|-------|------|
+| Mobile | Expo / React Native |
+| Web | Next.js 16 / Tailwind / shadcn/ui |
+| Backend | Supabase (Auth, Postgres, Storage, Edge Functions) |
+| AI | Edge Functions → OpenAI/Anthropic |
+| Payments | Stripe Connect |
+| Deploy | Vercel + EAS Build |
 
-## Cách dùng
-
-1. Copy toàn bộ thư mục này vào dự án hoặc Google Drive.
-2. Dùng file `docs/specs/00_BUSINESS_PLAN_VIFIXA_AI.docx` làm bản tổng hợp để gửi đối tác/nhà đầu tư.
-3. Dùng các file Markdown trong thư mục `docs/specs/` để đưa cho Codex, làm website, landing page, tài liệu nội bộ.
-4. Dùng `docs/specs/15_CODEX_BUSINESS_CONTEXT.md` để Codex hiểu bối cảnh kinh doanh trước khi lập trình.
-
-## Tài liệu kỹ thuật
-
-- **AI API Docs**: `docs/ai-api.md` — tài liệu API 8 functions (endpoint, request/response, env vars)
-- **Rollback Plan**: `docs/rollback-plan.md` — hướng dẫn rollback functions + migrations
-- **CI/CD & Secrets**: `docs/ci-secrets-guide.md` — environments, secrets, workflows, branch protection
-- **Staging & Canary**: `docs/staging-canary.md` — staging project + chiến lược canary
-- **Checkpoint**: `docs/CHECKPOINT_SYSTEM_STATE.md` — snapshot hệ thống (tag v0.1.0-payment-smart-system)
-
-## CI/CD Pipeline
-
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `ci.yml` | Every push/PR | Lint, typecheck, quality gates, build, integration tests |
-| `deploy-vercel.yml` | Push main/staging, PR | Vercel preview + staging + production |
-| `deploy-supabase.yml` | Push supabase/ changes | Deno check + all edge functions + migrations |
-| `ai-tests.yml` | AI function changes | Lint + integration tests |
-
-See `docs/ci-secrets-guide.md` for full secrets & environments setup.
-
-## Quick Start (Developers)
-
+## Quick Start
 ```bash
-# 1. Clone & install
-npm install  # web
-cd mobile && npx expo install  # mobile
-
-# 2. Supabase setup
+npm install                # web
+cd mobile && npm install   # mobile
 supabase login
 supabase link --project-ref lipjakzhzosrhttsltwo
-supabase db pull
-
-# 3. Env files
 cp web/.env.local.example web/.env.local
-# Edit .env.local with your keys
-
-# 4. Run
-cd web && npm run dev
-cd mobile && npx expo start
+cd web && npm run dev      # start web
+cd mobile && npx expo start # start mobile
 ```
 
-- `docs/CHECKPOINT_SYSTEM_STATE.md`: **[QUAN TRỌNG]** Trạng thái hiện tại của toàn bộ hệ thống (Single Source of Truth). Đọc file này để nắm bắt tiến độ và các endpoint.
-- `docs/specs/`: Chứa toàn bộ các file đặc tả dự án từ `00_...` đến `24_...` (Business Plan, API, Database, UI, v.v.).
-- `docs/archive/`: Chứa các báo cáo tiến độ cũ (Completion Report, Final Status, v.v.).
-- `docs/testing/`: Chứa các kịch bản kiểm thử (E2E, Performance, Security).
-- `agent.md`: quy trình bắt buộc cho AI Agents / opencode CLI (tuân thủ 100%).
-- `AGENTS.md`: cấu hình khởi động cho opencode CLI.
+## Project Structure
+```
+├── web/          # Next.js web app (admin dashboard, landing)
+├── mobile/       # Expo mobile app (customer, worker, admin)
+├── supabase/
+│   ├── migrations/  # 37 DB migrations
+│   └── functions/   # 35 Edge Functions
+├── tests/        # Integration & E2E tests
+└── docs/         # Business, Architecture, AI docs
+```
+
+## Key Docs
+- `docs/BUSINESS.md` — Market, model, financials, OKRs
+- `docs/ARCHITECTURE.md` — Stack, DB, functions, security
+- `docs/AI.md` — AI agents, chat system, KPIs
+- `agent.md` — Build execution steps
+
+## Deployments
+| Component | URL |
+|-----------|-----|
+| Web | https://web-eta-ochre-99.vercel.app |
+| Supabase | lipjakzhzosrhttsltwo (prod) / drapjraegrygkakzalog (staging) |
+
+## CI/CD
+GitHub Actions: lint → typecheck → build → test → deploy (auto on push to main/staging)
