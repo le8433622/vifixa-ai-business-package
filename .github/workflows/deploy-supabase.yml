@@ -49,3 +49,26 @@ jobs:
           done
       - name: Push migrations
         run: supabase db push --linked --include-all
+
+  deploy-production:
+    name: Deploy to Production Supabase
+    if: github.ref == 'refs/heads/main'
+    needs: [lint]
+    environment: Production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      - name: Deploy all edge functions
+        run: |
+          for fn in supabase/functions/*/index.ts; do
+            name=$(basename $(dirname "$fn"))
+            [ "$name" = "_shared" ] && continue
+            echo "Deploying $name..."
+            supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1
+          done
+      - name: Push migrations
+        run: supabase db push --linked --include-all
