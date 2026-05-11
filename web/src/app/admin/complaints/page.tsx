@@ -32,16 +32,55 @@ interface Complaint {
 export default function AdminComplaints() {
   const router = useRouter();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [resolution, setResolution] = useState('');
   const [filter, setFilter] = useState<'all' | 'pending' | 'investigating' | 'resolved' | 'rejected'>('all');
 
+  const fetchComplaints = useCallback(async () => {
+    setLoading(true);
+    setApiError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/');
+        return;
+      }
+
+      let query = supabase
+        .from('complaints')
+        .select(`
+          id,
+          order_id,
+          customer_id,
+          complaint_type,
+          description,
+          status,
+          created_at,
+          resolved_at,
+          profiles!inner (email),
+          orders!inner (category, description, worker_id)
+        `);
+
+      // Apply filters
+      if (filter !== 'all') {
+        query = query.eq('status', filter);
+      }
+
+      const { data, error } = await query
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setComplaints(data);
+    } catch (_err) {
+      setApiError('Lỗi tải danh sách khiếu nại');
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, router, supabase]);
+
   useEffect(() => {
     fetchComplaints();
-  }, [filter]);
-
-  async function fetchComplaints() {
+  }, [fetchComplaints]);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {

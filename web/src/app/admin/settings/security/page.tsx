@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -24,11 +24,7 @@ export default function SecuritySettings() {
   const [savingMessage, setSavingMessage] = useState(false)
   const [messageSaved, setMessageSaved] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       const [flagsResult, settingsResult] = await Promise.all([
@@ -56,9 +52,9 @@ export default function SecuritySettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  async function toggleFlag(key: string, currentState: boolean) {
+  const toggleFlag = useCallback(async (key: string, currentState: boolean) => {
     try {
       setSecurityFlags(prev =>
         prev.map(f => f.key === key ? { ...f, toggling: true } : f)
@@ -97,9 +93,9 @@ export default function SecuritySettings() {
         prev.map(f => f.key === key ? { ...f, toggling: false } : f)
       )
     }
-  }
+  }, [router, toast, fetchData])
 
-  async function saveMaintenanceMessage() {
+  const saveMaintenanceMessage = useCallback(async () => {
     if (maintenanceMessage === originalMaintenanceMessage) {
       toast('No changes to save', 'info')
       return
@@ -128,6 +124,13 @@ export default function SecuritySettings() {
       console.error('Error saving maintenance message:', err)
       toast('Failed to save message', 'error')
     } finally {
+      setSavingMessage(false)
+    }
+  }, [maintenanceMessage, originalMaintenanceMessage, router, toast])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
       setSavingMessage(false)
     }
   }

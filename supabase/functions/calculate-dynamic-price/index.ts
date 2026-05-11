@@ -1,10 +1,42 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+async function calculateDemandScoreForCategory(
+  supabaseServiceKey: string,
+  category: string,
+  basePrice?: number
+) {
+  const serviceUrl = `${SUPABASE_URL}/functions/v1/calculate-demand-pricing`;
+  
+  const response = await fetch(serviceUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_SERVICE_ROLE_KEY,
+      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+    },
+    body: JSON.stringify({
+      category: category,
+      location: { lat: 0, lng: 0 }, // Default for background calculation
+      base_price: basePrice,
+    }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Demand pricing API error: ${response.status}`);
+  }
+  
+  return await response.json();
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,11 +44,11 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: req.headers.get('Authorization')! } }
+    });
+    
+    const serviceSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { base_price, location_id, service_category, worker_id, is_emergency } = await req.json();
 
@@ -41,18 +73,48 @@ serve(async (req) => {
 
     const result = data[0];
 
-    // Get current demand metrics for the location
+    // Get current demand metrics for the location and category
     let demandInfo = null;
-    if (location_id) {
+    if (location_id && service_category) {
+      try {
+        const demandResult = await calculateDemandScoreForCategory(
+          SUPABASE_SERVICE_ROLE_KEY,
+          service_category,
+          base_price
+        );
+        
+        demandInfo = {
+          ...demandResult,
+          cache_hit: demandResult.cache_hit || false,
+          message: demandResult.message || null,
+        };
+      } catch (error) {
+        console.warn('Failed to fetch demand score:', error);
+      }
+      
+      // Fallback to traditional demand_metrics if available
       const { data: demandData } = await supabaseClient
         .from('demand_metrics')
         .select('demand_score, orders_count, available_workers_count, pending_orders_count')
         .eq('location_id', location_id)
         .order('time_window', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
-      demandInfo = demandData;
+      demandInfo = demandInfo || demandData;
+    } else if (service_category) {
+      // Just get demand by category without location
+      try {
+        const demandResult = await calculateDemandScoreForCategory(
+          SUPABASE_SERVICE_ROLE_KEY,
+          service_category,
+          base_price
+        );
+        
+        demandInfo = demandResult;
+      } catch (error) {
+        console.warn('Failed to fetch category demand score:', error);
+      }
     }
 
     // Get worker info
@@ -73,7 +135,16 @@ serve(async (req) => {
           applied_rules: result.applied_rules,
           breakdown: result.breakdown,
         },
-        demand: demandInfo ? {
+        demand_surging: demandInfo ? {
+          score: demandInfo.demand_score || demandInfo.score,
+          multiplier: demandInfo.multiplier || demandInfo.surge_multiplier_tier,
+          tier: (demandInfo as any).surge_multiplier_tier || 'normal',
+          cache_hit: (demandInfo as any).cache_hit || false,
+          recent_orders: (demandInfo as any).factors?.recent_orders || null,
+          worker_availability: (demandInfo as any).factors?.worker_availability || null,
+          details: demandInfo.message || null,
+        } : null,
+        demand: demandInfo && !(demandInfo as any).multiplier ? {
           score: demandInfo.demand_score,
           orders_count: demandInfo.orders_count,
           available_workers: demandInfo.available_workers_count,
@@ -84,7 +155,9 @@ serve(async (req) => {
           is_featured: workerData.is_featured,
           boost_factor: workerData.current_boost_factor,
         } : null,
-        message: is_emergency ? 'Emergency surcharge applied (50%)' : 'Price calculated successfully',
+        message: is_emergency 
+          ? 'Emergency surcharge applied (50%)' 
+          : `Price calculated${demandInfo && !!(demandInfo as any).multiplier ? ' with real-time demand analysis' : ''}`,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

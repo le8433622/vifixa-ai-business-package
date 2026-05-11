@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -17,11 +17,7 @@ export default function PaymentsSettings() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchGateways()
-  }, [])
-
-  async function fetchGateways() {
+  const fetchGateways = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -37,9 +33,9 @@ export default function PaymentsSettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  async function toggleGateway(key: string, currentState: boolean) {
+  const toggleGateway = useCallback(async (key: string, currentState: boolean) => {
     try {
       setToggling(key)
       const { data: { session } } = await supabase.auth.getSession()
@@ -69,7 +65,11 @@ export default function PaymentsSettings() {
     } finally {
       setToggling(null)
     }
-  }
+  }, [router, toast, fetchGateways])
+
+  useEffect(() => {
+    fetchGateways()
+  }, [fetchGateways])
 
   if (loading) {
     return (

@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
@@ -29,11 +29,7 @@ export default function GeneralSettings() {
   const [saving, setSaving] = useState(false)
   const [modified, setModified] = useState<Record<string, string>>({})
 
-  useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -50,13 +46,13 @@ export default function GeneralSettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  function handleChange(key: string, value: string) {
+  const handleChange = useCallback((key: string, value: string) => {
     setModified(prev => ({ ...prev, [key]: value }))
-  }
+  }, [])
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
       toast('No changes to save', 'info')
       return
@@ -90,7 +86,11 @@ export default function GeneralSettings() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [modified, toast, router, fetchSettings])
+
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   function getInputType(valueType: string) {
     switch (valueType) {

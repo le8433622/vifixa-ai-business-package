@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -98,11 +98,7 @@ export default function AISettings() {
   const [activeTab, setActiveTab] = useState<'model' | 'prompts'>('model')
   const [selectedProvider, setSelectedProvider] = useState('nvidia')
 
-  useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -122,24 +118,24 @@ export default function AISettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  function getSettingValue(key: string): string {
+  const getSettingValue = useCallback((key: string): string => {
     if (key in modified) return modified[key]
     const setting = settings.find(s => s.key === key)
     return setting?.value || ''
-  }
+  }, [modified, settings])
 
-  function handleChange(key: string, value: string) {
+  const handleChange = useCallback((key: string, value: string) => {
     setModified(prev => ({ ...prev, [key]: value }))
     if (key === 'ai_provider') {
       setSelectedProvider(value)
       const defaultModel = (AI_MODELS[value] || [])[0]?.value || ''
       setModified(prev => ({ ...prev, [key]: value, ai_model: defaultModel }))
     }
-  }
+  }, [])
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
       toast('No changes to save', 'info')
       return
@@ -171,7 +167,19 @@ export default function AISettings() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [modified, toast, router, fetchSettings])
+
+  const fetchSettingsWithErrorHandling = useCallback(async () => {
+    try {
+      await fetchSettings();
+    } catch (err) {
+      console.error('Unexpected error in fetchSettings:', err);
+    }
+  }, [fetchSettings]);
+
+  useEffect(() => {
+    fetchSettingsWithErrorHandling();
+  }, [fetchSettingsWithErrorHandling]);
 
   const aiFeaturesEnabled = isEnabled('ai_chat') || isEnabled('ai_warranty') || isEnabled('ai_quality_monitor') || isEnabled('ai_suggestions')
 

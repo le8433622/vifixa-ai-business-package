@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -55,11 +55,7 @@ export default function NotificationsSettings() {
   const [modified, setModified] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState<'email' | 'sms' | 'push' | 'events'>('email')
 
-  useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -76,28 +72,28 @@ export default function NotificationsSettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  function getSettingValue(key: string): string {
+  const getSettingValue = useCallback((key: string): string => {
     if (key in modified) return modified[key]
     const setting = settings.find(s => s.key === key)
     return setting?.value || ''
-  }
+  }, [modified, settings])
 
-  function getBooleanValue(key: string): boolean {
+  const getBooleanValue = useCallback((key: string): boolean => {
     const val = getSettingValue(key)
     return val === 'true'
-  }
+  }, [getSettingValue])
 
-  function handleChange(key: string, value: string) {
+  const handleChange = useCallback((key: string, value: string) => {
     setModified(prev => ({ ...prev, [key]: value }))
-  }
+  }, [])
 
-  function handleToggle(key: string, currentValue: boolean) {
+  const handleToggle = useCallback((key: string, currentValue: boolean) => {
     handleChange(key, currentValue ? 'false' : 'true')
-  }
+  }, [handleChange])
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
       toast('No changes to save', 'info')
       return
@@ -129,7 +125,11 @@ export default function NotificationsSettings() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [modified, toast, router, fetchSettings])
+
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   const anyNotifEnabled = isEnabled('email_notifications') || isEnabled('sms_notifications') || isEnabled('push_notifications')
 

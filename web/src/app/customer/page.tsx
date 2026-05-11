@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
@@ -63,7 +63,7 @@ export default function CustomerDashboard() {
   const router = useRouter()
   const { toast } = useToast()
 
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     const { data, error } = await supabase
@@ -72,18 +72,18 @@ export default function CustomerDashboard() {
       .order('created_at', { ascending: false }).limit(5)
     if (error) throw new Error(error.message)
     setOrders(data || [])
-  }
+  }, [])
 
-  async function fetchDevices() {
+  const fetchDevices = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     const { data } = await supabase
       .from('device_profiles').select('*')
       .eq('user_id', session.user.id).limit(3)
     setDevices(data || [])
-  }
+  }, [])
 
-  async function fetchReferralCode() {
+  const fetchReferralCode = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     const { data } = await supabase
@@ -92,9 +92,9 @@ export default function CustomerDashboard() {
       .eq('user_id', session.user.id)
       .single()
     if (data) setReferralCode(data.code)
-  }
+  }, [setReferralCode])
 
-  async function checkUser() {
+  const checkUser = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
@@ -104,9 +104,11 @@ export default function CustomerDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [fetchOrders, fetchDevices, fetchReferralCode, router, toast])
 
-  useEffect(() => { queueMicrotask(() => { checkUser() }) }, [])
+  useEffect(() => {
+    queueMicrotask(() => { checkUser() })
+  }, [checkUser])
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {

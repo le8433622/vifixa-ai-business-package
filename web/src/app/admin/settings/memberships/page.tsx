@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,7 @@ export default function MembershipsSettings() {
     },
   });
 
-  async function fetchPlans() {
+  const fetchPlans = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('membership_plans')
@@ -65,6 +65,114 @@ export default function MembershipsSettings() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchPlans(); });
+  }, [fetchPlans]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingPlan) {
+        const { error } = await supabase
+          .from('membership_plans')
+          .update(formData)
+          .eq('id', editingPlan.id);
+
+        if (error) throw error;
+        toast.success('Cập nhật gói membership thành công');
+      } else {
+        const { error } = await supabase
+          .from('membership_plans')
+          .insert([formData]);
+
+        if (error) throw error;
+        toast.success('Thêm gói membership thành công');
+      }
+
+      setIsDialogOpen(false);
+      setEditingPlan(null);
+      setFormData({
+        name: '',
+        slug: '',
+        price_monthly: 0,
+        price_yearly: 0,
+        discount_percent: 0,
+        priority_level: 1,
+        is_active: true,
+        features: {
+          priority_booking: false,
+          discount_percent: 0,
+          free_diagnostics: 0,
+          vip_support: false,
+          dedicated_manager: false,
+        },
+      });
+      fetchPlans();
+    } catch (err) {
+      console.error('Error saving membership plan:', err);
+      toast.error('Không thể lưu gói membership: ' + (err instanceof Error ? err.message : ''));
+    }
+  }, [editingPlan, formData, fetchPlans]);
+
+  const togglePlanActive = useCallback(async (plan: MembershipPlan) => {
+    try {
+      const { error } = await supabase
+        .from('membership_plans')
+        .update({ is_active: !plan.is_active })
+        .eq('id', plan.id);
+
+      if (error) throw error;
+      toast.success(plan.is_active ? 'Đã vô hiệu hóa gói' : 'Đã kích hoạt gói');
+      fetchPlans();
+    } catch (err) {
+      toast.error('Không thể cập nhật trạng thái: ' + (err instanceof Error ? err.message : ''));
+    }
+  }, [fetchPlans]);
+
+  const deletePlan = useCallback(async (id: string) => {
+    if (!confirm('Bạn có chắc muốn xóa gói membership này?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('membership_plans')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Đã xóa gói membership');
+      fetchPlans();
+    } catch (err) {
+      toast.error('Không thể xóa: ' + (err instanceof Error ? err.message : ''));
+    }
+  }, [fetchPlans]);
+
+  const editPlan = useCallback((plan: MembershipPlan) => {
+    setEditingPlan(plan);
+    setFormData({
+      name: plan.name,
+      slug: plan.slug,
+      price_monthly: plan.price_monthly,
+      price_yearly: plan.price_yearly,
+      discount_percent: plan.discount_percent,
+      priority_level: plan.priority_level,
+      is_active: plan.is_active,
+      features: plan.features || {
+        priority_booking: false,
+        discount_percent: 0,
+        free_diagnostics: 0,
+        vip_support: false,
+        dedicated_manager: false,
+      },
+    });
+    setIsDialogOpen(true);
+  }, []);
+
+  const formatPrice = useCallback((price: number) => {
+    return new Intl.NumberFormat('vi-VN').format(price) + '₫';
+  }, []);
   }
 
   useEffect(() => {

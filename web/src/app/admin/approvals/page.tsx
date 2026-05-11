@@ -87,19 +87,42 @@ export default function AdminApprovalsPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<AIActionRequest[]>([]);
   const [status, setStatus] = useState<ApprovalStatus>('pending');
-  const [loading, setLoading] = useState(true);
-  const [actingId, setActingId] = useState<string | null>(null);
+  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
   const [noteById, setNoteById] = useState<Record<string, string>>({});
+  const router = useRouter();
 
-  const pendingCount = useMemo(
-    () => requests.filter((request) => request.status === 'pending').length,
-    [requests],
-  );
+  const fetchRequests = useCallback(async (nextStatus = status) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/');
+        return;
+      }
+
+      const token = session.access_token;
+      if (!token) return;
+
+      const response = await fetch(`/api/ai/admin-dashboard?action=ai-action-requests&status=${nextStatus}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Không tải được approval queue');
+      setRequests(data.requests || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không tải được approval queue');
+    } finally {
+      setLoading(false);
+    }
+  }, [status, router, supabase]);
 
   useEffect(() => {
     fetchRequests(status);
-  }, [status]);
+  }, [fetchRequests]);
 
   async function getAccessToken() {
     const { data: { session } } = await supabase.auth.getSession();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ export default function PricingSettings() {
     is_active: true,
   });
 
-  async function fetchRules() {
+  const fetchRules = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('pricing_rules')
@@ -62,6 +62,119 @@ export default function PricingSettings() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => { fetchRules(); });
+  }, [fetchRules]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingRule) {
+        const { error } = await supabase
+          .from('pricing_rules')
+          .update(formData)
+          .eq('id', editingRule.id);
+
+        if (error) throw error;
+        toast.success('Cập nhật quy tắc giá thành công');
+      } else {
+        const { error } = await supabase
+          .from('pricing_rules')
+          .insert([formData]);
+
+        if (error) throw error;
+        toast.success('Thêm quy tắc giá thành công');
+      }
+
+      setIsDialogOpen(false);
+      setEditingRule(null);
+      setFormData({
+        name: '',
+        rule_type: 'time_based',
+        multiplier: 1.0,
+        fixed_surcharge: 0,
+        priority: 100,
+        description: '',
+        is_active: true,
+      });
+      fetchRules();
+    } catch (err) {
+      console.error('Error saving pricing rule:', err);
+      toast.error('Không thể lưu quy tắc giá: ' + (err instanceof Error ? err.message : ''));
+    }
+  }, [editingRule, formData, fetchRules]);
+
+  const toggleRuleActive = useCallback(async (rule: PricingRule) => {
+    try {
+      const { error } = await supabase
+        .from('pricing_rules')
+        .update({ is_active: !rule.is_active })
+        .eq('id', rule.id);
+
+      if (error) throw error;
+      toast.success(rule.is_active ? 'Đã vô hiệu hóa quy tắc' : 'Đã kích hoạt quy tắc');
+      fetchRules();
+    } catch (err) {
+      toast.error('Không thể cập nhật trạng thái: ' + (err instanceof Error ? err.message : ''));
+    }
+  }, [fetchRules]);
+
+  const deleteRule = useCallback(async (id: string) => {
+    if (!confirm('Bạn có chắc muốn xóa quy tắc giá này?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('pricing_rules')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Đã xóa quy tắc giá');
+      fetchRules();
+    } catch (err) {
+      toast.error('Không thể xóa: ' + (err instanceof Error ? err.message : ''));
+    }
+  }, [fetchRules]);
+
+  const editRule = useCallback((rule: PricingRule) => {
+    setEditingRule(rule);
+    setFormData({
+      name: rule.name,
+      rule_type: rule.rule_type,
+      multiplier: rule.multiplier,
+      fixed_surcharge: rule.fixed_surcharge,
+      priority: rule.priority,
+      description: rule.description,
+      is_active: rule.is_active,
+    });
+    setIsDialogOpen(true);
+  }, []);
+
+  const getRuleTypeIcon = useCallback((type: string) => {
+    switch (type) {
+      case 'time_based': return <Clock className="w-4 h-4" />;
+      case 'location': return <MapPin className="w-4 h-4" />;
+      case 'skill': return <Star className="w-4 h-4" />;
+      case 'emergency': return <AlertTriangle className="w-4 h-4" />;
+      case 'surge': return <TrendingUp className="w-4 h-4" />;
+      default: return <DollarSign className="w-4 h-4" />;
+    }
+  }, []);
+
+  const getRuleTypeLabel = useCallback((type: string) => {
+    const labels: Record<string, string> = {
+      time_based: 'Theo thời gian',
+      location: 'Theo khu vực',
+      skill: 'Theo kỹ năng',
+      emergency: 'Khẩn cấp',
+      surge: 'Surge Pricing',
+      demand: 'Theo nhu cầu',
+    };
+    return labels[type] || type;
+  }, []);
   }
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -35,11 +35,7 @@ export default function FeaturesSettings() {
     { value: 'system', label: 'System' },
   ]
 
-  useEffect(() => {
-    fetchFlags()
-  }, [])
-
-  async function fetchFlags() {
+  const fetchFlags = useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -56,9 +52,9 @@ export default function FeaturesSettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
-  async function toggleFlag(key: string, currentState: boolean) {
+  const toggleFlag = useCallback(async (key: string, currentState: boolean) => {
     try {
       setSaving(key)
       const { data: { session } } = await supabase.auth.getSession()
@@ -92,7 +88,11 @@ export default function FeaturesSettings() {
     } finally {
       setSaving(null)
     }
-  }
+  }, [router, toast, fetchFlags])
+
+  useEffect(() => {
+    fetchFlags()
+  }, [fetchFlags])
 
   const filteredFlags = categoryFilter === 'all'
     ? flags

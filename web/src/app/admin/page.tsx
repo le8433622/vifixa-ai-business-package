@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -32,9 +32,7 @@ export default function AdminDashboard() {
   const [apiError, setApiError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => { fetchStats(); }, []);
-
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     setApiError(null);
     try {
@@ -52,12 +50,24 @@ export default function AdminDashboard() {
         const errBody = await response.text();
         setApiError(`Lỗi ${response.status}: ${errBody.slice(0, 200)}`);
       }
-    } catch (err) {
+    } catch (_err) {
       setApiError('Lỗi kết nối. Vui lòng tải lại trang.');
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  const fetchStatsWithErrorHandling = useCallback(async () => {
+    try {
+      await fetchStats();
+    } catch (err) {
+      console.error('Unexpected error in fetchStats:', err);
+    }
+  }, [fetchStats]);
+
+  useEffect(() => {
+    fetchStatsWithErrorHandling();
+  }, [fetchStatsWithErrorHandling]);
 
   if (loading) {
     return (

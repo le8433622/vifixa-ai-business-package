@@ -1,29 +1,31 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { UseMutationOptions } from '@tanstack/react-query'
+import type { UseMutationOptions, QueryKey } from '@tanstack/react-query'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-type SupabaseQueryResult<T> = { data: T | null; error: unknown }
-type SupabaseMutateResult<T> = { data: T | null; error: unknown }
+type SupabaseQueryResult<Data> = { data: Data | null; error: unknown }
+type MutationResult<TData = unknown> = TData | null
 
 function extractError(err: unknown): string {
   if (err instanceof Error) return err.message
-  if (typeof err === 'object' && err !== null && 'message' in err) return (err as { message: string }).message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return (err as { message: string }).message
+  }
   return 'Unknown error'
 }
 
-export function useSupabaseQuery<TData>(
-  queryKey: string[],
-  queryFn: () => Promise<SupabaseQueryResult<TData>>,
+export function useSupabaseQuery<T>(
+  queryKey: QueryKey,
+  queryFn: () => Promise<MutationResult<T>>,
   options?: { enabled?: boolean; staleTime?: number }
 ) {
-  return useQuery<TData, string>({
+  return useQuery<MutationResult<T>, string>({
     queryKey,
     queryFn: async () => {
-      const { data, error } = await queryFn()
-      if (error) throw extractError(error)
-      if (data === null) throw new Error('No data returned')
-      return data as TData
+      const result = await queryFn()
+      if (result === null) throw new Error('No data returned')
+      return result
     },
     enabled: options?.enabled,
     staleTime: options?.staleTime ?? 5 * 60 * 1000,
@@ -31,21 +33,27 @@ export function useSupabaseQuery<TData>(
 }
 
 export function useSupabaseMutation<TData, TVariables = void>(
-  mutationFn: (variables: TVariables) => Promise<SupabaseMutateResult<TData>>,
+  mutationFn: (variables: TVariables) => Promise<MutationResult<TData>>,
   options?: Omit<UseMutationOptions<TData, string, TVariables, unknown>, 'mutationFn'>
 ) {
   return useMutation<TData, string, TVariables>({
     ...options,
     mutationFn: async (variables: TVariables) => {
-      const { data, error } = await mutationFn(variables)
-      if (error) throw extractError(error)
-      if (data === null) throw new Error('No data returned')
-      return data as TData
+      const result = await mutationFn(variables)
+      if (result === null) throw new Error('No data returned')
+      return result
     },
   })
 }
 
-export function useSupabaseQueryInvalidate() {
+export function useSupabaseClient() {
+  return createClientComponentClient()
+}
+
+export function useSupabaseInvalidateQuery() {
   const queryClient = useQueryClient()
-  return (queryKey: string[]) => queryClient.invalidateQueries({ queryKey })
+  
+  const invalidate = (queryKey: QueryKey) => queryClient.invalidateQueries({ queryKey })
+  
+  return invalidate
 }
