@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS public.demand_cache (
         'carpentry', 'painting', 'cleaning', 'moving', 'handyman',
         'landscaping', 'HVAC', 'security_systems', 'water_heater', 'general'
     )),
+    -- Make category unique for upsert operations
+    UNIQUE(category),
     
     -- Demand score (0-1 scale)
     demand_score DECIMAL(5,4) NOT NULL CHECK (demand_score >= 0 AND demand_score <= 1),
@@ -193,7 +195,7 @@ COMMENT ON TABLE public.demand_cache IS 'Real-time demand score cache for surge 
 -- ============================================
 
 -- View of active demand cache
-CREATE VIEW IF NOT EXISTS public.v_active_demand_cache AS
+CREATE OR REPLACE VIEW public.v_active_demand_cache AS
 SELECT 
     id,
     category,
@@ -209,14 +211,15 @@ WHERE expires_at > NOW();
 COMMENT ON VIEW public.v_active_demand_cache IS 'Current active demand scores with TTL metadata';
 
 -- Summary view by category
-CREATE VIEW IF NOT EXISTS public.v_demand_summary AS
+CREATE OR REPLACE VIEW public.v_demand_summary AS
 SELECT 
     category,
-    COUNT(*) FILTER (WHERE expires_at > NOW()) as active_caches,
-    ROUND(AVG(demand_score)::numeric, 4) FILTER (WHERE expires_at > NOW()) as avg_demand_score,
-    ROUND(MIN(demand_score)::numeric, 4) FILTER (WHERE expires_at > NOW()) as min_demand_score,
-    ROUND(MAX(demand_score)::numeric, 4) FILTER (WHERE expires_at > NOW()) as max_demand_score
+    COUNT(*) as active_caches,
+    ROUND(AVG(demand_score)::numeric, 4) as avg_demand_score,
+    ROUND(MIN(demand_score)::numeric, 4) as min_demand_score,
+    ROUND(MAX(demand_score)::numeric, 4) as max_demand_score
 FROM public.demand_cache
+WHERE expires_at > NOW()
 GROUP BY category
 ORDER BY avg_demand_score DESC;
 

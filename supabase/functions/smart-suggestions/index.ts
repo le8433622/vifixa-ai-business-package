@@ -3,7 +3,7 @@
 // Now supports A/B testing and enhanced suggestion logic.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders as _corsHeaders } from '../_shared/cors.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {
@@ -209,7 +209,7 @@ Deno.serve(async (req: Request) => {
 })
 
 // Helper: Get user's A/B test variant (deterministic based on user ID hash)
-async function getABTestVariant(supabase: any, userId: string, abTests: any[]): Promise<any> {
+function getABTestVariant(_supabase: any, userId: string, abTests: any[]): any {
   if (!abTests || abTests.length === 0) return null
 
   // For simplicity, assign user to a variant based on hash of user ID

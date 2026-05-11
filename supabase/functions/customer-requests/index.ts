@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       let orderData;
       try {
         orderData = JSON.parse(orderResponseText);
-      } catch (e) {
+      } catch (_e) {
         throw new Error(`Failed to parse order response: ${orderResponseText}`);
       }
 

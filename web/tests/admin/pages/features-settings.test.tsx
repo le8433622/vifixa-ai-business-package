@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import FeaturesSettings from '@/app/admin/settings/features/page.tsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -26,15 +26,15 @@ describe('Features Settings Page Smoke Test', () => {
       useRouter: () => ({ push: vi.fn() }),
     }))
 
-    await act(async () => {
-      render(
-        <QueryClientProvider client={new QueryClient()}>
-          <FeaturesSettings />
-        </QueryClientProvider>
-      )
-    })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FeaturesSettings />
+      </QueryClientProvider>
+    )
 
-    expect(screen.getByText('Feature Flags')).toBeInTheDocument()
-    expect(screen.getByText('Toggle features ON/OFF without code deployment. Safe for production.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Feature Flags')).toBeInTheDocument()
+      expect(screen.getByText('Toggle features ON/OFF without code deployment. Safe for production.')).toBeInTheDocument()
+    })
   })
 })

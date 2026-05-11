@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const userData = await userResponse.json();
+    const _userData = await userResponse.json();
 
     const { order_id, amount, customer_email, payment_type }: PaymentIntentRequest = await req.json();
 

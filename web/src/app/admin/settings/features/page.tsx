@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -24,6 +24,14 @@ export default function FeaturesSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const mountedRef = useRef(false)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const categories = [
     { value: 'all', label: 'All' },
@@ -36,6 +44,7 @@ export default function FeaturesSettings() {
   ]
 
   const fetchFlags = useCallback(async () => {
+    if (!mountedRef.current) return
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -45,12 +54,14 @@ export default function FeaturesSettings() {
         .order('label', { ascending: true })
 
       if (error) throw error
-      setFlags(data || [])
+      if (mountedRef.current) setFlags(data || [])
     } catch (err) {
-      console.error('Error fetching flags:', err)
-      toast('Failed to load feature flags', 'error')
+      if (mountedRef.current) {
+        console.error('Error fetching flags:', err)
+        toast('Failed to load feature flags', 'error')
+      }
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }, [toast])
 
@@ -91,7 +102,7 @@ export default function FeaturesSettings() {
   }, [router, toast, fetchFlags])
 
   useEffect(() => {
-    fetchFlags()
+    queueMicrotask(() => { fetchFlags() })
   }, [fetchFlags])
 
   const filteredFlags = categoryFilter === 'all'

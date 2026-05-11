@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import SecuritySettings from '@/app/admin/settings/security/page.tsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -27,15 +27,15 @@ describe('Security Settings Page Smoke Test', () => {
       useRouter: () => ({ push: vi.fn() }),
     }))
 
-    await act(async () => {
-      render(
-        <QueryClientProvider client={new QueryClient()}>
-          <SecuritySettings />
-        </QueryClientProvider>
-      )
-    })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SecuritySettings />
+      </QueryClientProvider>
+    )
 
-    expect(screen.getByText('Security Settings')).toBeInTheDocument()
-    expect(screen.getByText('Configure security flags, maintenance mode, and rate limiting.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Security Settings')).toBeInTheDocument()
+      expect(screen.getByText('Configure security flags, maintenance mode, and rate limiting.')).toBeInTheDocument()
+    })
   })
 })

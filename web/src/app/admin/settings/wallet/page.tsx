@@ -88,7 +88,7 @@ export default function WalletSettings() {
   }, [modified, toast, router, fetchSettings])
 
   useEffect(() => {
-    fetchSettings()
+    queueMicrotask(() => { fetchSettings() })
   }, [fetchSettings])
 
   if (!isEnabled('internal_wallet')) {

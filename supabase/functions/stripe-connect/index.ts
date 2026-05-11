@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const userData = await userResponse.json();
+    const _userData = await userResponse.json();
 
     const { worker_id, email, country = 'US' }: StripeConnectRequest = await req.json();
 

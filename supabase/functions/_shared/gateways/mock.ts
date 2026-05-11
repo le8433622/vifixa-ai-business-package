@@ -101,7 +101,7 @@ export class MockGateway implements PaymentGateway {
     }
   }
 
-  async healthCheck(): Promise<{ ok: boolean; message?: string }> {
+  healthCheck(): { ok: boolean; message?: string } {
     return { ok: true, message: 'Mock gateway is always healthy' }
   }
 

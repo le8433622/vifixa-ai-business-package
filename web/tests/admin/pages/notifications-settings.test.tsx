@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import NotificationsSettings from '@/app/admin/settings/notifications/page.tsx'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -33,15 +33,15 @@ describe('Notifications Settings Page Smoke Test', () => {
       useRouter: () => ({ push: vi.fn() }),
     }))
 
-    await act(async () => {
-      render(
-        <QueryClientProvider client={new QueryClient()}>
-          <NotificationsSettings />
-        </QueryClientProvider>
-      )
-    })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NotificationsSettings />
+      </QueryClientProvider>
+    )
 
-    expect(screen.getByText('Notifications Settings')).toBeInTheDocument()
-    expect(screen.getByText('Configure email (SMTP), SMS, and push notification providers.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Notifications Settings')).toBeInTheDocument()
+      expect(screen.getByText('Configure email (SMTP), SMS, and push notification providers.')).toBeInTheDocument()
+    })
   })
 })

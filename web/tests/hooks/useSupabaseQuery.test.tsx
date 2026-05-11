@@ -1,7 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useSupabaseQuery, useSupabaseMutation, useSupabaseQueryInvalidate } from '@/lib/use-supabase-query'
+import { useSupabaseQuery, useSupabaseMutation, useSupabaseInvalidateQuery } from '@/lib/use-supabase-query'
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -19,7 +19,7 @@ describe('useSupabaseQuery', () => {
 
   it('returns data when query succeeds', async () => {
     const mockData = { items: [{ id: '1', label: 'Test' }] }
-    const queryFn = vi.fn().mockResolvedValue({ data: mockData, error: null })
+    const queryFn = vi.fn().mockResolvedValue(mockData)
 
     const { result } = renderHook(
       () => useSupabaseQuery(['test-key'], queryFn),
@@ -39,10 +39,7 @@ describe('useSupabaseQuery', () => {
   })
 
   it('handles query error', async () => {
-    const queryFn = vi.fn().mockResolvedValue({
-      data: null,
-      error: new Error('Database connection failed'),
-    })
+    const queryFn = vi.fn().mockRejectedValue(new Error('Database connection failed'))
 
     const { result } = renderHook(
       () => useSupabaseQuery(['error-key'], queryFn),
@@ -55,11 +52,11 @@ describe('useSupabaseQuery', () => {
       })
     })
 
-    expect(result.current.error).toBe('Database connection failed')
+    expect(result.current.error?.message).toBe('Database connection failed')
   })
 
   it('handles null data as error', async () => {
-    const queryFn = vi.fn().mockResolvedValue({ data: null, error: null })
+    const queryFn = vi.fn().mockResolvedValue(null)
 
     const { result } = renderHook(
       () => useSupabaseQuery(['null-key'], queryFn),
@@ -72,7 +69,7 @@ describe('useSupabaseQuery', () => {
       })
     })
 
-    expect(result.current.error).toEqual(new Error('No data returned'))
+    expect(result.current.error?.message).toBe('No data returned')
   })
 
   it('respects enabled option when false', () => {
@@ -102,7 +99,7 @@ describe('useSupabaseMutation', () => {
 
   it('executes mutation successfully', async () => {
     const mockData = { id: 'new-id', status: 'created' }
-    const mutationFn = vi.fn().mockResolvedValue({ data: mockData, error: null })
+    const mutationFn = vi.fn().mockResolvedValue(mockData)
 
     const { result } = renderHook(
       () => useSupabaseMutation(mutationFn),
@@ -116,10 +113,7 @@ describe('useSupabaseMutation', () => {
   })
 
   it('handles mutation error', async () => {
-    const mutationFn = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: 'Permission denied' },
-    })
+    const mutationFn = vi.fn().mockRejectedValue('Permission denied')
 
     const { result } = renderHook(
       () => useSupabaseMutation(mutationFn),
@@ -130,10 +124,10 @@ describe('useSupabaseMutation', () => {
   })
 })
 
-describe('useSupabaseQueryInvalidate', () => {
+describe('useSupabaseInvalidateQuery', () => {
   it('returns an invalidate function', () => {
     const { result } = renderHook(
-      () => useSupabaseQueryInvalidate(),
+      () => useSupabaseInvalidateQuery(),
       { wrapper: createWrapper() }
     )
 

@@ -129,11 +129,8 @@ export default function SecuritySettings() {
   }, [maintenanceMessage, originalMaintenanceMessage, router, toast])
 
   useEffect(() => {
-    fetchData()
+    queueMicrotask(() => { fetchData() })
   }, [fetchData])
-      setSavingMessage(false)
-    }
-  }
 
   const getFlagByKey = (key: string) => securityFlags.find(f => f.key === key)
 

@@ -1,7 +1,7 @@
 // Test: AI Quality Edge Function
 // Per Step 8: Testing & Validation - Unit Tests
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
+import { assertEquals, assertExists as _assertExists } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
 
 Deno.test('Quality Check - valid categories', () => {
   const validCategories = ['plumbing', 'electrical', 'HVAC', 'appliance_repair', 'carpentry', 'painting', 'cleaning', 'lock_smith'];

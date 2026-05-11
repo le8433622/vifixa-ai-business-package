@@ -89,7 +89,7 @@ export default function GeneralSettings() {
   }, [modified, toast, router, fetchSettings])
 
   useEffect(() => {
-    fetchSettings()
+    queueMicrotask(() => { fetchSettings() })
   }, [fetchSettings])
 
   function getInputType(valueType: string) {

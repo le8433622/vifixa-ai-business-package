@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import PremiumBadge from '@/components/PremiumBadge';
 
 interface Job {
   id: string;
@@ -54,6 +55,7 @@ function formatVnd(amount: number) {
 export default function WorkerDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
+  const [activeBadge, setActiveBadge] = useState<{ badge_label: string; badge_color: string; badge_icon: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -76,6 +78,12 @@ export default function WorkerDashboard() {
         const earningsData = await earningsRes.json();
         setJobs(jobsData.jobs || []);
         setEarnings(earningsData);
+
+        const { data: badgeData } = await supabase
+          .rpc('get_worker_active_badge', { p_worker_id: session.user.id });
+        if (badgeData && badgeData.length > 0) {
+          setActiveBadge(badgeData[0] as unknown as { badge_label: string; badge_color: string; badge_icon: string });
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -139,6 +147,29 @@ export default function WorkerDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Active Badge */}
+        {activeBadge && (
+          <div className="card p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 animate-fade-in-up delay-75">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PremiumBadge
+                  badgeLabel={activeBadge.badge_label}
+                  badgeColor={activeBadge.badge_color}
+                  badgeIcon={activeBadge.badge_icon}
+                  size="lg"
+                />
+                <span className="text-sm text-gray-600">Huy hiệu Premium đang hoạt động</span>
+              </div>
+              <button
+                onClick={() => router.push('/worker/badges')}
+                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+              >
+                Quản lý →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up delay-100">

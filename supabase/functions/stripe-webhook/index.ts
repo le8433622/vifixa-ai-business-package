@@ -45,6 +45,43 @@ Deno.serve(async (req: Request) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        const checkoutType = session.metadata?.type;
+
+        if (checkoutType === 'premium_badge') {
+          const workerId = session.metadata?.worker_id;
+          const packageId = session.metadata?.package_id;
+          const packageSlug = session.metadata?.package_slug;
+          const durationDays = parseInt(session.metadata?.duration_days || '30');
+
+          if (!workerId || !packageId) {
+            console.error('Missing badge metadata in checkout session', session.id);
+            return jsonResponse({ received: true });
+          }
+
+          const now = new Date();
+          const expiresAt = new Date();
+          expiresAt.setDate(now.getDate() + durationDays);
+
+          const { error: purchaseError } = await supabase
+            .from('worker_ad_purchases')
+            .insert({
+              worker_id: workerId,
+              package_id: packageId,
+              status: 'active',
+              purchased_at: now.toISOString(),
+              expires_at: expiresAt.toISOString(),
+              used_count: 0,
+              remaining_uses: 1,
+            });
+
+          if (purchaseError) {
+            console.error('Failed to create badge purchase:', purchaseError);
+          } else {
+            console.log(`Badge activated: ${packageSlug} for worker ${workerId} until ${expiresAt.toISOString()}`);
+          }
+          break;
+        }
+
         const userId = session.metadata?.user_id;
         const planId = session.metadata?.plan_id;
         const subscriptionId = session.subscription as string;

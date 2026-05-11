@@ -1,14 +1,14 @@
 // Test: AI Fraud Check Edge Function - Enhanced
 // Per Step 8: Testing & Validation - Unit Tests
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
+import { assertEquals, assertExists as _assertExists } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
 
 // Since the function uses Deno.serve(), we'll test the logic indirectly
 // In production, you would use integration tests with actual HTTP calls
 
 Deno.test('Fraud Check - input validation', () => {
   // Test input validation logic
-  const requiredFields = ['check_type'];
+  const _requiredFields = ['check_type'];
   const checkTypes = ['multiple_accounts', 'price_change', 'fake_review', 'suspicious_activity', 'dispute_rate'];
   
   // Verify all check types are valid

@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { user_id, order_id, type, message, metadata }: NotificationRequest = await req.json();
+    const { user_id, order_id: _order_id, type, message, metadata: _metadata }: NotificationRequest = await req.json();
 
     if (!user_id || !type || !message) {
       return new Response(

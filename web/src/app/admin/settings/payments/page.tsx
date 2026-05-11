@@ -68,7 +68,7 @@ export default function PaymentsSettings() {
   }, [router, toast, fetchGateways])
 
   useEffect(() => {
-    fetchGateways()
+    queueMicrotask(() => { fetchGateways() })
   }, [fetchGateways])
 
   if (loading) {

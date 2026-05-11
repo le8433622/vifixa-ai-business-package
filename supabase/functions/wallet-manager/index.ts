@@ -2,7 +2,7 @@
 // Handles: get balance, request withdrawal, approve/complete payout
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders as _corsHeaders } from '../_shared/cors.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {

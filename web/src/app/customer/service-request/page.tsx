@@ -9,6 +9,17 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import QueryProvider from '@/components/QueryProvider';
+import MembershipUpsell from '@/components/MembershipUpsell';
+
+interface MembershipPlan {
+  id: string;
+  name: string;
+  slug: string;
+  price_monthly: number;
+  price_yearly: number;
+  features: Record<string, unknown>;
+  discount_percent: number;
+}
 
 const CATEGORIES = [
   { id: 'electricity', name: 'Điện lạnh', icon: '❄️' },
@@ -34,6 +45,7 @@ function ServiceRequestContent() {
   const [mediaFiles, setMediaFiles] = useState<FileList | null>(null);
   const [diagnosis, setDiagnosis] = useState<Record<string, unknown> | null>(null);
   const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
+  const [selectedMembership, setSelectedMembership] = useState<MembershipPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // TanStack Query for session check
@@ -135,15 +147,15 @@ function ServiceRequestContent() {
       <div className="max-w-2xl mx-auto p-6">
         {/* Step Indicator */}
         <div className="flex items-center gap-4 mb-8">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 3.5, 4].map((s) => (
             <div key={s} className="flex items-center">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
                 s === step ? 'bg-blue-600 text-white' :
                 s < step ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
               }`}>
-                {s}
+                {s === 3.5 ? '3.5' : s}
               </div>
-              {s < 3 && <div className="w-16 h-1 bg-gray-300"></div>}
+              {s < 4 && s !== 3.5 && <div className="w-16 h-1 bg-gray-300"></div>}
             </div>
           ))}
         </div>
@@ -226,64 +238,146 @@ function ServiceRequestContent() {
         )}
 
         {/* Step 3: AI Diagnosis Result */}
-        {step === 3 && diagnosis && (
+        {(step === 3 || step === 3.5 || step === 4) && diagnosis && (
           <div className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-green-800 mb-4">
-                ✅ AI Diagnosis Complete!
-              </h2>
-            </div>
+            {step === 3 && (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                  <h2 className="text-2xl font-bold text-green-800 mb-4">
+                    ✅ AI Diagnosis Complete!
+                  </h2>
+                </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-semibold mb-4">Kết quả chẩn đoán</h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600">Chẩn đoán</p>
-                  <p className="text-lg font-semibold">{diagnosis.diagnosis}</p>
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-xl font-semibold mb-4">Kết quả chẩn đoán</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Chẩn đoán</p>
+                      <p className="text-lg font-semibold">{diagnosis.diagnosis}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Mức độ</p>
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
+                        diagnosis.severity === 'emergency' ? 'bg-red-100 text-red-800' :
+                        diagnosis.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                        diagnosis.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {diagnosis.severity}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Kỹ năng cần thiết</p>
+                      <p className="font-semibold">{diagnosis.recommended_skills?.join(', ')}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Mức độ</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
-                    diagnosis.severity === 'emergency' ? 'bg-red-100 text-red-800' :
-                    diagnosis.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                    diagnosis.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {diagnosis.severity}
-                  </span>
+
+                <div className="bg-blue-50 rounded-lg p-6">
+                  <h3 className="text-xl font-semibold mb-4">Giá dự kiến</h3>
+                  <p className="text-3xl font-bold text-blue-600">${estimatedPrice}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Kỹ năng cần thiết</p>
-                  <p className="font-semibold">{diagnosis.recommended_skills?.join(', ')}</p>
+
+                <button
+                  onClick={() => setStep(3.5)}
+                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all"
+                >
+                  🎁 Tiếp tục để nhận ưu đãi Membership
+                </button>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => {
+                      setStep(1);
+                      setSelectedCategory('');
+                      setDescription('');
+                      setDiagnosis(null);
+                      setEstimatedPrice(null);
+                    }}
+                    className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Tạo yêu cầu mới
+                  </button>
+                  <button
+                    onClick={() => router.push('/customer')}
+                    className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+                  >
+                    Xem đơn hàng của tôi
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Step 3.5: Membership Upsell */}
+            {step === 3.5 && estimatedPrice && (
+              <MembershipUpsell 
+                estimatedPrice={estimatedPrice}
+                onSelectPlan={(plan) => {
+                  setStep(4);
+                  setSelectedMembership(plan);
+                }}
+                onSkip={() => {
+                  setStep(4);
+                  setSelectedMembership(null);
+                }}
+              />
+            )}
+
+            {/* Step 4: Final Confirmation */}
+            {step === 4 && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-2xl font-bold mb-6">Xác nhận đơn hàng</h2>
+                
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                    <span>Danh mục dịch vụ</span>
+                    <span className="font-semibold">{selectedCategory}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                    <span>Giá dự kiến</span>
+                    <span className="font-semibold">${estimatedPrice}</span>
+                  </div>
+                  {selectedMembership && (
+                    <>
+                      <div className="flex justify-between items-center p-3 bg-green-50 rounded">
+                        <span>Gói Membership</span>
+                        <span className="font-semibold text-green-700">{selectedMembership.name}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-green-50 rounded">
+                        <span>Giảm giá ({selectedMembership.discount_percent}%)</span>
+                        <span className="font-semibold text-green-700">
+                          -${((estimatedPrice * selectedMembership.discount_percent) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
+                        <span className="text-lg font-bold">Thành tiền</span>
+                        <span className="text-lg font-bold text-blue-600">
+                          ${(estimatedPrice - (estimatedPrice * selectedMembership.discount_percent) / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setStep(3.5)}
+                    className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    onClick={() => {
+                      alert('Đơn hàng đã được tạo thành công! (Demo)');
+                      router.push('/customer');
+                    }}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold"
+                  >
+                    Xác nhận & Tạo đơn hàng
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-blue-50 rounded-lg p-6">
-              <h3 className="text-xl font-semibold mb-4">Giá dự kiến</h3>
-              <p className="text-3xl font-bold text-blue-600">${estimatedPrice}</p>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setSelectedCategory('');
-                  setDescription('');
-                  setDiagnosis(null);
-                  setEstimatedPrice(null);
-                }}
-                className="flex-1 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Tạo yêu cầu mới
-              </button>
-              <button
-                onClick={() => router.push('/customer')}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
-              >
-                Xem đơn hàng của tôi
-              </button>
-            </div>
+            )}
           </div>
         )}
       </div>

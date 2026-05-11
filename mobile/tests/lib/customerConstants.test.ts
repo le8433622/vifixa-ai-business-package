@@ -1,4 +1,4 @@
-import { formatPrice, getStatusColor, getStatusLabel } from '@/src/lib/customerConstants';
+import { formatPrice, getStatusColor, getStatusLabel } from '@/lib/customerConstants';
 
 describe('Customer Constants Utils', () => {
   describe('formatPrice', () => {

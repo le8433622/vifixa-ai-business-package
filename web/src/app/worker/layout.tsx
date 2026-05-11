@@ -38,6 +38,7 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
     { href: '/worker/earnings', label: 'Thu nhập', icon: '💰' },
     { href: '/worker/coach', label: 'AI Coach', icon: '🤖' },
     { href: '/worker/trust', label: 'Uy tín', icon: '⭐' },
+    { href: '/worker/badges', label: 'Huy hiệu', icon: '💎' },
     { href: '/worker/verify', label: 'Xác thực', icon: '✅' },
     { href: '/worker/profile', label: 'Tài khoản', icon: '👤' },
   ]

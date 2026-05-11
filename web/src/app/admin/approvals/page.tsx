@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -87,12 +87,14 @@ export default function AdminApprovalsPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<AIActionRequest[]>([]);
   const [status, setStatus] = useState<ApprovalStatus>('pending');
-  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [noteById, setNoteById] = useState<Record<string, string>>({});
-  const router = useRouter();
+
+  const pendingCount = useMemo(() =>
+    requests.filter(r => r.status === 'pending').length,
+  [requests]);
 
   const fetchRequests = useCallback(async (nextStatus = status) => {
     setLoading(true);
@@ -121,7 +123,7 @@ export default function AdminApprovalsPage() {
   }, [status, router, supabase]);
 
   useEffect(() => {
-    fetchRequests(status);
+    queueMicrotask(() => { fetchRequests(status); });
   }, [fetchRequests]);
 
   async function getAccessToken() {
@@ -131,26 +133,6 @@ export default function AdminApprovalsPage() {
       return null;
     }
     return session.access_token;
-  }
-
-  async function fetchRequests(nextStatus = status) {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getAccessToken();
-      if (!token) return;
-
-      const response = await fetch(`/api/ai/admin-dashboard?action=ai-action-requests&status=${nextStatus}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Không tải được approval queue');
-      setRequests(data.requests || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không tải được approval queue');
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function submitDecision(requestId: string, decision: ApprovalDecision) {

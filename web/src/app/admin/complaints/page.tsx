@@ -34,6 +34,8 @@ export default function AdminComplaints() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [resolution, setResolution] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'investigating' | 'resolved' | 'rejected'>('all');
 
   const fetchComplaints = useCallback(async () => {
@@ -79,38 +81,8 @@ export default function AdminComplaints() {
   }, [filter, router, supabase]);
 
   useEffect(() => {
-    fetchComplaints();
+    queueMicrotask(() => { fetchComplaints(); });
   }, [fetchComplaints]);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/');
-        return;
-      }
-
-      let query = supabase
-        .from('complaints')
-        .select(`
-          *,
-          profiles:customer_id (email),
-          orders:order_id (category, description, worker_id)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setComplaints(data || []);
-    } catch (error) {
-      console.error('Error fetching complaints:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function updateComplaintStatus(complaintId: string, newStatus: string, resolutionText?: string) {
     try {

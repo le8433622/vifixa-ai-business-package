@@ -32,7 +32,7 @@ export class StripeGateway implements PaymentGateway {
     this.secretKey = config.secret_key || ''
   }
 
-  async createPayment(request: CreatePaymentRequest): Promise<CreatePaymentResponse> {
+  createPayment(request: CreatePaymentRequest): CreatePaymentResponse {
     // Stripe Payment Intents API
     const amountInCents = request.amount.currency === 'USD'
       ? request.amount.amount
@@ -56,7 +56,7 @@ export class StripeGateway implements PaymentGateway {
     }
   }
 
-  async getPaymentStatus(paymentId: string): Promise<any> {
+  getPaymentStatus(_paymentId: string): Promise<any> {
     // GET /v1/payment_intents/:id
     return {
       id: paymentId,
@@ -65,12 +65,12 @@ export class StripeGateway implements PaymentGateway {
     }
   }
 
-  async cancelPayment(paymentId: string): Promise<void> {
+  cancelPayment(_paymentId: string): Promise<void> {
     // POST /v1/payment_intents/:id/cancel
     console.log('Stripe: cancel payment', paymentId)
   }
 
-  async refundPayment(paymentId: string, amount?: Money): Promise<RefundResult> {
+  refundPayment(_paymentId: string, amount?: Money): RefundResult {
     // POST /v1/refunds
     return {
       id: `re_${Date.now()}`,
@@ -80,12 +80,12 @@ export class StripeGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, signature: string): boolean {
+  verifyWebhook(_payload: string, _signature: string): boolean {
     // Verify Stripe-Signature header
     // v1: t=...,v1=...
     // Use Stripe webhook secret to verify
     try {
-      const sig = signature.replace('t=', '').split(',')[0]
+      const _sig = _signature.replace('t=', '').split(',')[0]
       // Real implementation: Stripe.webhooks.constructEvent
       return true
     } catch {
@@ -93,7 +93,7 @@ export class StripeGateway implements PaymentGateway {
     }
   }
 
-  normalizeWebhook(payload: any, headers: Record<string, string>): NormalizedEvent {
+  normalizeWebhook(payload: any, _headers: Record<string, string>): NormalizedEvent {
     const eventType = payload.type
     const object = payload.data?.object
 
@@ -119,7 +119,7 @@ export class StripeGateway implements PaymentGateway {
     }
   }
 
-  async healthCheck(): Promise<{ ok: boolean; message?: string }> {
+  healthCheck(): { ok: boolean; message?: string } {
     if (!this.publishableKey || !this.secretKey) {
       return { ok: false, message: 'Missing Stripe API keys' }
     }

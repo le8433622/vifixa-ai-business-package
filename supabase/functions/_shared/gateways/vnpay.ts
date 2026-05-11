@@ -3,7 +3,7 @@
 
 import type {
   PaymentGateway,
-  GatewayConfig,
+  GatewayConfig as _GatewayConfig,
   GatewayKeys,
   CreatePaymentRequest,
   CreatePaymentResponse,
@@ -76,7 +76,7 @@ export class VNPayGateway implements PaymentGateway {
     }
   }
 
-  async getPaymentStatus(paymentId: string): Promise<any> {
+  getPaymentStatus(_paymentId: string): Promise<any> {
     // VNPay query transaction API (requires backend call)
     // For now, return mock
     return {
@@ -86,11 +86,11 @@ export class VNPayGateway implements PaymentGateway {
     }
   }
 
-  async cancelPayment(paymentId: string): Promise<void> {
+  cancelPayment(_paymentId: string): Promise<void> {
     console.log('VNPay: cancel not directly supported, use refund')
   }
 
-  async refundPayment(paymentId: string, amount?: Money): Promise<RefundResult> {
+  refundPayment(paymentId: string, amount?: Money): Promise<RefundResult> {
     // VNPay refund API
     return {
       id: `refund_${paymentId}`,
@@ -136,7 +136,7 @@ export class VNPayGateway implements PaymentGateway {
     }
   }
 
-  async healthCheck(): Promise<{ ok: boolean; message?: string }> {
+  healthCheck(): { ok: boolean; message?: string } {
     if (!this.tmnCode || !this.secretKey) {
       return { ok: false, message: 'Missing TMN Code or Secret Key' }
     }

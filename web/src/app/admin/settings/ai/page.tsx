@@ -90,6 +90,14 @@ export default function AISettings() {
   const router = useRouter()
   const { toast } = useToast()
   const { isEnabled } = useFeatureFlags()
+  const mountedRef = useRef(false)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const [settings, setSettings] = useState<AppSetting[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,6 +107,7 @@ export default function AISettings() {
   const [selectedProvider, setSelectedProvider] = useState('nvidia')
 
   const fetchSettings = useCallback(async () => {
+    if (!mountedRef.current) return
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -108,15 +117,17 @@ export default function AISettings() {
         .order('label', { ascending: true })
 
       if (error) throw error
-      setSettings(data || [])
+      if (mountedRef.current) setSettings(data || [])
 
       const provider = (data ?? []).find((s: AppSetting) => s.key === 'ai_provider')
-      if (provider?.value) setSelectedProvider(provider.value)
+      if (provider?.value && mountedRef.current) setSelectedProvider(provider.value)
     } catch (err) {
-      console.error('Error fetching AI settings:', err)
-      toast('Failed to load AI settings', 'error')
+      if (mountedRef.current) {
+        console.error('Error fetching AI settings:', err)
+        toast('Failed to load AI settings', 'error')
+      }
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }, [toast])
 
@@ -178,7 +189,7 @@ export default function AISettings() {
   }, [fetchSettings]);
 
   useEffect(() => {
-    fetchSettingsWithErrorHandling();
+    queueMicrotask(() => { fetchSettingsWithErrorHandling(); });
   }, [fetchSettingsWithErrorHandling]);
 
   const aiFeaturesEnabled = isEnabled('ai_chat') || isEnabled('ai_warranty') || isEnabled('ai_quality_monitor') || isEnabled('ai_suggestions')

@@ -128,7 +128,7 @@ export default function NotificationsSettings() {
   }, [modified, toast, router, fetchSettings])
 
   useEffect(() => {
-    fetchSettings()
+    queueMicrotask(() => { fetchSettings() })
   }, [fetchSettings])
 
   const anyNotifEnabled = isEnabled('email_notifications') || isEnabled('sms_notifications') || isEnabled('push_notifications')

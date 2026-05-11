@@ -71,7 +71,7 @@ export class ZaloPayGateway implements PaymentGateway {
     }
   }
 
-  async getPaymentStatus(paymentId: string): Promise<any> {
+  getPaymentStatus(_paymentId: string): Promise<any> {
     return {
       id: paymentId,
       status: 'pending',
@@ -79,11 +79,11 @@ export class ZaloPayGateway implements PaymentGateway {
     }
   }
 
-  async cancelPayment(paymentId: string): Promise<void> {
+  cancelPayment(_paymentId: string): Promise<void> {
     console.log('ZaloPay: cancel not directly supported')
   }
 
-  async refundPayment(paymentId: string, amount?: any): Promise<RefundResult> {
+  refundPayment(paymentId: string, amount?: any): Promise<RefundResult> {
     // ZaloPay refund API
     return {
       id: `refund_${paymentId}`,
@@ -93,7 +93,7 @@ export class ZaloPayGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, signature: string): boolean {
+  verifyWebhook(payload: string, _signature: string): boolean {
     try {
       const data = JSON.parse(payload)
       const expectedMac = data.mac
@@ -131,7 +131,7 @@ export class ZaloPayGateway implements PaymentGateway {
     }
   }
 
-  async healthCheck(): Promise<{ ok: boolean; message?: string }> {
+  healthCheck(): { ok: boolean; message?: string } {
     if (!this.appId || !this.key1 || !this.key2) {
       return { ok: false, message: 'Missing ZaloPay credentials' }
     }

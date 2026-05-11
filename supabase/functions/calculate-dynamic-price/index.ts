@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 async function calculateDemandScoreForCategory(
-  supabaseServiceKey: string,
+  _supabaseServiceKey: string,
   category: string,
   basePrice?: number
 ) {
@@ -48,7 +48,7 @@ serve(async (req) => {
       global: { headers: { Authorization: req.headers.get('Authorization')! } }
     });
     
-    const serviceSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const _serviceSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { base_price, location_id, service_category, worker_id, is_emergency } = await req.json();
 

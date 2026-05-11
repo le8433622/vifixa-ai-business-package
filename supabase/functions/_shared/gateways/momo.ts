@@ -67,7 +67,7 @@ export class MoMoGateway implements PaymentGateway {
     }
   }
 
-  async getPaymentStatus(paymentId: string): Promise<any> {
+  getPaymentStatus(_paymentId: string): Promise<any> {
     return {
       id: paymentId,
       status: 'pending',
@@ -75,11 +75,11 @@ export class MoMoGateway implements PaymentGateway {
     }
   }
 
-  async cancelPayment(paymentId: string): Promise<void> {
+  cancelPayment(_paymentId: string): Promise<void> {
     console.log('MoMo: cancel not directly supported')
   }
 
-  async refundPayment(paymentId: string, amount?: any): Promise<RefundResult> {
+  refundPayment(paymentId: string, amount?: any): Promise<RefundResult> {
     return {
       id: `refund_${paymentId}`,
       status: 'refunded',
@@ -88,12 +88,12 @@ export class MoMoGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, signature: string): boolean {
+  verifyWebhook(payload: string, _signature: string): boolean {
     // MoMo sends signature in headers
     // Verify using HMAC-SHA256
     try {
       const data = JSON.parse(payload)
-      const expectedSignature = data.signature
+      const _expectedSignature = data.signature
       // In real implementation, verify signature
       return true
     } catch {
@@ -101,7 +101,7 @@ export class MoMoGateway implements PaymentGateway {
     }
   }
 
-  normalizeWebhook(payload: any, headers: Record<string, string>): NormalizedEvent {
+  normalizeWebhook(payload: any, _headers: Record<string, string>): NormalizedEvent {
     const resultCode = payload.resultCode
     const status: PaymentStatus = resultCode === 0 ? 'succeeded' : 'failed'
 
@@ -124,7 +124,7 @@ export class MoMoGateway implements PaymentGateway {
     }
   }
 
-  async healthCheck(): Promise<{ ok: boolean; message?: string }> {
+  healthCheck(): { ok: boolean; message?: string } {
     if (!this.partnerCode || !this.accessKey || !this.secretKey) {
       return { ok: false, message: 'Missing MoMo credentials' }
     }

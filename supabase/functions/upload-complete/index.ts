@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { file_path, bucket_name, order_id, media_type } = await req.json();
+    const { file_path, bucket_name, order_id, media_type: _media_type } = await req.json();
 
     if (!file_path || !bucket_name) {
       return new Response(

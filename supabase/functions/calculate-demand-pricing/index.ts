@@ -18,7 +18,7 @@ export const DemandCategorySchema = z.enum([
   'moving',
   'handyman',
   'landscaping',
-  ' HVAC',
+  'HVAC',
   'security_systems',
   'water_heater',
   'general'
@@ -36,7 +36,7 @@ export const DemandPricingInputSchema = z.object({
 type DemandPricingInput = z.infer<typeof DemandPricingInputSchema>;
 
 // Known service categories for cache key generation
-const KNOWN_CATEGORIES = [
+const _KNOWN_CATEGORIES = [
   'electrical', 'plumbing', 'air_conditioning', 'appliance_repair',
   'carpentry', 'painting', 'cleaning', 'moving', 'handyman',
   'landscaping', 'HVAC', 'security_systems', 'water_heater', 'general',
@@ -100,7 +100,7 @@ function calculateDayFactor(timestamp: Date): number {
  * Since OpenWeatherMap API isn't directly available in Supabase Edge Functions,
  * we use heuristic based on typical patterns
  */
-async function calculateWeatherFactor(location: { lat: number; lng: number }): Promise<number> {
+function calculateWeatherFactor(_location: { lat: number; lng: number }): number {
   // Try to get weather from a public API or use simple heuristic
   try {
     // This is a placeholder - production should use OpenWeatherMap or similar
@@ -141,7 +141,7 @@ async function fetchRecentOrders(
 ): Promise<number> {
   const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
   
-  const { data, error } = await supabase
+  const { data: _data, error } = await supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('category', category)
@@ -154,7 +154,7 @@ async function fetchRecentOrders(
   }
   
   // @ts-ignore - count is in error.message for exact counts
-  const counts = (supabase as any).from('orders').count('*');
+  const _counts = (supabase as any).from('orders').count('*');
   
   const { count } = await supabase
     .from('orders')
@@ -172,9 +172,9 @@ async function fetchRecentOrders(
  */
 async function fetchWorkerAvailability(
   supabase: ReturnType<typeof createClient>,
-  limit?: number
+  _limit?: number
 ): Promise<{ available: number; total: number }> {
-  const { data: availableWorkers, error: availError } = await supabase
+  const { data: _availableWorkers, error: _availError } = await supabase
     .from('profiles')
     .select('id', { count: 'exact', head: true })
     .eq('role', 'worker')
@@ -236,7 +236,7 @@ async function setCachedDemandScore(
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minute TTL
   
   // Upsert cache entry (hourly bucketed by category)
-  const upsertKey = `${category}_${new Date().toUTCString().slice(0, 13)}`; // Hour granularity
+  const _upsertKey = `${category}_${new Date().toUTCString().slice(0, 13)}`; // Hour granularity
   
   const { error } = await supabase.rpc('upsert_demand_cache', {
     p_category: category,

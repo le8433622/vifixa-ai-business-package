@@ -2,7 +2,7 @@
 // Manages user preferences for the smart system
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders as _corsHeaders } from '../_shared/cors.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {
@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
     // verifyAuth returns { id, email }
     const auth = await verifyAuth(req)
     user = auth
-  } catch (error) {
+  } catch (_error) {
     return jsonResponse({ error: 'Unauthorized' }, 401)
   }
 

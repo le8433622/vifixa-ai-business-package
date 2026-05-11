@@ -4,23 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UseMutationOptions, QueryKey } from '@tanstack/react-query'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-type SupabaseQueryResult<Data> = { data: Data | null; error: unknown }
 type MutationResult<TData = unknown> = TData | null
-
-function extractError(err: unknown): string {
-  if (err instanceof Error) return err.message
-  if (typeof err === 'object' && err !== null && 'message' in err) {
-    return (err as { message: string }).message
-  }
-  return 'Unknown error'
-}
 
 export function useSupabaseQuery<T>(
   queryKey: QueryKey,
   queryFn: () => Promise<MutationResult<T>>,
   options?: { enabled?: boolean; staleTime?: number }
 ) {
-  return useQuery<MutationResult<T>, string>({
+  return useQuery<MutationResult<T>, Error>({
     queryKey,
     queryFn: async () => {
       const result = await queryFn()
@@ -34,9 +25,9 @@ export function useSupabaseQuery<T>(
 
 export function useSupabaseMutation<TData, TVariables = void>(
   mutationFn: (variables: TVariables) => Promise<MutationResult<TData>>,
-  options?: Omit<UseMutationOptions<TData, string, TVariables, unknown>, 'mutationFn'>
+  options?: Omit<UseMutationOptions<TData, Error, TVariables, unknown>, 'mutationFn'>
 ) {
-  return useMutation<TData, string, TVariables>({
+  return useMutation<TData, Error, TVariables>({
     ...options,
     mutationFn: async (variables: TVariables) => {
       const result = await mutationFn(variables)

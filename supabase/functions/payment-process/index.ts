@@ -3,14 +3,14 @@
 // Uses PaymentGateway abstraction layer
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders as _corsHeaders } from '../_shared/cors.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 import {
   PaymentGateway,
   GatewayConfig,
   CreatePaymentRequest,
   NormalizedEvent,
-  PaymentStatus,
+  PaymentStatus as _PaymentStatus,
 } from '../_shared/payment-gateway.ts'
 
 // Import all gateways to register them
@@ -21,7 +21,7 @@ import '../_shared/gateways/stripe.ts'
 import '../_shared/gateways/mock.ts'
 import {
   getGateway,
-  getActiveGateways,
+  getActiveGateways as _getActiveGateways,
   listRegisteredGateways,
 } from '../_shared/payment-gateway.ts'
 

@@ -375,10 +375,10 @@ export class AIProvider {
       if (!response.ok) {
         return { ok: false, model: this.model, latency: Date.now() - start, error: `${response.status}: ${models.error?.message || response.statusText}` };
       }
-      const found = models.data?.some((m: any) => m.id === this.model);
+      const _found = models.data?.some((m: any) => m.id === this.model);
       return { ok: true, model: this.model, latency: Date.now() - start };
-    } catch (e: any) {
-      return { ok: false, model: this.model, latency: Date.now() - start, error: e.message };
+    } catch (_e: any) {
+      return { ok: false, model: this.model, latency: Date.now() - start, error: _e.message };
     }
   }
 
@@ -468,7 +468,7 @@ ${systemPrompt}
         const cleanResponseText = responseText.trim();
         try {
           data = JSON.parse(cleanResponseText);
-        } catch (e) {
+        } catch (_e) {
           console.error('[NVIDIA] Failed to parse response as JSON. Status:', response.status);
           console.error('[NVIDIA] Response preview:', cleanResponseText.substring(0, 500));
           
@@ -477,7 +477,7 @@ ${systemPrompt}
           if (jsonMatch) {
             try {
               data = JSON.parse(jsonMatch[0]);
-            } catch (e2) {
+            } catch (_e2) {
               throw new Error(`Invalid API response format (could not extract JSON): ${cleanResponseText.substring(0, 100)}`);
             }
           } else {
@@ -504,13 +504,13 @@ ${systemPrompt}
         // Try to parse content as JSON
         try {
           return JSON.parse(content);
-        } catch (e) {
+        } catch (_e) {
           // Try to extract JSON from text
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             try {
               return JSON.parse(jsonMatch[0]);
-            } catch (e2) {
+            } catch (_e2) {
               console.error('[NVIDIA] Failed to extract JSON from:', content.substring(0, 200));
             }
           }
@@ -558,7 +558,7 @@ ${input.media_urls ? `Hình ảnh: ${input.media_urls.join(', ')}` : ''}
   }
 
   async estimatePrice(input: PriceInput, priceBands?: any[]): Promise<PriceOutput> {
-    let systemPrompt = `Bạn là chuyên gia định giá dịch vụ sửa chữa tại Việt Nam.
+    const systemPrompt = `Bạn là chuyên gia định giá dịch vụ sửa chữa tại Việt Nam.
 Trả về JSON với: estimated_price (number), price_breakdown (array của {item, cost}), confidence (0-1).
 Chỉ trả về JSON.`;
 
@@ -592,7 +592,7 @@ Mức độ khẩn cấp: ${input.urgency}
   }
 
   async matchWorker(input: MatchingInput, candidateWorkers?: any[]): Promise<MatchingOutput> {
-    let systemPrompt = `Bạn là hệ thống match thợ sửa chữa.
+    const systemPrompt = `Bạn là hệ thống match thợ sửa chữa.
 Trả về JSON với: matched_worker_id (string), worker_name (string), eta_minutes (number), confidence (0-1).
 Chỉ trả về JSON.`;
 

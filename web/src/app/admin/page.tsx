@@ -32,42 +32,43 @@ export default function AdminDashboard() {
   const [apiError, setApiError] = useState<string | null>(null);
   const router = useRouter();
 
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    setApiError(null);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch('/api/ai/admin-dashboard?action=dashboard', {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-      } else {
-        const errBody = await response.text();
-        setApiError(`Lỗi ${response.status}: ${errBody.slice(0, 200)}`);
-      }
-    } catch (_err) {
-      setApiError('Lỗi kết nối. Vui lòng tải lại trang.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchStatsWithErrorHandling = useCallback(async () => {
-    try {
-      await fetchStats();
-    } catch (err) {
-      console.error('Unexpected error in fetchStats:', err);
-    }
-  }, [fetchStats]);
-
   useEffect(() => {
-    fetchStatsWithErrorHandling();
-  }, [fetchStatsWithErrorHandling]);
+    let cancelled = false;
+
+    async function fetchStats() {
+      setLoading(true);
+      setApiError(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+
+        const response = await fetch('/api/ai/admin-dashboard?action=dashboard', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (!cancelled) setStats(data.stats);
+        } else {
+          const errBody = await response.text();
+          if (!cancelled) setApiError(`Lỗi ${response.status}: ${errBody.slice(0, 200)}`);
+        }
+      } catch (err) {
+        if (!cancelled) setApiError('Lỗi kết nối. Vui lòng tải lại trang.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, supabase]);
 
   if (loading) {
     return (

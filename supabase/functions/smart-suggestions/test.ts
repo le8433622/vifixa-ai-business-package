@@ -1,1 +1,1 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; test('smart-suggestions/ function exists', async (t) => { assert.ok(true, 'Function file exists'); }); test('smart-suggestions/ handles basic request', async (t) => { assert.ok(true, 'Placeholder test'); });
+import test from 'node:test'; import assert from 'node:assert/strict'; test('smart-suggestions/ function exists', (_t) => { assert.ok(true, 'Function file exists'); }); test('smart-suggestions/ handles basic request', (_t) => { assert.ok(true, 'Placeholder test'); });

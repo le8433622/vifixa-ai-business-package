@@ -2,8 +2,8 @@
 // Per 12_OPERATIONS_AND_TRUST.md - Anti-fraud detection
 // Per Step 7: Trust & Quality - Task 5
 
-import { corsHeaders } from '../_shared/cors.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders as _corsHeaders } from '../_shared/cors.ts';
+import { createClient as _createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface FraudCheckRequest {
   order_id?: string;

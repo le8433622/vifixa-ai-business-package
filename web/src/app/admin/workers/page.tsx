@@ -146,10 +146,10 @@ export default function AdminWorkers() {
   );
 }
 
-// Server client for admin operations
+// Server client for admin operations - placeholder function
 function createServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
+  // const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  // const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  // These are referenced in the actual implementation in API routes
   return supabase.from('workers').select('*'); // Placeholder - actual implementation in API route
 }
