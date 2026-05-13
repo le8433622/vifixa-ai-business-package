@@ -45,21 +45,27 @@ export function FeatureFlagProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     queueMicrotask(() => { fetchFlags() })
 
-    // Optional: Realtime subscription to update when admin toggles
-    const channel = supabase
-      .channel('feature_flags_changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'feature_flags' },
-        () => {
-          // Refetch when there's a change
-          fetchFlags()
-        }
-      )
-      .subscribe()
+    try {
+      const channel = supabase
+        .channel('feature_flags_changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'feature_flags' },
+          () => {
+            fetchFlags()
+          }
+        )
+        .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
+      return () => {
+        try {
+          supabase.removeChannel(channel)
+        } catch (e) {
+          console.warn('Error removing feature flags channel:', e)
+        }
+      }
+    } catch (e) {
+      console.warn('Feature flag realtime subscription not available:', e)
     }
   }, [fetchFlags])
 

@@ -7,11 +7,21 @@ import { createClient } from '@supabase/supabase-js';
 let _supabaseClient: ReturnType<typeof createClient> | null = null;
 
 function getSupabaseUrl() {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) {
+    console.error('[supabase] MISSING NEXT_PUBLIC_SUPABASE_URL — set it in Vercel env vars');
+    return '';
+  }
+  return url;
 }
 
 function getSupabaseAnonKey() {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!key) {
+    console.error('[supabase] MISSING NEXT_PUBLIC_SUPABASE_ANON_KEY — set it in Vercel env vars');
+    return '';
+  }
+  return key;
 }
 
 export function getSupabaseClient() {
