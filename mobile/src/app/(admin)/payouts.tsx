@@ -1,6 +1,6 @@
 // Admin Payouts — approve/reject withdrawal requests
 import { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, RefreshControl } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, RefreshControl, TextInput, Modal } from 'react-native'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 
@@ -27,6 +27,8 @@ export default function AdminPayouts() {
   const [page, setPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const pageSize = 50
+  const [confirmRef, setConfirmRef] = useState('')
+  const [confirmModalId, setConfirmModalId] = useState<string | null>(null)
 
   useEffect(() => { fetchPayouts() }, [filter, page])
 
@@ -117,6 +119,33 @@ export default function AdminPayouts() {
     }
   }
 
+  async function handleConfirm(payoutId: string) {
+    if (!confirmRef.trim()) { Alert.alert('Lỗi', 'Vui lòng nhập mã tham chiếu'); return }
+    setActionLoading(payoutId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager?action=confirm&id=${payoutId}&ref=${encodeURIComponent(confirmRef.trim())}`,
+        {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }
+      )
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Xác nhận thất bại')
+      Alert.alert('Thành công', 'Đã xác nhận chuyển tiền')
+      setConfirmModalId(null)
+      setConfirmRef('')
+      fetchPayouts()
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Xác nhận thất bại')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   async function onRefresh() {
     setRefreshing(true)
     await fetchPayouts()
@@ -124,9 +153,9 @@ export default function AdminPayouts() {
   }
 
   const fmt = (v: number) => v.toLocaleString('vi-VN') + '₫'
-  const statusLabels: Record<string, string> = { pending: 'Chờ duyệt', completed: 'Hoàn thành', failed: 'Thất bại', cancelled: 'Đã hủy' }
-  const statusColors: Record<string, string> = { pending: '#f59e0b', completed: '#059669', failed: '#dc2626', cancelled: '#6b7280' }
-  const filters = ['pending', 'completed', 'failed', '']
+  const statusLabels: Record<string, string> = { pending: 'Chờ duyệt', processing: 'Đang xử lý', completed: 'Hoàn thành', failed: 'Thất bại', cancelled: 'Đã hủy' }
+  const statusColors: Record<string, string> = { pending: '#f59e0b', processing: '#3b82f6', completed: '#059669', failed: '#dc2626', cancelled: '#6b7280' }
+  const filters = ['pending', 'processing', 'completed', 'failed', '']
 
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
@@ -210,6 +239,15 @@ export default function AdminPayouts() {
                   </TouchableOpacity>
                 </View>
               )}
+              {p.status === 'processing' && (
+                <TouchableOpacity
+                  style={[styles.confirmBtn, actionLoading === p.id && styles.disabled]}
+                  onPress={() => { setConfirmModalId(p.id); setConfirmRef('') }}
+                  disabled={actionLoading === p.id}
+                >
+                  <Text style={styles.actionBtnText}>Xác nhận đã chuyển tiền</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
         </View>
@@ -233,6 +271,37 @@ export default function AdminPayouts() {
           </View>
         )}</>
       )}
+
+      <Modal visible={confirmModalId !== null} transparent animationType="fade" onRequestClose={() => setConfirmModalId(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Xác nhận đã chuyển tiền</Text>
+            <Text style={styles.modalSubtitle}>Nhập mã tham chiếu giao dịch từ ngân hàng</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={confirmRef}
+              onChangeText={setConfirmRef}
+              placeholder="Mã tham chiếu..."
+              placeholderTextColor="#9ca3af"
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn]}
+                onPress={() => { setConfirmModalId(null); setConfirmRef('') }}
+              >
+                <Text style={styles.modalCancelText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, !confirmRef.trim() && styles.disabled]}
+                onPress={() => handleConfirm(confirmModalId!)}
+                disabled={!confirmRef.trim()}
+              >
+                <Text style={styles.modalConfirmText}>Xác nhận</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   )
 }
@@ -269,4 +338,15 @@ const styles = StyleSheet.create({
   pageBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   pageBtnTextDisabled: { color: '#9ca3af' },
   pageInfo: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
+  confirmBtn: { backgroundColor: '#3b82f6', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 12 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '85%', maxWidth: 400 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937', marginBottom: 8 },
+  modalSubtitle: { fontSize: 14, color: '#6b7280', marginBottom: 16 },
+  modalInput: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12, fontSize: 15, color: '#1f2937', marginBottom: 16 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalCancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#d1d5db', alignItems: 'center' },
+  modalCancelText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  modalConfirmBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#3b82f6', alignItems: 'center' },
+  modalConfirmText: { fontSize: 14, fontWeight: '600', color: '#fff' },
 })

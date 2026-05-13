@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
           .select('*, profiles!payouts_user_id_fkey(id, email, full_name, role)', { count: 'exact' })
           .order('created_at', { ascending: false })
 
-        if (pStatus && ['pending', 'completed', 'failed', 'cancelled'].includes(pStatus)) {
+        if (pStatus && ['pending', 'processing', 'completed', 'failed', 'cancelled'].includes(pStatus)) {
           pQuery = pQuery.eq('status', pStatus)
         }
 
@@ -544,6 +544,32 @@ export async function POST(request: NextRequest) {
           .from('payouts')
           .update({ admin_id: user.id })
           .eq('id', ap_payout_id)
+
+        return NextResponse.json({ success: true })
+      }
+
+      case 'payouts-confirm': {
+        const { payout_id: cp_payout_id, reference_id } = body
+        if (!cp_payout_id) {
+          return NextResponse.json({ error: 'payout_id is required' }, { status: 400 })
+        }
+
+        const { data: cp_result, error: cp_rpcError } = await serverClient
+          .rpc('confirm_payout', { p_payout_id: cp_payout_id, p_reference_id: reference_id || '' })
+
+        if (cp_rpcError) {
+          console.error('Confirm payout RPC error:', cp_rpcError)
+          return NextResponse.json({ error: 'Failed to confirm payout' }, { status: 500 })
+        }
+
+        if (!cp_result.success) {
+          return NextResponse.json({ error: cp_result.error }, { status: 400 })
+        }
+
+        await serverClient
+          .from('payouts')
+          .update({ admin_id: user.id })
+          .eq('id', cp_payout_id)
 
         return NextResponse.json({ success: true })
       }
