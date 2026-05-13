@@ -1,5 +1,11 @@
 import type { ChatContext, ChatIntent, ChatSlots, GeoLocation } from './types.ts';
 
+export interface LocationData {
+  districtNames: string[];
+  provinceNames: string[];
+  allNames: string[];
+}
+
 export const CATEGORY_KEYWORDS: Record<string, string[]> = {
   air_conditioning: ['máy lạnh', 'điều hòa', 'aircon', 'ac', 'không mát', 'chảy nước máy lạnh', 'bơm gas', 'không lạnh', 'yếu lạnh', 'vệ sinh máy lạnh', 'máy lanh'],
   plumbing: ['rò nước', 'ống nước', 'vòi', 'bồn cầu', 'nghẹt', 'thông tắc', 'nước chảy', 'rỉ nước', 'bồn rửa', 'lavabo', 'nước rò', 'ống rò'],
@@ -20,22 +26,18 @@ export const URGENCY_KEYWORDS: Record<NonNullable<ChatSlots['urgency']>, string[
 export const CONFIRM_KEYWORDS = ['chốt', 'đồng ý', 'xác nhận', 'đặt lịch', 'tạo đơn', 'ok chốt', 'book', 'confirm', 'ok', 'oke', 'được', 'chốt đơn', 'đặt ngay', 'đặt đi', 'làm đi'];
 export const NEGATIVE_KEYWORDS = ['không chốt', 'chưa chốt', 'để sau', 'không đồng ý', 'hủy', 'thôi', 'không cần', 'chưa cần'];
 
-// Vietnamese location patterns — covers 34 provinces
-// Note: Will be loaded from DB via vietnam_administrative_divisions when system scales
-const DISTRICTS_HCMC = [
+const FALLBACK_DISTRICTS: string[] = [
   'quận 1', 'quận 2', 'quận 3', 'quận 4', 'quận 5', 'quận 6', 'quận 7', 'quận 8', 'quận 9', 'quận 10', 'quận 11', 'quận 12',
   'thủ đức', 'bình thạnh', 'gò vấp', 'tân bình', 'tân phú', 'phú nhuận', 'bình tân',
   'nhà bè', 'bình chánh', 'hóc môn', 'củ chi', 'cần giờ',
-];
-const DISTRICTS_HN = [
   'hoàn kiếm', 'ba đình', 'đống đa', 'hai bà trưng', 'hoàng mai', 'thanh xuân',
   'cầu giấy', 'nam từ liêm', 'bắc từ liêm', 'long biên', 'tây hồ', 'hà đông',
+  'hải châu', 'thanh khê', 'sơn trà', 'ngũ hành sơn', 'liên chiểu', 'cẩm lệ', 'hòa vang',
+  'ninh kiều', 'bình thủy', 'cái răng', 'ô môn', 'thốt nốt', 'vĩnh thạnh', 'cờ đỏ', 'phong điền',
+  'hồng bàng', 'ngô quyền', 'lê chân', 'hải an', 'kiến an', 'đồ sơn', 'dương kinh', 'thủy nguyên', 'an dương',
 ];
-const DISTRICTS_DN = ['hải châu', 'thanh khê', 'sơn trà', 'ngũ hành sơn', 'liên chiểu', 'cẩm lệ', 'hòa vang'];
-const DISTRICTS_CT = ['ninh kiều', 'bình thủy', 'cái răng', 'ô môn', 'thốt nốt', 'vĩnh thạnh', 'cờ đỏ', 'phong điền'];
-const DISTRICTS_HP = ['hồng bàng', 'ngô quyền', 'lê chân', 'hải an', 'kiến an', 'đồ sơn', 'dương kinh', 'thủy nguyên', 'an dương'];
 
-const PROVINCES_VI = [
+const FALLBACK_PROVINCES: string[] = [
   'hồ chí minh', 'hà nội', 'đà nẵng', 'cần thơ', 'hải phòng',
   'bình dương', 'đồng nai', 'bà rịa vũng tàu', 'long an', 'tây ninh',
   'bắc ninh', 'hưng yên', 'hải dương', 'vĩnh phúc', 'quảng ninh',
@@ -44,6 +46,12 @@ const PROVINCES_VI = [
   'lâm đồng', 'đắk lắk', 'gia lai', 'kon tum',
   'nghệ an', 'thanh hóa', 'thừa thiên huế',
 ];
+
+export const FALLBACK_LOCATION_DATA: LocationData = {
+  districtNames: FALLBACK_DISTRICTS,
+  provinceNames: FALLBACK_PROVINCES,
+  allNames: [...FALLBACK_DISTRICTS, ...FALLBACK_PROVINCES],
+};
 
 export function isGeoLocation(value: unknown): value is GeoLocation {
   if (!value || typeof value !== 'object') return false;
@@ -104,7 +112,7 @@ export function detectPreferredTime(message: string): string | undefined {
   return undefined;
 }
 
-export function detectLocationText(message: string): string | undefined {
+export function detectLocationText(message: string, locationData?: LocationData): string | undefined {
   const text = normalizeMessage(message);
 
   // Explicit location patterns: "ở quận 7", "tại Bình Thạnh"
@@ -115,25 +123,53 @@ export function detectLocationText(message: string): string | undefined {
   const districtShort = text.match(/(?:^|\s)q\.?\s*(\d{1,2})(?:\s|$|,)/);
   if (districtShort) return `quận ${districtShort[1]}`;
 
-  // District detection for all 5 major cities
-  const allDistricts = [...DISTRICTS_HCMC, ...DISTRICTS_HN, ...DISTRICTS_DN, ...DISTRICTS_CT, ...DISTRICTS_HP];
-  for (const d of allDistricts) {
-    if (text.includes(d)) return d;
-  }
+  const data = locationData || FALLBACK_LOCATION_DATA;
 
-  // Province detection
-  for (const p of PROVINCES_VI) {
-    if (text.includes(p)) return p;
+  for (const name of data.allNames) {
+    if (text.includes(name)) return name;
   }
 
   return undefined;
+}
+
+export async function loadLocationData(supabase: any): Promise<LocationData> {
+  try {
+    const { data: districts } = await supabase
+      .from('vietnam_administrative_divisions')
+      .select('name')
+      .eq('type', 'district');
+
+    const { data: provincesShort } = await supabase
+      .from('vietnam_administrative_divisions')
+      .select('name_short')
+      .eq('type', 'province');
+
+    const { data: provincesFull } = await supabase
+      .from('vietnam_administrative_divisions')
+      .select('name')
+      .eq('type', 'province');
+
+    if (districts?.length && provincesShort?.length) {
+      const districtNames = districts.map((d: { name: string }) => d.name.toLowerCase());
+      const provinceNames = provincesShort.map((p: { name_short: string }) => p.name_short.toLowerCase());
+      const fullProvinceNames = provincesFull?.map((p: { name: string }) => p.name.toLowerCase()) || [];
+      return {
+        districtNames,
+        provinceNames,
+        allNames: [...districtNames, ...provinceNames, ...fullProvinceNames],
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load location data from DB, using fallback:', e);
+  }
+  return FALLBACK_LOCATION_DATA;
 }
 
 /**
  * SMART EXTRACTION: Extract ALL possible entities from a single message.
  * User can say "Máy lạnh hư, ở quận 7, mai sáng 9h" and we extract everything.
  */
-export function extractSlots(message: string, context: Partial<ChatContext>): ChatContext {
+export async function extractSlots(message: string, context: Partial<ChatContext>, locationData?: LocationData): Promise<ChatContext> {
   const incomingLocation = context.location;
   const next: ChatContext = {
     ...context,
@@ -145,7 +181,7 @@ export function extractSlots(message: string, context: Partial<ChatContext>): Ch
   const detectedCategory = detectCategory(message);
   const detectedUrgency = detectUrgency(message);
   const detectedTime = detectPreferredTime(message);
-  const detectedLocation = detectLocationText(message);
+  const detectedLocation = detectLocationText(message, locationData);
 
   // Only override if not already set (preserve earlier context)
   next.category ||= detectedCategory;

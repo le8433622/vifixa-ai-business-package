@@ -2,7 +2,7 @@
 // Intended to be triggered by cron or admin action
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { jsonResponse, handleOptions, verifyAuth, AuthError } from '../_shared/auth-helper.ts';
+import { jsonResponse, handleOptions, AuthError } from '../_shared/auth-helper.ts';
 
 interface Broadcast {
   id: string;
@@ -19,24 +19,33 @@ interface Broadcast {
   action_url: string | null;
 }
 
+function isCronCall(req: Request): boolean {
+  const authHeader = req.headers.get('Authorization') || '';
+  const token = authHeader.replace('Bearer ', '');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  return token === serviceRoleKey;
+}
+
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
   if (opt) return opt;
 
   try {
-    const user = await verifyAuth(req);
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return jsonResponse({ error: 'Forbidden: admin only' }, 403);
+    if (!isCronCall(req)) {
+      const { verifyAuth } = await import('../_shared/auth-helper.ts');
+      const user = await verifyAuth(req);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (!profile || profile.role !== 'admin') {
+        return jsonResponse({ error: 'Forbidden: admin only' }, 403);
+      }
     }
 
     const { broadcast_id, simulate } = await req.json().catch(() => ({}));

@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
-import MapView from '@/components/map/MapView';
+import MapView from '@/components/map/DynamicMapView';
 import StaticMapThumbnail from '@/components/map/StaticMapThumbnail';
 
 interface OrderDetails {

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
-import LocationPicker from '@/components/map/LocationPicker'
+import LocationPicker from '@/components/map/DynamicLocationPicker'
 
 interface Device {
   id: string

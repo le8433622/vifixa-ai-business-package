@@ -4,7 +4,8 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth, checkRateLimit, jsonResponse, handleOptions, redactPII } from '../_shared/auth-helper.ts';
 import type { ChatContext, ChatRequest } from './types.ts';
-import { extractSlots } from './slot-extractor.ts';
+import { extractSlots, loadLocationData } from './slot-extractor.ts';
+import type { LocationData } from './slot-extractor.ts';
 import { chooseState, getMissingSlots } from './state-machine.ts';
 import { buildActions } from './action-builder.ts';
 import { buildHandoffSummary, buildReply } from './reply-builder.ts';
@@ -28,6 +29,7 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    const locationData: LocationData = await loadLocationData(supabase);
 
     let body: ChatRequest;
     try {
@@ -104,10 +106,10 @@ Deno.serve(async (req: Request) => {
     messages.push({ role: 'user', content: message });
 
     const requestId = body.idempotency_key || crypto.randomUUID();
-    let nextContext = extractSlots(message, {
+    let nextContext = await extractSlots(message, {
       ...sessionContext,
       idempotency_key: requestId,
-    });
+    }, locationData);
 
     let missingSlots = getMissingSlots(nextContext);
     let state = chooseState(nextContext, missingSlots);

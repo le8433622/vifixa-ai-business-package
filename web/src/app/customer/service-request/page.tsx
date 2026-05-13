@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import QueryProvider from '@/components/QueryProvider';
 import MembershipUpsell from '@/components/MembershipUpsell';
-import LocationPicker from '@/components/map/LocationPicker';
+import LocationPicker from '@/components/map/DynamicLocationPicker';
 import LocationSelect from '@/components/ui/LocationSelect';
 
 interface MembershipPlan {
@@ -89,8 +89,12 @@ function ServiceRequestContent() {
         }
       }
 
-      const requestLocation = location || { lat: 10.8231, lng: 106.6297 };
+      const requestLocation = location;
       const fullAddress = [streetAddr, addrCascade?.ward_name, addrCascade?.district_name, addrCascade?.province_name].filter(Boolean).join(', ');
+
+      if (!requestLocation && !fullAddress) {
+        throw new Error('Vui lòng chọn vị trí hoặc nhập địa chỉ');
+      }
 
       const response = await fetch('/api/ai/customer-requests', {
         method: 'POST',

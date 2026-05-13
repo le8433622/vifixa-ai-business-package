@@ -10,8 +10,8 @@ import { extractSlots } from './slot-extractor.ts';
 import { chooseState, getMissingSlots } from './state-machine.ts';
 import type { ChatContext } from './types.ts';
 
-function runCase(message: string, context: Partial<ChatContext> = {}) {
-  const slots = extractSlots(message, context);
+async function runCase(message: string, context: Partial<ChatContext> = {}) {
+  const slots = await extractSlots(message, context);
   const missingSlots = getMissingSlots(slots);
   const state = chooseState(slots, missingSlots);
   const actions = buildActions(state, missingSlots, slots);
@@ -21,8 +21,8 @@ function runCase(message: string, context: Partial<ChatContext> = {}) {
 
 test('golden chat closing cases', async (t) => {
   for (const testCase of goldenCases) {
-    await t.test(testCase.name, () => {
-      const result = runCase(testCase.message, testCase.context);
+    await t.test(testCase.name, async () => {
+      const result = await runCase(testCase.message, testCase.context);
       const expected = testCase.expected;
 
       if (expected.category) assert.equal(result.slots.category, expected.category);
