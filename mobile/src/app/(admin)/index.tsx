@@ -54,7 +54,9 @@ export default function AdminDashboard() {
     { title: 'Workers', description: 'Quản lý thợ', route: '/(admin)/workers', color: '#8b5cf6' },
     { title: 'Orders', description: 'Quản lý đơn hàng', route: '/(admin)/orders', color: '#10b981' },
     { title: 'Disputes', description: 'Xử lý tranh chấp', route: '/(admin)/disputes', color: '#f59e0b' },
-    { title: 'AI Logs', description: 'Xem lịch sử AI', route: '/(admin)/ai-log-s', color: '#ef4444' },
+    { title: 'Wallets', description: 'Quản lý ví', route: '/(admin)/wallets', color: '#06b6d4' },
+    { title: 'Payouts', description: 'Duyệt rút tiền', route: '/(admin)/payouts', color: '#8b5cf6' },
+    { title: 'AI Logs', description: 'Xem lịch sử AI', route: '/(admin)/ai-logs', color: '#ef4444' },
   ];
 
   if (isLoading) {

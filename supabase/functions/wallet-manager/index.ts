@@ -47,6 +47,12 @@ Deno.serve(async (req: Request) => {
       return await handleApprovePayout(supabase, user.id, payoutId)
     }
 
+    // PUT /?action=reject&id=xxx → Reject payout (admin) — unlock locked_amount
+    if (req.method === 'PUT' && action === 'reject') {
+      const payoutId = url.searchParams.get('id')
+      return await handleRejectPayout(supabase, user.id, payoutId)
+    }
+
     return jsonResponse({ error: 'Method not allowed' }, 405)
   } catch (error: any) {
     console.error('Wallet manager error:', error)
@@ -110,57 +116,25 @@ async function handleRequestPayout(req: Request, supabase: any, userId: string):
     return jsonResponse({ error: 'Invalid amount' }, 400)
   }
 
-  // Get wallet
-  const { data: wallet, error: walletError } = await supabase
-    .from('wallets')
-    .select('*')
-    .eq('user_id', userId)
-    .single()
-
-  if (walletError || !wallet) {
-    return jsonResponse({ error: 'Wallet not found' }, 404)
-  }
-
-  // Check sufficient balance
-  const available = wallet.balance - wallet.locked_amount
-  if (available < amount) {
-    return jsonResponse({ error: 'Insufficient balance' }, 400)
-  }
-
-  // Get platform fee from app_settings
-  const { data: feeSetting } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'payout_fee')
-    .single()
-
-  const fee = parseInt(feeSetting?.value || '5000')
-
-  // Lock amount in wallet
-  const { error: updateError } = await supabase
-    .from('wallets')
-    .update({ locked_amount: wallet.locked_amount + amount })
-    .eq('id', wallet.id)
-
-  if (updateError) throw updateError
-
-  // Create payout record
-  const { data: payout, error: payoutError } = await supabase
-    .from('payouts')
-    .insert({
-      wallet_id: wallet.id,
-      user_id: userId,
-      amount,
-      fee,
-      bank_account,
-      status: 'pending',
+  // Atomic RPC: lock wallet with FOR UPDATE, check balance, lock amount, create payout
+  const { data: result, error: rpcError } = await supabase
+    .rpc('request_payout', {
+      p_user_id: userId,
+      p_amount: amount,
+      p_fee: 5000,
+      p_bank_account: bank_account || {},
     })
-    .select()
-    .single()
 
-  if (payoutError) throw payoutError
+  if (rpcError) {
+    console.error('Request payout RPC error:', rpcError)
+    return jsonResponse({ error: 'Failed to request payout', detail: rpcError.message }, 500)
+  }
 
-  return jsonResponse({ success: true, payout })
+  if (!result.success) {
+    return jsonResponse({ error: result.error }, 400)
+  }
+
+  return jsonResponse({ success: true, payout: result })
 }
 
 async function handleApprovePayout(supabase: any, adminId: string, payoutId: string | null): Promise<Response> {
@@ -179,70 +153,56 @@ async function handleApprovePayout(supabase: any, adminId: string, payoutId: str
     return jsonResponse({ error: 'Missing payout id' }, 400)
   }
 
-  // Get payout
-  const { data: payout, error: payoutError } = await supabase
-    .from('payouts')
-    .select('*, wallets(*)')
-    .eq('id', payoutId)
-    .single()
+  // Atomic RPC: lock payout + wallet with FOR UPDATE, update both, create ledger entries
+  const { data: result, error: rpcError } = await supabase
+    .rpc('approve_payout', { p_payout_id: payoutId })
 
-  if (payoutError || !payout) {
-    return jsonResponse({ error: 'Payout not found' }, 404)
+  if (rpcError) {
+    console.error('Approve payout RPC error:', rpcError)
+    return jsonResponse({ error: 'Failed to approve payout', detail: rpcError.message }, 500)
   }
 
-  // Update payout status
-  const { error: updateError } = await supabase
+  if (!result.success) {
+    return jsonResponse({ error: result.error }, 400)
+  }
+
+  // Update admin_id separately (RPC doesn't track admin)
+  await supabase
     .from('payouts')
-    .update({
-      status: 'completed',
-      admin_id: adminId,
-      completed_at: new Date().toISOString(),
-    })
+    .update({ admin_id: adminId })
     .eq('id', payoutId)
 
-  if (updateError) throw updateError
-
-  // Update wallet: subtract amount + fee, unlock
-  const wallet = payout.wallets
-  const newBalance = wallet.balance - payout.amount - payout.fee
-  const newLocked = wallet.locked_amount - payout.amount
-
-  await supabase
-    .from('wallets')
-    .update({
-      balance: Math.max(0, newBalance),
-      locked_amount: Math.max(0, newLocked),
-    })
-    .eq('id', wallet.id)
-
-  // Create ledger entry for payout
-  const transactionId = `payout_${Date.now()}`
-  await supabase
-    .from('ledger_entries')
-    .insert([
-      {
-        transaction_id: transactionId,
-        wallet_id: wallet.id,
-        account: 'wallet.withdrawal',
-        direction: 'debit',
-        amount: payout.amount,
-        currency: wallet.currency,
-        reference_type: 'payout',
-        reference_id: payoutId,
-        description: 'Withdrawal to bank account',
-      },
-      {
-        transaction_id: transactionId,
-        wallet_id: wallet.id,
-        account: 'fee.payout',
-        direction: 'debit',
-        amount: payout.fee,
-        currency: wallet.currency,
-        reference_type: 'fee',
-        reference_id: payoutId,
-        description: 'Payout fee',
-      },
-    ])
-
   return jsonResponse({ success: true })
+}
+
+async function handleRejectPayout(supabase: any, adminId: string, payoutId: string | null): Promise<Response> {
+  // Verify admin
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', adminId)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    return jsonResponse({ error: 'Forbidden' }, 403)
+  }
+
+  if (!payoutId) {
+    return jsonResponse({ error: 'Missing payout id' }, 400)
+  }
+
+  // Atomic RPC: unlock locked_amount, mark payout as failed
+  const { data: result, error: rpcError } = await supabase
+    .rpc('reject_payout', { p_payout_id: payoutId })
+
+  if (rpcError) {
+    console.error('Reject payout RPC error:', rpcError)
+    return jsonResponse({ error: 'Failed to reject payout', detail: rpcError.message }, 500)
+  }
+
+  if (!result.success) {
+    return jsonResponse({ error: result.error }, 400)
+  }
+
+  return jsonResponse({ success: true, payout_id: payoutId })
 }

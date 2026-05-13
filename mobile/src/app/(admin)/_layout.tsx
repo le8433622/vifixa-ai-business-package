@@ -12,6 +12,8 @@ export default function AdminLayout() {
       <Stack.Screen name="workers" />
       <Stack.Screen name="orders" />
       <Stack.Screen name="disputes" />
+      <Stack.Screen name="wallets" />
+      <Stack.Screen name="payouts" />
       <Stack.Screen name="ai-logs" />
     </Stack>
   );

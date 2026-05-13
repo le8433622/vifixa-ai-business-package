@@ -14,6 +14,7 @@ export default function WorkerLayout() {
       <Stack.Screen name="coach" />
       <Stack.Screen name="trust" />
       <Stack.Screen name="verify" />
+      <Stack.Screen name="wallet" />
       <Stack.Screen name="profile" />
     </Stack>
   );

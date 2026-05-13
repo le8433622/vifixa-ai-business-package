@@ -45,6 +45,15 @@ export default function CustomerLayout() {
         }} 
       />
       <Tabs.Screen 
+        name="wallet" 
+        options={{ 
+          title: 'Ví', 
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="wallet" size={size} color={color} />
+          ),
+        }} 
+      />
+      <Tabs.Screen 
         name="profile" 
         options={{ 
           title: 'Tài khoản', 
