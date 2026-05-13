@@ -4,7 +4,7 @@
 // Per 12_OPERATIONS_AND_TRUST.md - Complaint handling
 // Per Step 7: Trust & Quality - Task 8
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 

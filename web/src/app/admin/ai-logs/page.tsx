@@ -38,6 +38,20 @@ interface QualityMetrics {
   bottom_workers: WorkerQuality[];
 }
 
+function formatJSON(data: unknown): string {
+  try {
+    return JSON.stringify(data, null, 2)
+  } catch {
+    return String(data)
+  }
+}
+
+function getSeverityColor(score: number): string {
+  if (score >= 70) return 'text-green-600'
+  if (score >= 40) return 'text-yellow-600'
+  return 'text-red-600'
+}
+
 export default function AdminAILogs() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'logs' | 'quality'>('logs');
