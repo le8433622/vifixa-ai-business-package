@@ -35,8 +35,12 @@ export default function AdminWorkers() {
   const [editScore, setEditScore] = useState(0)
   const [editStatus, setEditStatus] = useState<'pending' | 'verified' | 'rejected'>('pending')
   const [saving, setSaving] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const pageSize = 50
 
-  useEffect(() => { fetchWorkers() }, [filter, search])
+  useEffect(() => { setPage(1) }, [filter, search])
+  useEffect(() => { fetchWorkers() }, [filter, search, page])
 
   async function fetchWorkers() {
     try {
@@ -59,9 +63,26 @@ export default function AdminWorkers() {
         )
       }
 
-      const { data, error } = await query.limit(100)
+      const { data, error } = await query.range((page - 1) * pageSize, page * pageSize - 1)
       if (error) throw error
       setWorkers((data as Worker[]) || [])
+
+      let countQuery = supabase
+        .from('workers')
+        .select('*, profiles!inner(id, email, full_name, phone)', { count: 'exact', head: true })
+
+      if (filter) {
+        countQuery = countQuery.eq('verification_status', filter)
+      }
+
+      if (search) {
+        countQuery = countQuery.or(
+          `profiles.email.ilike.%${search}%,profiles.full_name.ilike.%${search}%,profiles.phone.ilike.%${search}%`
+        )
+      }
+
+      const { count, error: countError } = await countQuery
+      if (!countError) setTotalCount(count || 0)
     } catch (err) {
       console.error('fetchWorkers error:', err)
     } finally {
@@ -214,6 +235,25 @@ export default function AdminWorkers() {
                 </View>
               </TouchableOpacity>
             ))}
+          </View>
+        )}
+        {!loading && workers.length > 0 && (
+          <View style={styles.paginationRow}>
+            <TouchableOpacity
+              style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+              onPress={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              <Text style={[styles.pageBtnText, page <= 1 && styles.pageBtnTextDisabled]}>Trước</Text>
+            </TouchableOpacity>
+            <Text style={styles.pageInfo}>Trang {page}</Text>
+            <TouchableOpacity
+              style={[styles.pageBtn, page * pageSize >= totalCount && styles.pageBtnDisabled]}
+              onPress={() => setPage(p => p + 1)}
+              disabled={page * pageSize >= totalCount}
+            >
+              <Text style={[styles.pageBtnText, page * pageSize >= totalCount && styles.pageBtnTextDisabled]}>Sau</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -425,4 +465,12 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, color: '#374151', fontWeight: '600' },
   saveBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#3b82f6', alignItems: 'center' },
   saveBtnText: { fontSize: 15, color: '#fff', fontWeight: '600' },
+
+  // Pagination
+  paginationRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 30 },
+  pageBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: '#3b82f6' },
+  pageBtnDisabled: { backgroundColor: '#d1d5db' },
+  pageBtnText: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  pageBtnTextDisabled: { color: '#9ca3af' },
+  pageInfo: { fontSize: 15, color: '#374151', fontWeight: '500' },
 })

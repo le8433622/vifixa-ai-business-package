@@ -57,6 +57,9 @@ export default function AdminOrders() {
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const pageSize = 50
 
   const [detailOrder, setDetailOrder] = useState<Order | null>(null)
   const [detailStatus, setDetailStatus] = useState('')
@@ -67,7 +70,7 @@ export default function AdminOrders() {
   const [workers, setWorkers] = useState<WorkerOption[]>([])
   const [showWorkerPicker, setShowWorkerPicker] = useState(false)
 
-  useEffect(() => { fetchOrders() }, [filter, search])
+  useEffect(() => { fetchOrders() }, [filter, search, page])
 
   async function fetchOrders() {
     try {
@@ -77,7 +80,7 @@ export default function AdminOrders() {
 
       let query = supabase
         .from('orders')
-        .select('*, profiles!inner(email), workers!left(user_id, profiles!inner(email, full_name))')
+        .select('*, profiles!inner(email), workers!left(user_id, profiles!inner(email, full_name))', { count: 'exact' })
         .order('created_at', { ascending: false })
 
       if (filter) {
@@ -88,9 +91,12 @@ export default function AdminOrders() {
         query = query.or(`description.ilike.${q},category.ilike.${q},profiles.email.ilike.${q}`)
       }
 
-      const { data, error } = await query.limit(100)
+      const from = (page - 1) * pageSize
+      const to = page * pageSize - 1
+      const { data, error, count } = await query.range(from, to)
       if (error) throw error
       setOrders(data || [])
+      setTotalCount(count ?? 0)
     } catch (err) {
       console.error('fetchOrders error:', err)
     } finally {
@@ -194,7 +200,7 @@ export default function AdminOrders() {
         <TextInput
           style={styles.search}
           value={search}
-          onChangeText={setSearch}
+          onChangeText={(v) => { setSearch(v); setPage(1) }}
           placeholder="Tìm kiếm mô tả, danh mục, email..."
         />
 
@@ -202,7 +208,7 @@ export default function AdminOrders() {
           <View style={styles.filterRow}>
             <TouchableOpacity
               style={[styles.filterBtn, filter === '' && styles.filterBtnActive]}
-              onPress={() => setFilter('')}
+              onPress={() => { setFilter(''); setPage(1) }}
             >
               <Text style={[styles.filterBtnText, filter === '' && styles.filterBtnTextActive]}>Tất cả</Text>
             </TouchableOpacity>
@@ -210,7 +216,7 @@ export default function AdminOrders() {
               <TouchableOpacity
                 key={s}
                 style={[styles.filterBtn, filter === s && styles.filterBtnActive]}
-                onPress={() => setFilter(s)}
+                onPress={() => { setFilter(s); setPage(1) }}
               >
                 <View style={[styles.dot, { backgroundColor: statusColor(s) }]} />
                 <Text style={[styles.filterBtnText, filter === s && styles.filterBtnTextActive]}>
@@ -265,6 +271,26 @@ export default function AdminOrders() {
                 </TouchableOpacity>
               )
             })}
+          </View>
+        )}
+
+        {!loading && orders.length > 0 && (
+          <View style={styles.pagination}>
+            <TouchableOpacity
+              style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+              onPress={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              <Text style={[styles.pageBtnText, page <= 1 && styles.pageBtnTextDisabled]}>Trước</Text>
+            </TouchableOpacity>
+            <Text style={styles.pageInfo}>Trang {page}</Text>
+            <TouchableOpacity
+              style={[styles.pageBtn, page * pageSize >= totalCount && styles.pageBtnDisabled]}
+              onPress={() => setPage(p => p + 1)}
+              disabled={page * pageSize >= totalCount}
+            >
+              <Text style={[styles.pageBtnText, page * pageSize >= totalCount && styles.pageBtnTextDisabled]}>Sau</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -451,4 +477,11 @@ const styles = StyleSheet.create({
   workerItemActive: { backgroundColor: '#3b82f6' },
   workerName: { fontSize: 15, fontWeight: '600', color: '#1f2937' },
   workerEmail: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+
+  pagination: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, paddingVertical: 20 },
+  pageBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#3b82f6' },
+  pageBtnDisabled: { backgroundColor: '#d1d5db' },
+  pageBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  pageBtnTextDisabled: { color: '#9ca3af' },
+  pageInfo: { fontSize: 14, fontWeight: '600', color: '#374151' },
 })

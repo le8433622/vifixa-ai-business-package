@@ -53,8 +53,13 @@ export default function AdminDisputes() {
   const [entityFilter, setEntityFilter] = useState('')
   const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const pageSize = 50
 
-  useEffect(() => { fetchItems() }, [statusFilter, entityFilter])
+  useEffect(() => { fetchItems() }, [statusFilter, entityFilter, page])
+
+  useEffect(() => { setPage(1) }, [statusFilter, entityFilter])
 
   async function fetchItems() {
     try {
@@ -67,14 +72,26 @@ export default function AdminDisputes() {
         .select('*, profiles:created_by(id, email, full_name)')
         .order('created_at', { ascending: false })
 
+      let countQuery = supabase
+        .from('admin_review_queue')
+        .select('*', { count: 'exact', head: true })
+
       if (statusFilter) {
         query = query.eq('review_status', statusFilter)
+        countQuery = countQuery.eq('review_status', statusFilter)
       }
       if (entityFilter) {
         query = query.eq('entity_type', entityFilter)
+        countQuery = countQuery.eq('entity_type', entityFilter)
       }
 
-      const { data, error } = await query.limit(100)
+      const { count, error: countError } = await countQuery
+      if (countError) throw countError
+      setTotalCount(count || 0)
+
+      const from = (page - 1) * pageSize
+      const to = page * pageSize - 1
+      const { data, error } = await query.range(from, to)
       if (error) throw error
       setItems(data || [])
     } catch (err) {
@@ -194,41 +211,60 @@ export default function AdminDisputes() {
         ) : items.length === 0 ? (
           <Text style={styles.empty}>Không có mục nào</Text>
         ) : (
-          <View style={styles.list}>
-            {items.map(item => {
-              const sl = severityLabel(item.ai_decision)
-              return (
-                <TouchableOpacity key={item.id} style={styles.card} onPress={() => setSelectedItem(item)}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.entityType}>
-                      {entityTypeLabels[item.entity_type] || item.entity_type}
-                    </Text>
-                    <Text style={[styles.statusBadge, { color: statusColors[item.review_status] || '#6b7280' }]}>
-                      {statusLabels[item.review_status] || item.review_status}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.creatorEmail}>
-                    {item.profiles?.email || item.created_by?.slice(0, 8)}
-                  </Text>
-                  {item.profiles?.full_name && (
-                    <Text style={styles.creatorName}>{item.profiles.full_name}</Text>
-                  )}
-
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.dateText}>
-                      {new Date(item.created_at).toLocaleDateString('vi-VN')}
-                    </Text>
-                    {sl && (
-                      <Text style={[styles.severity, { color: severityColor(item.ai_decision) }]}>
-                        {sl}
+          <>
+            <View style={styles.list}>
+              {items.map(item => {
+                const sl = severityLabel(item.ai_decision)
+                return (
+                  <TouchableOpacity key={item.id} style={styles.card} onPress={() => setSelectedItem(item)}>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.entityType}>
+                        {entityTypeLabels[item.entity_type] || item.entity_type}
                       </Text>
+                      <Text style={[styles.statusBadge, { color: statusColors[item.review_status] || '#6b7280' }]}>
+                        {statusLabels[item.review_status] || item.review_status}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.creatorEmail}>
+                      {item.profiles?.email || item.created_by?.slice(0, 8)}
+                    </Text>
+                    {item.profiles?.full_name && (
+                      <Text style={styles.creatorName}>{item.profiles.full_name}</Text>
                     )}
-                  </View>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
+
+                    <View style={styles.cardFooter}>
+                      <Text style={styles.dateText}>
+                        {new Date(item.created_at).toLocaleDateString('vi-VN')}
+                      </Text>
+                      {sl && (
+                        <Text style={[styles.severity, { color: severityColor(item.ai_decision) }]}>
+                          {sl}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <View style={styles.pagination}>
+              <TouchableOpacity
+                style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
+                onPress={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <Text style={[styles.pageBtnText, page === 1 && styles.pageBtnTextDisabled]}>Trước</Text>
+              </TouchableOpacity>
+              <Text style={styles.pageInfo}>Trang {page}</Text>
+              <TouchableOpacity
+                style={[styles.pageBtn, page * pageSize >= totalCount && styles.pageBtnDisabled]}
+                onPress={() => setPage(p => p + 1)}
+                disabled={page * pageSize >= totalCount}
+              >
+                <Text style={[styles.pageBtnText, page * pageSize >= totalCount && styles.pageBtnTextDisabled]}>Sau</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -407,4 +443,10 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   closeBtn: { marginTop: 16, padding: 12, borderRadius: 10, backgroundColor: '#f3f4f6', alignItems: 'center' },
   closeBtnText: { fontSize: 16, fontWeight: '600', color: '#374151' },
+  pagination: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 16, marginBottom: 24 },
+  pageBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: '#3b82f6' },
+  pageBtnDisabled: { backgroundColor: '#d1d5db' },
+  pageBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  pageBtnTextDisabled: { color: '#9ca3af' },
+  pageInfo: { fontSize: 15, fontWeight: '600', color: '#374151' },
 })

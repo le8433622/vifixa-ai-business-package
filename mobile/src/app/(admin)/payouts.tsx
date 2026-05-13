@@ -24,8 +24,11 @@ export default function AdminPayouts() {
   const [refreshing, setRefreshing] = useState(false)
   const [filter, setFilter] = useState<string>('pending')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const pageSize = 50
 
-  useEffect(() => { fetchPayouts() }, [filter])
+  useEffect(() => { fetchPayouts() }, [filter, page])
 
   async function fetchPayouts() {
     try {
@@ -42,7 +45,21 @@ export default function AdminPayouts() {
         query = query.eq('status', filter)
       }
 
-      const { data, error } = await query.limit(100)
+      const from = (page - 1) * pageSize
+      const to = page * pageSize - 1
+
+      let countQuery = supabase
+        .from('payouts')
+        .select('*', { count: 'exact', head: true })
+      if (filter) {
+        countQuery = countQuery.eq('status', filter)
+      }
+      const { count, error: countError } = await countQuery
+      if (countError) throw countError
+      setTotalCount(count || 0)
+
+      query = query.range(from, to)
+      const { data, error } = await query
       if (error) throw error
       setPayouts(data || [])
     } catch (err) {
@@ -120,7 +137,7 @@ export default function AdminPayouts() {
           <TouchableOpacity
             key={f}
             style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
-            onPress={() => setFilter(f)}
+            onPress={() => { setFilter(f); setPage(1) }}
           >
             <Text style={[styles.filterBtnText, filter === f && styles.filterBtnTextActive]}>
               {f ? statusLabels[f] || f : 'Tất cả'}
@@ -134,7 +151,7 @@ export default function AdminPayouts() {
       ) : payouts.length === 0 ? (
         <Text style={styles.empty}>Không có yêu cầu nào</Text>
       ) : (
-        <View style={styles.list}>
+        <><View style={styles.list}>
           {payouts.map(p => (
             <View key={p.id} style={styles.card}>
               <View style={styles.cardHeader}>
@@ -196,6 +213,25 @@ export default function AdminPayouts() {
             </View>
           ))}
         </View>
+        {totalCount > 0 && (
+          <View style={styles.pagination}>
+            <TouchableOpacity
+              style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+              onPress={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              <Text style={[styles.pageBtnText, page <= 1 && styles.pageBtnTextDisabled]}>Trước</Text>
+            </TouchableOpacity>
+            <Text style={styles.pageInfo}>Trang {page}</Text>
+            <TouchableOpacity
+              style={[styles.pageBtn, page * pageSize >= totalCount && styles.pageBtnDisabled]}
+              onPress={() => setPage(p => p + 1)}
+              disabled={page * pageSize >= totalCount}
+            >
+              <Text style={[styles.pageBtnText, page * pageSize >= totalCount && styles.pageBtnTextDisabled]}>Sau</Text>
+            </TouchableOpacity>
+          </View>
+        )}</>
       )}
     </ScrollView>
   )
@@ -227,4 +263,10 @@ const styles = StyleSheet.create({
   rejectBtn: { flex: 1, backgroundColor: '#dc2626', padding: 10, borderRadius: 8, alignItems: 'center' },
   actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   disabled: { opacity: 0.5 },
+  pagination: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 16, marginBottom: 24 },
+  pageBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: '#3b82f6' },
+  pageBtnDisabled: { backgroundColor: '#d1d5db' },
+  pageBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  pageBtnTextDisabled: { color: '#9ca3af' },
+  pageInfo: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
 })

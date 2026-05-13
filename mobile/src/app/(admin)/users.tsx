@@ -27,14 +27,20 @@ export default function AdminUsers() {
   const [modalVisible, setModalVisible] = useState(false)
   const [newRole, setNewRole] = useState('')
   const [saving, setSaving] = useState(false)
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const pageSize = 50
 
-  useEffect(() => { fetchUsers() }, [roleFilter])
+  useEffect(() => { fetchUsers() }, [roleFilter, page])
 
   async function fetchUsers() {
     try {
       setLoading(true)
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
+
+      const from = (page - 1) * pageSize
+      const to = page * pageSize - 1
 
       let query = supabase
         .from('profiles')
@@ -49,14 +55,35 @@ export default function AdminUsers() {
         query = query.or(`email.ilike.%${search}%,full_name.ilike.%${search}%,phone.ilike.%${search}%`)
       }
 
-      const { data, error } = await query.limit(100)
+      const { data, error } = await query.range(from, to)
       if (error) throw error
       setUsers(data || [])
+
+      let countQuery = supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+
+      if (roleFilter) {
+        countQuery = countQuery.eq('role', roleFilter)
+      }
+
+      if (search) {
+        countQuery = countQuery.or(`email.ilike.%${search}%,full_name.ilike.%${search}%,phone.ilike.%${search}%`)
+      }
+
+      const { count, error: countError } = await countQuery
+      if (countError) throw countError
+      setTotalCount(count || 0)
     } catch (err) {
       console.error('fetchUsers error:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleSearch(text: string) {
+    setSearch(text)
+    setPage(1)
   }
 
   async function onRefresh() {
@@ -100,6 +127,7 @@ export default function AdminUsers() {
   const roleColors: Record<string, string> = { customer: '#059669', worker: '#2563eb', admin: '#dc2626' }
   const roleBgColors: Record<string, string> = { customer: '#d1fae5', worker: '#dbeafe', admin: '#fecaca' }
   const filters = ['', 'customer', 'worker', 'admin']
+  const totalPages = Math.ceil(totalCount / pageSize) || 1
 
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
@@ -108,7 +136,7 @@ export default function AdminUsers() {
       <TextInput
         style={styles.search}
         value={search}
-        onChangeText={setSearch}
+        onChangeText={handleSearch}
         placeholder="Tìm kiếm email, tên hoặc SĐT..."
         onSubmitEditing={fetchUsers}
       />
@@ -118,7 +146,7 @@ export default function AdminUsers() {
           <TouchableOpacity
             key={f}
             style={[styles.filterBtn, roleFilter === f && styles.filterBtnActive]}
-            onPress={() => setRoleFilter(f)}
+            onPress={() => { setRoleFilter(f); setPage(1) }}
           >
             <Text style={[styles.filterBtnText, roleFilter === f && styles.filterBtnTextActive]}>
               {f ? roleLabels[f] || f : 'Tất cả'}
@@ -132,6 +160,7 @@ export default function AdminUsers() {
       ) : users.length === 0 ? (
         <Text style={styles.empty}>Không tìm thấy người dùng nào</Text>
       ) : (
+        <>
         <View style={styles.list}>
           {users.map(u => (
             <TouchableOpacity key={u.id} style={styles.card} onPress={() => openRoleModal(u)}>
@@ -153,6 +182,24 @@ export default function AdminUsers() {
             </TouchableOpacity>
           ))}
         </View>
+        <View style={styles.pagination}>
+          <TouchableOpacity
+            style={[styles.pageBtn, page <= 1 && styles.pageBtnDisabled]}
+            onPress={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+          >
+            <Text style={[styles.pageBtnText, page <= 1 && styles.pageBtnTextDisabled]}>Trước</Text>
+          </TouchableOpacity>
+          <Text style={styles.pageInfo}>Trang {page}</Text>
+          <TouchableOpacity
+            style={[styles.pageBtn, page >= totalPages && styles.pageBtnDisabled]}
+            onPress={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+          >
+            <Text style={[styles.pageBtnText, page >= totalPages && styles.pageBtnTextDisabled]}>Sau</Text>
+          </TouchableOpacity>
+        </View>
+        </>
       )}
 
       <Modal visible={modalVisible} transparent animationType="slide">
@@ -236,4 +283,10 @@ const styles = StyleSheet.create({
   saveBtn: { flex: 1, backgroundColor: '#2563eb', padding: 14, borderRadius: 10, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   disabled: { opacity: 0.5 },
+  pagination: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 20, marginBottom: 20 },
+  pageBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, backgroundColor: '#2563eb' },
+  pageBtnDisabled: { opacity: 0.4 },
+  pageBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  pageBtnTextDisabled: { color: '#fff' },
+  pageInfo: { fontSize: 14, fontWeight: '600', color: '#374151' },
 })
