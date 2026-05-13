@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { supabase } from '@/lib/supabase'
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
-interface InAppNotification {
+export interface InAppNotification {
   id: string
   user_id: string
   broadcast_id: string | null

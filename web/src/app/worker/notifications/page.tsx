@@ -1,11 +1,10 @@
 'use client'
 
 import { useNotifications } from '@/components/notifications/NotificationsContext'
-import { NotificationsProvider } from '@/components/notifications/NotificationsContext'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-function NotificationListInner() {
+export default function WorkerNotificationsPage() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, archive, loading } = useNotifications()
   const router = useRouter()
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
@@ -125,13 +124,5 @@ function NotificationListInner() {
         </div>
       )}
     </div>
-  )
-}
-
-export default function WorkerNotificationsPage() {
-  return (
-    <NotificationsProvider>
-      <NotificationListInner />
-    </NotificationsProvider>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useNotifications } from './NotificationsContext'
+import { useNotifications, InAppNotification } from './NotificationsContext'
 
 export default function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
