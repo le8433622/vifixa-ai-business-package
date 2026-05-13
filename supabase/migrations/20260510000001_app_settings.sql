@@ -57,7 +57,8 @@ INSERT INTO app_settings (key, value, value_type, category, label, description, 
 ('payout_fee', '5000', 'number', 'wallet', 'Payout Fee (VND)', 'Fee charged per withdrawal transaction', false),
 ('maintenance_message', 'Hệ thống đang bảo trì, vui lòng quay lại sau.', 'text', 'system', 'Maintenance Message', 'Message shown during maintenance mode', true),
 ('terms_url', NULL, 'text', 'legal', 'Terms of Service URL', 'Link to terms of service page', true),
-('privacy_url', NULL, 'text', 'legal', 'Privacy Policy URL', 'Link to privacy policy page', true)
+('privacy_url', NULL, 'text', 'legal', 'Privacy Policy URL', 'Link to privacy policy page', true),
+('system_mode', 'auto', 'text', 'system', 'System Mode', 'auto: automatic processing. manual: admin approves each step.', false)
 
 ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value,

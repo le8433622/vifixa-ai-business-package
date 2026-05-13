@@ -20,7 +20,8 @@ export const URGENCY_KEYWORDS: Record<NonNullable<ChatSlots['urgency']>, string[
 export const CONFIRM_KEYWORDS = ['chốt', 'đồng ý', 'xác nhận', 'đặt lịch', 'tạo đơn', 'ok chốt', 'book', 'confirm', 'ok', 'oke', 'được', 'chốt đơn', 'đặt ngay', 'đặt đi', 'làm đi'];
 export const NEGATIVE_KEYWORDS = ['không chốt', 'chưa chốt', 'để sau', 'không đồng ý', 'hủy', 'thôi', 'không cần', 'chưa cần'];
 
-// Vietnamese location patterns
+// Vietnamese location patterns — covers 34 provinces
+// Note: Will be loaded from DB via vietnam_administrative_divisions when system scales
 const DISTRICTS_HCMC = [
   'quận 1', 'quận 2', 'quận 3', 'quận 4', 'quận 5', 'quận 6', 'quận 7', 'quận 8', 'quận 9', 'quận 10', 'quận 11', 'quận 12',
   'thủ đức', 'bình thạnh', 'gò vấp', 'tân bình', 'tân phú', 'phú nhuận', 'bình tân',
@@ -29,6 +30,19 @@ const DISTRICTS_HCMC = [
 const DISTRICTS_HN = [
   'hoàn kiếm', 'ba đình', 'đống đa', 'hai bà trưng', 'hoàng mai', 'thanh xuân',
   'cầu giấy', 'nam từ liêm', 'bắc từ liêm', 'long biên', 'tây hồ', 'hà đông',
+];
+const DISTRICTS_DN = ['hải châu', 'thanh khê', 'sơn trà', 'ngũ hành sơn', 'liên chiểu', 'cẩm lệ', 'hòa vang'];
+const DISTRICTS_CT = ['ninh kiều', 'bình thủy', 'cái răng', 'ô môn', 'thốt nốt', 'vĩnh thạnh', 'cờ đỏ', 'phong điền'];
+const DISTRICTS_HP = ['hồng bàng', 'ngô quyền', 'lê chân', 'hải an', 'kiến an', 'đồ sơn', 'dương kinh', 'thủy nguyên', 'an dương'];
+
+const PROVINCES_VI = [
+  'hồ chí minh', 'hà nội', 'đà nẵng', 'cần thơ', 'hải phòng',
+  'bình dương', 'đồng nai', 'bà rịa vũng tàu', 'long an', 'tây ninh',
+  'bắc ninh', 'hưng yên', 'hải dương', 'vĩnh phúc', 'quảng ninh',
+  'quảng nam', 'khánh hòa', 'bình thuận',
+  'an giang', 'kiên giang', 'tiền giang', 'bến tre', 'vĩnh long', 'đồng tháp', 'cà mau', 'sóc trăng', 'bạc liêu',
+  'lâm đồng', 'đắk lắk', 'gia lai', 'kon tum',
+  'nghệ an', 'thanh hóa', 'thừa thiên huế',
 ];
 
 export function isGeoLocation(value: unknown): value is GeoLocation {
@@ -97,17 +111,19 @@ export function detectLocationText(message: string): string | undefined {
   const locationMatch = text.match(/(?:ở|tai|tại|dia chi|địa chỉ|nhà ở|khu vực)\s+(.{3,120})/i);
   if (locationMatch?.[1]) return locationMatch[1].trim();
 
-  // District detection for HCMC
-  for (const d of DISTRICTS_HCMC) {
-    if (text.includes(d)) return d;
-  }
   // Short form: Q7, Q.7, q7
   const districtShort = text.match(/(?:^|\s)q\.?\s*(\d{1,2})(?:\s|$|,)/);
   if (districtShort) return `quận ${districtShort[1]}`;
 
-  // District detection for Hanoi
-  for (const d of DISTRICTS_HN) {
+  // District detection for all 5 major cities
+  const allDistricts = [...DISTRICTS_HCMC, ...DISTRICTS_HN, ...DISTRICTS_DN, ...DISTRICTS_CT, ...DISTRICTS_HP];
+  for (const d of allDistricts) {
     if (text.includes(d)) return d;
+  }
+
+  // Province detection
+  for (const p of PROVINCES_VI) {
+    if (text.includes(p)) return p;
   }
 
   return undefined;

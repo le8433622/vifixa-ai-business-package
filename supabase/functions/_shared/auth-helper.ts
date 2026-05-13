@@ -109,6 +109,31 @@ const PII_PATTERNS = [
   /\b\d{9,12}\b/g,                  // CMND/CCCD
 ];
 
+// ---- System Mode ----
+export async function getSystemMode(supabaseUrl: string, serviceRoleKey: string): Promise<'auto' | 'manual'> {
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/app_settings?key=eq.system_mode&select=value`,
+      {
+        headers: {
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+        },
+      },
+    )
+    if (!response.ok) return 'auto'
+    const data = await response.json()
+    return data?.[0]?.value === 'manual' ? 'manual' : 'auto'
+  } catch {
+    return 'auto'
+  }
+}
+
+export async function requireManualApproval(supabaseUrl: string, serviceRoleKey: string): Promise<boolean> {
+  const mode = await getSystemMode(supabaseUrl, serviceRoleKey)
+  return mode === 'manual'
+}
+
 export function redactPII(data: unknown): unknown {
   if (typeof data === 'string') {
     let s = data;

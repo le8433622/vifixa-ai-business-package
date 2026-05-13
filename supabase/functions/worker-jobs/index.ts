@@ -29,14 +29,24 @@ Deno.serve(async (req) => {
       },
     });
 
+    const authResponseText = await userResponse.text();
+    let userData: any;
+    try {
+      userData = JSON.parse(authResponseText);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid response from auth service', raw: authResponseText }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!userResponse.ok) {
       return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
+        JSON.stringify({ error: 'Invalid authentication token', detail: userData }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userData = await userResponse.json();
     const workerId = userData.id;
 
     if (req.method === 'GET') {
@@ -50,6 +60,7 @@ Deno.serve(async (req) => {
           {
             headers: {
               'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
               'Content-Type': 'application/json',
             },
           }
@@ -68,11 +79,19 @@ Deno.serve(async (req) => {
           {
             headers: {
               'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
               'Content-Type': 'application/json',
             },
           }
         );
         const jobs = await jobsResponse.json();
+        if (!Array.isArray(jobs)) {
+          console.error('Worker jobs error: Supabase returned non-array:', JSON.stringify(jobs));
+          return new Response(
+            JSON.stringify({ jobs: [], error: 'Invalid response from database' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         return new Response(
           JSON.stringify({ jobs }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -86,6 +105,7 @@ Deno.serve(async (req) => {
           {
             headers: {
               'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
               'Content-Type': 'application/json',
             },
           }
@@ -99,6 +119,7 @@ Deno.serve(async (req) => {
           {
             headers: {
               'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
               'Content-Type': 'application/json',
             },
           }
@@ -137,6 +158,7 @@ Deno.serve(async (req) => {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
               'Content-Type': 'application/json',
               'Prefer': 'return=representation',
             },
@@ -172,6 +194,7 @@ Deno.serve(async (req) => {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${serviceRoleKey}`,
+              'apikey': serviceRoleKey,
               'Content-Type': 'application/json',
               'Prefer': 'return=representation',
             },

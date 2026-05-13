@@ -103,9 +103,14 @@ async function handleCreatePayment(req: Request, supabase: any): Promise<Respons
 
   // Parse request
   const body = await req.json()
-  const { order_id, amount, gateway, return_url, description } = body
+  const { order_id, amount, gateway, return_url, description, type } = body
+  const isTopup = type === 'topup'
 
-  if (!order_id || !amount) {
+  if (isTopup) {
+    if (!amount) {
+      return jsonResponse({ error: 'Missing amount' }, 400)
+    }
+  } else if (!order_id || !amount) {
     return jsonResponse({ error: 'Missing order_id or amount' }, 400)
   }
 
@@ -122,13 +127,16 @@ async function handleCreatePayment(req: Request, supabase: any): Promise<Respons
   }
 
   // Create payment request
+  const idempotencyKey = isTopup
+    ? `topup_${user.id}_${Date.now()}`
+    : `order_${order_id}_${Date.now()}`
   const paymentRequest: CreatePaymentRequest = {
     amount: { amount, currency: 'VND' },
-    idempotencyKey: `order_${order_id}_${Date.now()}`,
-    description: description || `Payment for order ${order_id}`,
+    idempotencyKey,
+    description: description || (isTopup ? 'Nạp tiền vào ví' : `Payment for order ${order_id}`),
     returnUrl: return_url,
     customer: { id: user.id },
-    metadata: { order_id, user_id: user.id },
+    metadata: { order_id, user_id: user.id, type: isTopup ? 'topup' : 'order' },
   }
 
   // Get gateway instance
@@ -252,13 +260,14 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
       .update(updates)
       .eq('id', paymentIntent.id)
 
-    // If succeeded, update order and create ledger entries
+    // If succeeded, update order/create ledger
     if (event.status === 'succeeded' && paymentIntent.order_id) {
       // Update order
       await supabase
         .from('orders')
         .update({
           payment_status: 'paid',
+          payment_method: 'gateway',
           paid_at: event.timestamp.toISOString(),
         })
         .eq('id', paymentIntent.order_id)
@@ -329,6 +338,20 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
               })
           }
         }
+      }
+    } else if (event.status === 'succeeded' && !paymentIntent.order_id) {
+      // Wallet top-up (no order attached — user nạp tiền vào ví)
+      const { data: topupResult, error: topupError } = await supabase
+        .rpc('add_wallet_funds', {
+          p_user_id: paymentIntent.user_id,
+          p_amount: paymentIntent.amount,
+          p_reference_type: 'topup',
+          p_reference_id: paymentIntent.id,
+          p_description: `Nạp tiền vào ví qua cổng thanh toán`,
+        })
+
+      if (topupError) {
+        console.error('Top-up RPC error:', topupError)
       }
     }
   }

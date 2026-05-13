@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Register user with Supabase Auth
+    // 2. Register user with Supabase Auth (email only - phone goes to profiles)
     const authResponse = await fetch(`${supabaseUrl}/auth/v1/signup`, {
       method: 'POST',
       headers: {
@@ -52,7 +52,6 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         email,
         password,
-        phone,
       }),
     });
 
@@ -65,7 +64,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Upsert profile record
+    // 3. Auto-confirm email (admin API)
+    await fetch(`${supabaseUrl}/auth/v1/admin/users/${authData.id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+        'apikey': serviceRoleKey,
+      },
+      body: JSON.stringify({ email_confirm: true }),
+    });
+
+    // 4. Upsert profile record
     const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?on_conflict=id`, {
       method: 'POST',
       headers: {
@@ -84,7 +94,7 @@ Deno.serve(async (req) => {
 
     const profileData = await profileResponse.json();
 
-    // 4. Record Referral link if applicable
+    // 5. Record Referral link if applicable
     if (referrerId && authData.id) {
       await fetch(`${supabaseUrl}/rest/v1/referrals`, {
         method: 'POST',

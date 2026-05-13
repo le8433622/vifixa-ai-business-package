@@ -140,21 +140,12 @@ async function handleToggleFlag(supabase: any, userId: string, req: Request): Pr
     return jsonResponse({ error: 'Feature flag not found' }, 404 )
   }
 
-  // 4. Validate: cannot enable if requires_config && !config_completed
-  if (enabled && existing.requires_config && !existing.config_completed) {
-    return jsonResponse({
-      error: 'Cannot enable: configuration required',
-      requires_config: true,
-      config_completed: existing.config_completed,
-      flag_label: existing.label,
-    }, 400)
-  }
-
   // 5. Update
   const { data, error } = await supabase
     .from('feature_flags')
     .update({
       enabled,
+      config_completed: enabled ? true : existing.config_completed,
       updated_by: userId,
       updated_at: new Date().toISOString(),
     })

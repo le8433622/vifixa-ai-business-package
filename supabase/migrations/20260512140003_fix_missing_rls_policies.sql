@@ -9,21 +9,31 @@
 -- ============================================
 ALTER TABLE public.trust_scores ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Workers can view own trust scores"
-  ON public.trust_scores FOR SELECT
-  USING (auth.uid() = worker_id);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'trust_scores' AND column_name = 'worker_id'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Workers can view own trust scores"
+      ON public.trust_scores FOR SELECT
+      USING (auth.uid() = worker_id)';
+  END IF;
+END $$;
 
 -- Note: admin policy "Admins can view all trust scores" already exists from 004_fix_rls_recursion
 
 -- ============================================
 -- 2. complaints — enable RLS + add customer self-view
 -- ============================================
-ALTER TABLE public.complaints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.complaints ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Customers can view own complaints" ON public.complaints;
 CREATE POLICY "Customers can view own complaints"
   ON public.complaints FOR SELECT
   USING (auth.uid() = customer_id);
 
+DROP POLICY IF EXISTS "Customers can create complaints" ON public.complaints;
 CREATE POLICY "Customers can create complaints"
   ON public.complaints FOR INSERT
   WITH CHECK (auth.uid() = customer_id);
@@ -33,40 +43,29 @@ CREATE POLICY "Customers can create complaints"
 -- ============================================
 -- 3. warranty_claims — enable RLS + add customer self-view
 -- ============================================
-ALTER TABLE public.warranty_claims ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.warranty_claims ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Customers can view own warranty claims" ON public.warranty_claims;
 CREATE POLICY "Customers can view own warranty claims"
   ON public.warranty_claims FOR SELECT
   USING (auth.uid() = customer_id);
 
+DROP POLICY IF EXISTS "Customers can create warranty claims" ON public.warranty_claims;
 CREATE POLICY "Customers can create warranty claims"
   ON public.warranty_claims FOR INSERT
   WITH CHECK (auth.uid() = customer_id);
 
--- Note: admin policy "Admins can manage all warranty claims" already exists from 004_fix_rls_recursion
-
 -- ============================================
 -- 4. price_standards — enable RLS (public read, admin write)
 -- ============================================
-ALTER TABLE public.price_standards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.price_standards ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Price standards are viewable by everyone" ON public.price_standards;
 CREATE POLICY "Price standards are viewable by everyone"
   ON public.price_standards FOR SELECT
   USING (true);
 
-CREATE POLICY "Price standards manageable by admins"
-  ON public.price_standards FOR ALL
-  USING (is_admin());
-
 -- ============================================
 -- 5. demand_metrics — enable RLS (admin only)
 -- ============================================
-ALTER TABLE public.demand_metrics ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Demand metrics viewable by admins"
-  ON public.demand_metrics FOR SELECT
-  USING (is_admin());
-
-CREATE POLICY "Demand metrics manageable by admins"
-  ON public.demand_metrics FOR ALL
-  USING (is_admin());
+ALTER TABLE IF EXISTS public.demand_metrics ENABLE ROW LEVEL SECURITY;

@@ -3,7 +3,7 @@
 // Per 05_PRODUCT_SOLUTION.md - Customer flow
 
 import { corsHeaders } from '../_shared/cors.ts';
-import { verifyAuth } from '../_shared/auth-helper.ts';
+import { verifyAuth, requireManualApproval } from '../_shared/auth-helper.ts';
 import { createAIProvider } from '../_shared/ai-provider.ts';
 
 interface ServiceRequest {
@@ -12,6 +12,7 @@ interface ServiceRequest {
   media_urls?: string[];
   location: { lat: number; lng: number };
   chat_session_id?: string;
+  payment_method?: 'wallet' | 'gateway';
 }
 
 Deno.serve(async (req) => {
@@ -37,7 +38,7 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     if (req.method === 'POST') {
-      const { category, description, media_urls, location, chat_session_id }: ServiceRequest = await req.json();
+      const { category, description, media_urls, location, chat_session_id, payment_method }: ServiceRequest = await req.json();
 
       if (!category || !description || !location) {
         return new Response(
@@ -63,7 +64,8 @@ Deno.serve(async (req) => {
         urgency: diagnosis.severity,
       });
 
-      // Create order in database
+      const isManual = await requireManualApproval(supabaseUrl, serviceRoleKey);
+
       const orderPayload: any = {
         customer_id: customerId,
         category,
@@ -72,12 +74,64 @@ Deno.serve(async (req) => {
         ai_diagnosis: diagnosis,
         estimated_price: priceEstimate.estimated_price,
         status: 'pending',
+        payment_method: payment_method || 'gateway',
       };
 
       if (chat_session_id) {
         orderPayload.chat_session_id = chat_session_id;
       }
 
+      let orderId: string;
+
+      if (isManual) {
+        // Manual mode: create review queue entry instead of order
+        const reviewPayload = {
+          entity_type: 'order',
+          entity_id: crypto.randomUUID(),
+          ai_decision: {
+            diagnosis,
+            priceEstimate,
+            category,
+            description,
+            location,
+            severity: diagnosis.severity,
+          },
+          review_status: 'pending',
+          created_by: customerId,
+        };
+
+        const reviewResponse = await fetch(`${supabaseUrl}/rest/v1/admin_review_queue`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${serviceRoleKey}`,
+            'apikey': serviceRoleKey,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(reviewPayload),
+        });
+
+        const reviewText = await reviewResponse.text();
+        if (!reviewResponse.ok) {
+          throw new Error(`Failed to create review queue entry: ${reviewText}`);
+        }
+
+        return new Response(
+          JSON.stringify({
+            status: 'pending_approval',
+            message: 'Yêu cầu cần admin phê duyệt (chế độ thủ công)',
+            ai_diagnosis: diagnosis,
+            estimated_price: priceEstimate.estimated_price,
+            price_breakdown: priceEstimate.price_breakdown,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 202,
+          }
+        );
+      }
+
+      // Auto mode: create order directly
       const orderResponse = await fetch(`${supabaseUrl}/rest/v1/orders`, {
         method: 'POST',
         headers: {
@@ -107,7 +161,7 @@ Deno.serve(async (req) => {
         throw new Error(`Invalid order response: ${orderResponseText}`);
       }
 
-      const orderId = orderData[0].id;
+      orderId = orderData[0].id;
 
       // Log AI diagnosis
       await fetch(`${supabaseUrl}/rest/v1/ai_logs`, {
@@ -143,14 +197,50 @@ Deno.serve(async (req) => {
         }),
       });
 
+      // Wallet payment: call atomic RPC via wallet-pay (forward user JWT)
+      let walletResult: any
+      if (payment_method === 'wallet') {
+        const walletPayUrl = `${supabaseUrl}/functions/v1/wallet-pay`
+        const walletResp = await fetch(walletPayUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader, // forward user's original JWT
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ order_id: orderId }),
+        })
+
+        walletResult = await walletResp.json()
+        if (!walletResp.ok) {
+          // Rollback: delete order since payment failed
+          await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${orderId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${serviceRoleKey}`, 'apikey': serviceRoleKey },
+          })
+          return new Response(
+            JSON.stringify({ error: 'Wallet payment failed', detail: walletResult }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
+      const responsePayload: any = {
+        request_id: orderId,
+        ai_diagnosis: diagnosis,
+        estimated_price: priceEstimate.estimated_price,
+        price_breakdown: priceEstimate.price_breakdown,
+        status: 'pending',
+        payment_method: payment_method || 'gateway',
+      }
+
+      // Include wallet info if paid via wallet
+      if (payment_method === 'wallet' && walletResult) {
+        responsePayload.wallet_balance = walletResult.balance
+        responsePayload.wallet_locked = walletResult.locked_amount
+      }
+
       return new Response(
-        JSON.stringify({
-          request_id: orderId,
-          ai_diagnosis: diagnosis,
-          estimated_price: priceEstimate.estimated_price,
-          price_breakdown: priceEstimate.price_breakdown,
-          status: 'pending',
-        }),
+        JSON.stringify(responsePayload),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 201,
