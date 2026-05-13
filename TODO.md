@@ -11,6 +11,8 @@
 - Fixed unused variable warnings (`err` → `_err` or removed)
 - Fixed useEffect missing dependencies by wrapping fetch functions in useCallback
 - Applied pattern to: admin page, complaints, approvals, settings pages
+- Fixed setState synchronously warnings using mounted ref pattern
+- Fixed parsing errors in memberships/pricing pages
 
 ### Phase 2: Data Fetching Revolution
 - Created `web/src/lib/use-supabase-query.ts` hook
@@ -33,9 +35,7 @@
 ## 🔧 IN PROGRESS
 
 ### Remaining Lint Fixes (Admin Pages)
-- Fix remaining setState-in-effect errors (wrapping fetch calls in useCallback)
-- Fix useCallback missing dependencies (nextId in Toast, etc.)
-- Fix parsing errors in memberships/pricing pages (check file endings)
+- Fix remaining useCallback missing dependencies (nextId in Toast, etc.)
 - Fix unused variable warnings in workers/page.tsx and API routes
 
 ### Revenue Boosters - Next Features

@@ -264,6 +264,19 @@ export default function WorkerEarningsPage() {
         </Link>
       </div>
 
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p className="font-medium text-blue-800">💰 Quản lý ví và rút tiền</p>
+          <p className="text-sm text-blue-700 mt-1">Xem số dư, lịch sử giao dịch và yêu cầu rút tiền</p>
+        </div>
+        <Link
+          href="/worker/wallet"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium whitespace-nowrap"
+        >
+          Đến Ví
+        </Link>
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-700 mb-4">{error}</p>

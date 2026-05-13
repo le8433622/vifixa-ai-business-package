@@ -31,14 +31,14 @@ interface NotificationEvent {
 }
 
 const NOTIFICATION_EVENTS: NotificationEvent[] = [
-  { key: 'order_confirmation', settingKey: 'notif_order_confirmation', label: 'Order Confirmations', description: 'Notify customer when an order is created', icon: '📋' },
-  { key: 'payment_receipt', settingKey: 'notif_payment_receipt', label: 'Payment Receipts', description: 'Notify customer when payment succeeds', icon: '💳' },
-  { key: 'worker_assigned', settingKey: 'notif_worker_assigned', label: 'Worker Assigned', description: 'Notify customer when a worker is assigned', icon: '👷' },
-  { key: 'job_reminder', settingKey: 'notif_job_reminder', label: 'Job Reminders', description: 'Remind worker before scheduled job time', icon: '⏰' },
+  { key: 'order_confirmation', settingKey: 'notif_order_confirmation', label: 'Xác nhận đơn hàng', description: 'Thông báo khách khi đơn hàng được tạo', icon: '📋' },
+  { key: 'payment_receipt', settingKey: 'notif_payment_receipt', label: 'Biên lai thanh toán', description: 'Thông báo khách khi thanh toán thành công', icon: '💳' },
+  { key: 'worker_assigned', settingKey: 'notif_worker_assigned', label: 'Thợ được phân công', description: 'Thông báo khách khi thợ được phân công', icon: '👷' },
+  { key: 'job_reminder', settingKey: 'notif_job_reminder', label: 'Nhắc nhở công việc', description: 'Nhắc thợ trước giờ làm việc', icon: '⏰' },
 ]
 
 const SMS_PROVIDERS = [
-  { value: '', label: 'Select provider...' },
+  { value: '', label: 'Chọn nhà cung cấp...' },
   { value: 'twilio', label: 'Twilio' },
   { value: 'vonage', label: 'Vonage' },
   { value: 'infobip', label: 'Infobip' },
@@ -95,7 +95,7 @@ export default function NotificationsSettings() {
 
   const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
-      toast('No changes to save', 'info')
+      toast('Không có thay đổi', 'info')
       return
     }
 
@@ -117,7 +117,7 @@ export default function NotificationsSettings() {
       }
 
       setModified({})
-      toast('Notification settings saved', 'success')
+      toast('Đã lưu cài đặt thông báo', 'success')
       fetchSettings()
     } catch (err) {
       console.error('Error saving notification settings:', err instanceof Error ? err.message : err)
@@ -135,16 +135,16 @@ export default function NotificationsSettings() {
 
   if (!anyNotifEnabled) {
     return (
-      <SettingsPage title="Notifications Settings" description="Configure email (SMTP), SMS, and push notification providers.">
+      <SettingsPage title="Cài đặt thông báo" description="Cấu hình email (SMTP), SMS, và thông báo đẩy.">
         <FeatureDisabled
           feature="Notifications"
-          message="All notification features are currently disabled. Enable them in Features settings first."
+          message="Tất cả tính năng thông báo hiện đang tắt. Bật trong Cài đặt Tính năng trước."
         />
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Quick Setup</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">Thiết lập nhanh</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal pl-4">
-            <li>Go to <Link href="/admin/settings/features" className="underline">Features</Link> and enable notification flags</li>
-            <li>Then return here to configure providers</li>
+            <li>Vào <Link href="/admin/settings/features" className="underline">Tính năng</Link> và bật các cờ thông báo</li>
+            <li>Sau đó quay lại đây để cấu hình nhà cung cấp</li>
           </ol>
         </div>
       </SettingsPage>
@@ -153,24 +153,24 @@ export default function NotificationsSettings() {
 
   if (loading) {
     return (
-      <SettingsPage title="Notifications Settings" description="Configure email (SMTP), SMS, and push notification providers.">
+      <SettingsPage title="Cài đặt thông báo" description="Cấu hình email (SMTP), SMS, và thông báo đẩy.">
         <LoadingSkeleton rows={4} height="h-24" />
       </SettingsPage>
     )
   }
 
   return (
-    <SettingsPage title="Notifications Settings" description="Configure email (SMTP), SMS, and push notification providers.">
+    <SettingsPage title="Cài đặt thông báo" description="Cấu hình email (SMTP), SMS, và thông báo đẩy.">
       {/* Channel Status */}
       <div className="mb-6 bg-white rounded-lg shadow p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Channel Status</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Trạng thái kênh</h3>
         <div className="flex flex-wrap gap-3">
           {(['email_notifications', 'sms_notifications', 'push_notifications'] as const).map(key => {
             const enabled = isEnabled(key)
             const labels: Record<string, string> = {
               email_notifications: 'Email',
               sms_notifications: 'SMS',
-              push_notifications: 'Push',
+              push_notifications: 'Đẩy',
             }
             const icons: Record<string, string> = { email_notifications: '📧', sms_notifications: '📱', push_notifications: '🔔' }
             return (
@@ -184,7 +184,7 @@ export default function NotificationsSettings() {
               >
                 <span>{icons[key]}</span>
                 <span className="font-medium">{labels[key]}</span>
-                <span className="text-xs">{enabled ? 'Active' : 'Off'}</span>
+                <span className="text-xs">{enabled ? 'Hoạt động' : 'Tắt'}</span>
               </div>
             )
           })}
@@ -196,8 +196,8 @@ export default function NotificationsSettings() {
         {[
           { key: 'email', label: 'Email (SMTP)', icon: '📧', visible: isEnabled('email_notifications') },
           { key: 'sms', label: 'SMS', icon: '📱', visible: isEnabled('sms_notifications') },
-          { key: 'push', label: 'Push', icon: '🔔', visible: isEnabled('push_notifications') },
-          { key: 'events', label: 'Event Types', icon: '⚡', visible: true },
+          { key: 'push', label: 'Đẩy', icon: '🔔', visible: isEnabled('push_notifications') },
+          { key: 'events', label: 'Loại sự kiện', icon: '⚡', visible: true },
         ].filter(t => t.visible).map(tab => (
           <button
             key={tab.key}
@@ -221,8 +221,8 @@ export default function NotificationsSettings() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Email Configuration</h2>
-                  <p className="text-sm text-gray-600 mt-1">SMTP settings for transactional emails.</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Cấu hình Email</h2>
+                  <p className="text-sm text-gray-600 mt-1">Cài đặt SMTP cho email giao dịch.</p>
                 </div>
                 <ToggleSwitch
                   enabled={getBooleanValue('notif_email_enabled')}
@@ -234,7 +234,7 @@ export default function NotificationsSettings() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Máy chủ SMTP</label>
                     <input
                       type="text"
                       value={getSettingValue('notif_smtp_host')}
@@ -244,7 +244,7 @@ export default function NotificationsSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Port</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cổng SMTP</label>
                     <input
                       type="number"
                       value={getSettingValue('notif_smtp_port')}
@@ -256,7 +256,7 @@ export default function NotificationsSettings() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Username</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập SMTP</label>
                     <input
                       type="text"
                       value={getSettingValue('notif_smtp_user')}
@@ -266,7 +266,7 @@ export default function NotificationsSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Password</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu SMTP</label>
                     <input
                       type="password"
                       value={getSettingValue('notif_smtp_password')}
@@ -278,7 +278,7 @@ export default function NotificationsSettings() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">From Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ gửi</label>
                     <input
                       type="email"
                       value={getSettingValue('notif_from_address')}
@@ -288,7 +288,7 @@ export default function NotificationsSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">From Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên người gửi</label>
                     <input
                       type="text"
                       value={getSettingValue('notif_from_name')}
@@ -302,7 +302,7 @@ export default function NotificationsSettings() {
             )}
             {!getBooleanValue('notif_email_enabled') && (
               <div className="p-6">
-                <p className="text-sm text-gray-500">Email is disabled. Toggle the switch above to configure SMTP settings.</p>
+                <p className="text-sm text-gray-500">Email đang tắt. Bật công tắc để cấu hình SMTP.</p>
               </div>
             )}
           </div>
@@ -316,8 +316,8 @@ export default function NotificationsSettings() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">SMS Configuration</h2>
-                  <p className="text-sm text-gray-600 mt-1">SMS gateway for transactional text messages.</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Cấu hình SMS</h2>
+                  <p className="text-sm text-gray-600 mt-1">Cổng SMS cho tin nhắn giao dịch.</p>
                 </div>
                 <ToggleSwitch
                   enabled={getBooleanValue('notif_sms_enabled')}
@@ -328,7 +328,7 @@ export default function NotificationsSettings() {
             {getBooleanValue('notif_sms_enabled') && (
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SMS Provider</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nhà cung cấp SMS</label>
                   <select
                     value={getSettingValue('notif_sms_provider')}
                     onChange={(e) => handleChange('notif_sms_provider', e.target.value)}
@@ -340,7 +340,7 @@ export default function NotificationsSettings() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Khóa API</label>
                   <input
                     type="password"
                     value={getSettingValue('notif_sms_api_key')}
@@ -350,7 +350,7 @@ export default function NotificationsSettings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sender ID / Phone Number</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ID người gửi / Số điện thoại</label>
                   <input
                     type="text"
                     value={getSettingValue('notif_sms_sender_id')}
@@ -363,7 +363,7 @@ export default function NotificationsSettings() {
             )}
             {!getBooleanValue('notif_sms_enabled') && (
               <div className="p-6">
-                <p className="text-sm text-gray-500">SMS is disabled. Toggle the switch above to configure.</p>
+                <p className="text-sm text-gray-500">SMS đang tắt. Bật công tắc để cấu hình.</p>
               </div>
             )}
           </div>
@@ -377,8 +377,8 @@ export default function NotificationsSettings() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Push Notifications</h2>
-                  <p className="text-sm text-gray-600 mt-1">Mobile push notifications via Expo Push.</p>
+                  <h2 className="text-lg font-semibold text-gray-900">Thông báo đẩy</h2>
+                  <p className="text-sm text-gray-600 mt-1">Thông báo đẩy qua Expo Push.</p>
                 </div>
                 <ToggleSwitch
                   enabled={getBooleanValue('notif_push_enabled')}
@@ -389,10 +389,10 @@ export default function NotificationsSettings() {
             {getBooleanValue('notif_push_enabled') && (
               <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-600 mb-3">
-                  Push notifications are delivered via Expo Push to the mobile app. No additional configuration required.
+                  Thông báo đẩy được gửi qua Expo Push đến ứng dụng di động. Không cần cấu hình thêm.
                 </p>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Expo Push Token (Optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Token Expo Push (Tùy chọn)</label>
                   <input
                     type="text"
                     value={getSettingValue('notif_expo_push_token')}
@@ -400,13 +400,13 @@ export default function NotificationsSettings() {
                     placeholder="ExponentPushToken[xxxxxx]"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Used to test push notifications from admin panel</p>
+                  <p className="text-xs text-gray-400 mt-1">Dùng để kiểm tra thông báo đẩy từ bảng quản trị</p>
                 </div>
               </div>
             )}
             {!getBooleanValue('notif_push_enabled') && (
               <div className="p-6">
-                <p className="text-sm text-gray-500">Push notifications are disabled. Toggle the switch above to enable.</p>
+                <p className="text-sm text-gray-500">Thông báo đẩy đang tắt. Bật công tắc để kích hoạt.</p>
               </div>
             )}
           </div>
@@ -418,8 +418,8 @@ export default function NotificationsSettings() {
         <div className="space-y-4">
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Notification Events</h2>
-              <p className="text-sm text-gray-600 mt-1">Choose which events trigger notifications to users.</p>
+              <h2 className="text-lg font-semibold text-gray-900">Sự kiện thông báo</h2>
+              <p className="text-sm text-gray-600 mt-1">Chọn sự kiện nào sẽ gửi thông báo đến người dùng.</p>
             </div>
             <div className="divide-y divide-gray-200">
               {NOTIFICATION_EVENTS.map(event => {

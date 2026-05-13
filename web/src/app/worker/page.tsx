@@ -62,7 +62,10 @@ export default function WorkerDashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
+        console.log('[WorkerDashboard] Fetching data...');
+        console.log('[WorkerDashboard] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('[WorkerDashboard] Session:', session ? 'found' : 'null');
         if (!session) { router.push('/'); return; }
 
         const [jobsRes, earningsRes] = await Promise.all([
@@ -76,7 +79,9 @@ export default function WorkerDashboard() {
 
         const jobsData = await jobsRes.json();
         const earningsData = await earningsRes.json();
-        setJobs(jobsData.jobs || []);
+        console.log('[WorkerDashboard] jobs API response:', JSON.stringify(jobsData).slice(0, 200));
+        console.log('[WorkerDashboard] earnings API response:', JSON.stringify(earningsData).slice(0, 200));
+        setJobs(Array.isArray(jobsData.jobs) ? jobsData.jobs : []);
         setEarnings(earningsData);
 
         const { data: badgeData } = await supabase
@@ -137,7 +142,7 @@ export default function WorkerDashboard() {
               Xin chào! 🔧
             </h1>
             <p className="text-emerald-100/70 mb-4">
-              Hôm nay có {jobs.filter(j => j.status === 'pending' || j.status === 'matched').length} việc đang chờ bạn.
+              Hôm nay có {Array.isArray(jobs) ? jobs.filter(j => j.status === 'pending' || j.status === 'matched').length : 0} việc đang chờ bạn.
             </p>
             <button
               onClick={() => router.push('/worker/jobs')}

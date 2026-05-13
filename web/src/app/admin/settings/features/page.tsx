@@ -17,6 +17,24 @@ interface FeatureFlagWithToggle extends FeatureFlag {
   toggling?: boolean
 }
 
+const CATEGORY_LINKS: Record<string, string> = {
+  payment: '/admin/settings/payments',
+  wallet: '/admin/settings/wallet',
+  ai: '/admin/settings/ai',
+  notification: '/admin/settings/notifications',
+  security: '/admin/settings/security',
+  system: '/admin/settings/general',
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  payment: 'Thanh toán',
+  wallet: 'Ví',
+  ai: 'AI',
+  notification: 'Thông báo',
+  security: 'Bảo mật',
+  system: 'Hệ thống',
+}
+
 export default function FeaturesSettings() {
   const router = useRouter()
   const { toast } = useToast()
@@ -34,13 +52,13 @@ export default function FeaturesSettings() {
   }, [])
 
   const categories = [
-    { value: 'all', label: 'All' },
-    { value: 'payment', label: 'Payment' },
-    { value: 'wallet', label: 'Wallet' },
+    { value: 'all', label: 'Tất cả' },
+    { value: 'payment', label: 'Thanh toán' },
+    { value: 'wallet', label: 'Ví' },
     { value: 'ai', label: 'AI' },
-    { value: 'notification', label: 'Notification' },
-    { value: 'security', label: 'Security' },
-    { value: 'system', label: 'System' },
+    { value: 'notification', label: 'Thông báo' },
+    { value: 'security', label: 'Bảo mật' },
+    { value: 'system', label: 'Hệ thống' },
   ]
 
   const fetchFlags = useCallback(async () => {
@@ -117,14 +135,14 @@ export default function FeaturesSettings() {
 
   if (loading) {
     return (
-      <SettingsPage title="Feature Flags" description="Toggle features ON/OFF without code deployment. Safe for production.">
+      <SettingsPage title="Tính năng" description="Bật/tắt tính năng không cần deploy code.">
         <LoadingSkeleton rows={4} height="h-20" />
       </SettingsPage>
     )
   }
 
   return (
-    <SettingsPage title="Feature Flags" description="Toggle features ON/OFF without code deployment. Safe for production.">
+    <SettingsPage title="Tính năng" description="Bật/tắt tính năng không cần deploy code.">
       {/* Category Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {categories.map(cat => (
@@ -147,7 +165,7 @@ export default function FeaturesSettings() {
         {Object.entries(groupedFlags).map(([category, categoryFlags]) => (
           <div key={category}>
             <h2 className="text-lg font-semibold text-gray-700 mb-3 capitalize">
-              {category} Features ({categoryFlags.length})
+              {CATEGORY_LABELS[category] || category} ({categoryFlags.length})
             </h2>
             <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
               {(categoryFlags as FeatureFlagWithToggle[]).map(flag => (
@@ -162,38 +180,36 @@ export default function FeaturesSettings() {
                               ? 'bg-green-100 text-green-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {flag.config_completed ? 'Configured' : 'Needs Config'}
+                            {flag.config_completed ? 'Đã cấu hình' : 'Chưa cấu hình'}
                           </span>
                         )}
                         {flag.enabled && (
                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                            Active
+                            Đang hoạt động
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-600">{flag.description}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                        <span>Key: <code className="bg-gray-100 px-1 rounded">{flag.key}</code></span>
-                        <span>Category: {flag.category}</span>
+                        <span>Mã: <code className="bg-gray-100 px-1 rounded">{flag.key}</code></span>
+                        <span>Danh mục: {flag.category}</span>
                       </div>
                     </div>
 
                     <ToggleSwitch
                       enabled={flag.enabled}
                       loading={saving === flag.key}
-                      disabled={flag.requires_config && !flag.config_completed && !flag.enabled}
                       onToggle={() => toggleFlag(flag.key, flag.enabled)}
                     />
                   </div>
 
-                  {/* Warning if trying to enable without config */}
-                  {flag.requires_config && !flag.config_completed && !flag.enabled && (
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                      <p className="text-sm text-yellow-800">
-                        ⚠️ This feature requires configuration before it can be enabled.
+                  {flag.requires_config && !flag.enabled && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                      <p className="text-sm text-amber-800">
+                        ⚠️ Cần cấu hình trước khi bật tính năng này.
                         {' '}
-                        <Link href={`/admin/settings/${flag.category}`} className="underline font-medium">
-                          Configure now
+                        <Link href={CATEGORY_LINKS[flag.category] || `/admin/settings/${flag.category}`} className="underline font-medium">
+                          Cấu hình ngay
                         </Link>
                       </p>
                     </div>
@@ -207,12 +223,12 @@ export default function FeaturesSettings() {
 
       {/* Info Box */}
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">💡 How it works</h3>
+        <h3 className="font-semibold text-blue-900 mb-2">💡 Cách hoạt động</h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Features default to OFF for safety</li>
-          <li>• Toggle ON when ready for production</li>
-          <li>Features with &quot;Needs Config&quot; require setup first</li>
-          <li>• Changes take effect immediately (no deployment needed)</li>
+          <li>• Tính năng mặc định TẮT để an toàn</li>
+          <li>• Bật khi sẵn sàng sử dụng</li>
+          <li>• Tính năng cần cấu hình trước khi bật</li>
+          <li>• Thay đổi có hiệu lực ngay (không cần deploy)</li>
         </ul>
       </div>
     </SettingsPage>

@@ -42,7 +42,7 @@ export default function GeneralSettings() {
       setSettings(data || [])
     } catch (err) {
       console.error('Error fetching settings:', err)
-      toast('Failed to load settings', 'error')
+      toast('Không thể tải cài đặt', 'error')
     } finally {
       setLoading(false)
     }
@@ -54,7 +54,7 @@ export default function GeneralSettings() {
 
   const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
-      toast('No changes to save', 'info')
+      toast('Không có thay đổi', 'info')
       return
     }
 
@@ -78,11 +78,11 @@ export default function GeneralSettings() {
       }
 
       setModified({})
-      toast('Settings saved successfully', 'success')
+      toast('Đã lưu cài đặt thành công', 'success')
       fetchSettings()
     } catch (err) {
       console.error('Error saving settings:', err)
-      toast('Failed to save settings', 'error')
+      toast('Không thể lưu cài đặt', 'error')
     } finally {
       setSaving(false)
     }
@@ -102,14 +102,14 @@ export default function GeneralSettings() {
 
   if (loading) {
     return (
-      <SettingsPage title="General Settings" description="Configure application name, description, and contact information.">
+      <SettingsPage title="Cài đặt chung" description="Cấu hình tên ứng dụng, mô tả, và thông tin liên hệ.">
         <LoadingSkeleton rows={4} height="h-16" />
       </SettingsPage>
     )
   }
 
   return (
-    <SettingsPage title="General Settings" description="Configure application name, description, and contact information.">
+    <SettingsPage title="Cài đặt chung" description="Cấu hình tên ứng dụng, mô tả, và thông tin liên hệ.">
       <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
         {settings.map((setting) => (
           <div key={setting.key} className="p-6">
@@ -122,7 +122,7 @@ export default function GeneralSettings() {
               </div>
               {setting.is_public && (
                 <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                  Public
+                  Công khai
                 </span>
               )}
             </div>
@@ -138,7 +138,7 @@ export default function GeneralSettings() {
                   onChange={(e) => handleChange(setting.key, e.target.checked ? 'true' : 'false')}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-700">Enabled</span>
+                <span className="text-sm text-gray-700">Bật</span>
               </label>
             ) : (
               <input
@@ -146,7 +146,7 @@ export default function GeneralSettings() {
                 value={modified[setting.key] !== undefined ? modified[setting.key] : (setting.value || '')}
                 onChange={(e) => handleChange(setting.key, e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={`Enter ${setting.label.toLowerCase()}...`}
+                placeholder={`Nhập ${setting.label.toLowerCase()}...`}
               />
             )}
           </div>

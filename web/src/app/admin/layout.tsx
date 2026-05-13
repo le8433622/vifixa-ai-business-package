@@ -94,9 +94,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin', label: 'Dashboard', icon: '🏠' },
     { href: '/admin/users', label: 'Users', icon: '👥' },
     { href: '/admin/workers', label: 'Workers', icon: '🛠️' },
+    { href: '/admin/verifications', label: 'Xác minh', icon: '✅' },
     { href: '/admin/orders', label: 'Orders', icon: '📋' },
     { href: '/admin/complaints', label: 'Complaints', icon: '⚠️' },
     { href: '/admin/disputes', label: 'Disputes', icon: '⚖️' },
+    { href: '/admin/wallets', label: 'Ví', icon: '💰' },
+    { href: '/admin/payouts', label: 'Thanh toán', icon: '💳' },
+    { href: '/admin/news', label: 'Bản tin', icon: '📢' },
     { href: '/admin/ai-logs', label: 'AI Logs', icon: '🤖' },
     { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
   ]

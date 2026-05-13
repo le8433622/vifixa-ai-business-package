@@ -48,7 +48,7 @@ export default function SecuritySettings() {
       setOriginalMaintenanceMessage(msg)
     } catch (err) {
       console.error('Error fetching security data:', err)
-      toast('Failed to load security settings', 'error')
+      toast('Không thể tải cài đặt bảo mật', 'error')
     } finally {
       setLoading(false)
     }
@@ -83,11 +83,11 @@ export default function SecuritySettings() {
         throw new Error(errorData.error || 'Failed to toggle flag')
       }
 
-      toast(`Flag ${!currentState ? 'enabled' : 'disabled'}`, 'success')
+      toast(`${!currentState ? 'Đã bật' : 'Đã tắt'}`, 'success')
       await fetchData()
     } catch (err) {
       console.error('Error toggling security flag:', err)
-      toast(err instanceof Error ? err.message : 'Failed to toggle', 'error')
+      toast(err instanceof Error ? err.message : 'Không thể chuyển đổi', 'error')
     } finally {
       setSecurityFlags(prev =>
         prev.map(f => f.key === key ? { ...f, toggling: false } : f)
@@ -97,7 +97,7 @@ export default function SecuritySettings() {
 
   const saveMaintenanceMessage = useCallback(async () => {
     if (maintenanceMessage === originalMaintenanceMessage) {
-      toast('No changes to save', 'info')
+      toast('Không có thay đổi', 'info')
       return
     }
 
@@ -118,11 +118,11 @@ export default function SecuritySettings() {
 
       setOriginalMaintenanceMessage(maintenanceMessage)
       setMessageSaved(true)
-      toast('Maintenance message saved', 'success')
+      toast('Đã lưu tin nhắn bảo trì', 'success')
       setTimeout(() => setMessageSaved(false), 3000)
     } catch (err) {
       console.error('Error saving maintenance message:', err)
-      toast('Failed to save message', 'error')
+      toast('Không thể lưu tin nhắn', 'error')
     } finally {
       setSavingMessage(false)
     }
@@ -137,34 +137,34 @@ export default function SecuritySettings() {
   const flagConfigs = [
     {
       key: 'maintenance_mode',
-      title: 'Maintenance Mode',
-      description: 'Show maintenance banner to all non-admin users. Customers and workers see a notice instead of the app.',
+      title: 'Chế độ bảo trì',
+      description: 'Hiển thị banner bảo trì cho người dùng không phải admin. Khách hàng và thợ sẽ thấy thông báo thay vì ứng dụng.',
       icon: '🔧',
     },
     {
       key: 'rate_limit_strict',
-      title: 'Strict Rate Limiting',
-      description: 'Enforce aggressive API rate limits to prevent abuse and DDoS attacks.',
+      title: 'Giới hạn tốc độ nghiêm ngặt',
+      description: 'Áp dụng giới hạn API để ngăn chặn lạm dụng và tấn công DDoS.',
       icon: '🛡️',
     },
     {
       key: 'debug_mode',
-      title: 'Debug Mode',
-      description: 'Show detailed debug information to administrators only. Enable for troubleshooting.',
+      title: 'Chế độ gỡ lỗi',
+      description: 'Hiển thị thông tin gỡ lỗi chi tiết cho quản trị viên. Bật để khắc phục sự cố.',
       icon: '🐛',
     },
   ]
 
   if (loading) {
     return (
-      <SettingsPage title="Security Settings" description="Configure security flags, maintenance mode, and rate limiting.">
+      <SettingsPage title="Cài đặt bảo mật" description="Cấu hình cờ bảo mật, chế độ bảo trì, và giới hạn tốc độ.">
         <LoadingSkeleton rows={4} height="h-24" />
       </SettingsPage>
     )
   }
 
   return (
-    <SettingsPage title="Security Settings" description="Configure security flags, maintenance mode, and rate limiting.">
+    <SettingsPage title="Cài đặt bảo mật" description="Cấu hình cờ bảo mật, chế độ bảo trì, và giới hạn tốc độ.">
 
       {/* Security Feature Flags */}
       <div className="space-y-4">
@@ -187,7 +187,7 @@ export default function SecuritySettings() {
                         <span className={`text-xs px-2 py-0.5 rounded ${
                           enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                         }`}>
-                          {enabled ? 'Enabled' : 'Disabled'}
+                          {enabled ? 'Bật' : 'Tắt'}
                         </span>
                       </div>
                     </div>
@@ -208,9 +208,9 @@ export default function SecuritySettings() {
       {/* Maintenance Message */}
       <div className="mt-6 bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Maintenance Message</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Tin nhắn bảo trì</h2>
           <p className="text-sm text-gray-600 mt-1">
-            This message is shown to users when Maintenance Mode is enabled.
+            Tin nhắn này hiển thị khi chế độ bảo trì được bật.
           </p>
         </div>
         <div className="p-6">
@@ -218,12 +218,12 @@ export default function SecuritySettings() {
             value={maintenanceMessage}
             onChange={(e) => setMaintenanceMessage(e.target.value)}
             rows={3}
-            placeholder="Enter maintenance message..."
+            placeholder="Nhập tin nhắn bảo trì..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
           <div className="mt-4 flex items-center justify-between">
             <div className="text-xs text-gray-500">
-              {maintenanceMessage.length} characters
+              {maintenanceMessage.length} ký tự
             </div>
             <button
               onClick={saveMaintenanceMessage}
@@ -234,7 +234,7 @@ export default function SecuritySettings() {
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               } disabled:opacity-50`}
             >
-              {savingMessage ? 'Saving...' : messageSaved ? 'Saved!' : 'Save Message'}
+              {savingMessage ? 'Đang lưu...' : messageSaved ? 'Đã lưu!' : 'Lưu tin nhắn'}
             </button>
           </div>
         </div>
@@ -242,12 +242,12 @@ export default function SecuritySettings() {
 
       {/* Info Box */}
       <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h3 className="font-semibold text-gray-700 mb-2">About Security Flags</h3>
+        <h3 className="font-semibold text-gray-700 mb-2">Về cờ bảo mật</h3>
         <ul className="text-sm text-gray-600 space-y-1">
-          <li>• <strong>Maintenance Mode</strong> — Redirects non-admin users to a maintenance page</li>
-          <li>• <strong>Strict Rate Limiting</strong> — Reduces API call limits to prevent abuse</li>
-          <li>• <strong>Debug Mode</strong> — Shows stack traces and debug info to admins only</li>
-          <li>• Changes take effect immediately across all clients</li>
+          <li>• <strong>Chế độ bảo trì</strong> — Chuyển hướng người dùng không phải admin đến trang bảo trì</li>
+          <li>• <strong>Giới hạn tốc độ nghiêm ngặt</strong> — Giảm giới hạn API để ngăn chặn lạm dụng</li>
+          <li>• <strong>Chế độ gỡ lỗi</strong> — Hiển thị stack trace và thông tin gỡ lỗi cho admin</li>
+          <li>• Thay đổi có hiệu lực ngay lập tức trên tất cả client</li>
         </ul>
       </div>
     </SettingsPage>

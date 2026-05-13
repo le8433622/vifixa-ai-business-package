@@ -1,11 +1,10 @@
-// Admin AI Approval Queue
-// Human approval path for supervised/manual AI action requests.
-
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/Toast';
+import LoadingSkeleton from '@/components/admin/LoadingSkeleton';
 
 type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed' | 'blocked' | 'all';
 type ApprovalDecision = 'approve' | 'reject' | 'execute';
@@ -85,6 +84,7 @@ function reasonLabel(reason: string) {
 
 export default function AdminApprovalsPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [requests, setRequests] = useState<AIActionRequest[]>([]);
   const [status, setStatus] = useState<ApprovalStatus>('pending');
   const [loading, setLoading] = useState(false);
@@ -158,7 +158,11 @@ export default function AdminApprovalsPage() {
       if (!response.ok) throw new Error(data.error || 'Không cập nhật được approval request');
 
       if (decision === 'execute' && data.order_id) {
-        alert(`Đã thực thi và tạo đơn ${data.order_id}`);
+        toast(`Đã thực thi và tạo đơn ${data.order_id}`, 'success');
+      } else if (decision === 'approve') {
+        toast('Đã phê duyệt yêu cầu', 'success');
+      } else if (decision === 'reject') {
+        toast('Đã từ chối yêu cầu', 'success');
       }
       await fetchRequests(status);
     } catch (err) {
@@ -228,7 +232,7 @@ export default function AdminApprovalsPage() {
       )}
 
       {loading ? (
-        <p>Loading approval queue...</p>
+        <LoadingSkeleton rows={3} height="h-48" />
       ) : requests.length === 0 ? (
         <div className="bg-white border rounded-lg p-8 text-center text-gray-600">
           Không có AI action request nào trong trạng thái này.

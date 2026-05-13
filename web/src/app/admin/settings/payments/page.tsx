@@ -29,7 +29,7 @@ export default function PaymentsSettings() {
       setGateways(data || [])
     } catch (err) {
       console.error('Error fetching gateways:', err)
-      toast('Failed to load gateways', 'error')
+      toast('Không thể tải cổng thanh toán', 'error')
     } finally {
       setLoading(false)
     }
@@ -57,11 +57,11 @@ export default function PaymentsSettings() {
       )
 
       if (!response.ok) throw new Error('Failed to toggle')
-      toast(`Gateway ${!currentState ? 'enabled' : 'disabled'}`, 'success')
+      toast(`Đã ${!currentState ? 'bật' : 'tắt'} cổng thanh toán`, 'success')
       fetchGateways()
     } catch (err) {
       console.error('Error toggling gateway:', err)
-      toast('Failed to toggle gateway', 'error')
+      toast('Không thể chuyển đổi cổng thanh toán', 'error')
     } finally {
       setToggling(null)
     }
@@ -76,10 +76,10 @@ export default function PaymentsSettings() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Payments Settings</h1>
+            <h1 className="text-3xl font-bold">Cài đặt thanh toán</h1>
           </div>
           <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-            ← Back to Settings
+            ← Quay lại Cài đặt
           </Link>
         </div>
         <div className="animate-pulse space-y-3">
@@ -95,11 +95,11 @@ export default function PaymentsSettings() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Payments Settings</h1>
-          <p className="text-gray-600 mt-1">Configure payment gateways and methods</p>
+          <h1 className="text-3xl font-bold">Cài đặt thanh toán</h1>
+          <p className="text-gray-600 mt-1">Cấu hình cổng thanh toán và phương thức</p>
         </div>
         <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-          ← Back to Settings
+          ← Quay lại Cài đặt
         </Link>
       </div>
 
@@ -112,20 +112,20 @@ export default function PaymentsSettings() {
                   <h3 className="font-semibold text-gray-900">{gateway.display_name}</h3>
                   {gateway.active && (
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                      Active
+                      Hoạt động
                     </span>
                   )}
                   {gateway.sandbox && (
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                      Sandbox
+                      Thử nghiệm
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-gray-600">{gateway.description}</p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                  <span>Priority: {gateway.priority}</span>
-                  <span>Currencies: {gateway.supported_currencies.join(', ')}</span>
-                  <span>Methods: {gateway.supported_methods.join(', ')}</span>
+                  <span>Ưu tiên: {gateway.priority}</span>
+                  <span>Tiền tệ: {gateway.supported_currencies.join(', ')}</span>
+                  <span>Phương thức: {gateway.supported_methods.join(', ')}</span>
                 </div>
               </div>
 
@@ -134,7 +134,7 @@ export default function PaymentsSettings() {
                   onClick={() => router.push(`/admin/settings/payments/${gateway.key}`)}
                   className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
                 >
-                  Configure
+                  Cấu hình
                 </button>
 
                 <button
@@ -162,12 +162,12 @@ export default function PaymentsSettings() {
 
       {/* Info Box */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">💡 How to configure</h3>
+        <h3 className="font-semibold text-blue-900 mb-2">💡 Hướng dẫn cấu hình</h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Enable sandbox mode first for testing</li>
-          <li>Click &quot;Configure&quot; to enter API keys</li>
-          <li>• Toggle switch to activate gateway for customers</li>
-          <li>• Test with sandbox before going live</li>
+          <li>• Bật chế độ thử nghiệm trước để kiểm tra</li>
+          <li>• Nhấn &quot;Cấu hình&quot; để nhập API keys</li>
+          <li>• Bật công tắc để kích hoạt cổng thanh toán cho khách hàng</li>
+          <li>• Kiểm tra với sandbox trước khi chạy thật</li>
         </ul>
       </div>
     </div>

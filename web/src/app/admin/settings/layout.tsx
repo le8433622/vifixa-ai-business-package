@@ -69,13 +69,14 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
   }, [router])
 
   const navItems = [
-    { href: '/admin/settings/general', label: 'General', icon: '⚙️' },
-    { href: '/admin/settings/features', label: 'Features', icon: '🎯' },
-    { href: '/admin/settings/payments', label: 'Payments', icon: '💳' },
-    { href: '/admin/settings/wallet', label: 'Wallet', icon: '💰' },
-    { href: '/admin/settings/notifications', label: 'Notifications', icon: '📧' },
-    { href: '/admin/settings/ai', label: 'AI Config', icon: '🤖' },
-    { href: '/admin/settings/security', label: 'Security', icon: '🔒' },
+    { href: '/admin/settings/mode', label: 'Chế độ vận hành', icon: '⚡' },
+    { href: '/admin/settings/general', label: 'Tổng quan', icon: '⚙️' },
+    { href: '/admin/settings/features', label: 'Tính năng', icon: '🎯' },
+    { href: '/admin/settings/payments', label: 'Thanh toán', icon: '💳' },
+    { href: '/admin/settings/wallet', label: 'Ví', icon: '💰' },
+    { href: '/admin/settings/notifications', label: 'Thông báo', icon: '📧' },
+    { href: '/admin/settings/ai', label: 'AI', icon: '🤖' },
+    { href: '/admin/settings/security', label: 'Bảo mật', icon: '🔒' },
   ]
 
   if (checkingAuth) {
@@ -93,7 +94,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
         <div className="w-64 bg-white border-r border-gray-200 min-h-screen sticky top-0">
           <div className="p-4 border-b border-gray-200">
             <Link href="/admin" className="text-lg font-bold text-blue-600 hover:text-blue-700">
-              ← Back to Admin
+              ← Quay lại Admin
             </Link>
           </div>
 

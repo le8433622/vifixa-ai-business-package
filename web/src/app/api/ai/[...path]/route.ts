@@ -3,6 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+const PUBLIC_PATHS = ['auth-register', 'auth-login'];
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
@@ -21,9 +23,9 @@ export async function POST(
       );
     }
 
-    // Get auth token from request
+    const isPublic = PUBLIC_PATHS.includes(path);
     const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
+    if (!authHeader && !isPublic) {
       return NextResponse.json(
         { error: 'Missing authorization header' },
         { status: 401 }
@@ -32,15 +34,19 @@ export async function POST(
 
     const body = request.headers.get('content-length') === '0' ? {} : await request.json();
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
     // Proxy to Supabase Edge Function
     const response = await fetch(
       `${supabaseUrl}/functions/v1/${path}${search}`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(body),
       }
     );
@@ -75,21 +81,25 @@ export async function GET(
       );
     }
 
+    const isPublic = PUBLIC_PATHS.includes(path);
     const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
+    if (!authHeader && !isPublic) {
       return NextResponse.json(
         { error: 'Missing authorization header' },
         { status: 401 }
       );
     }
 
+    const headers: Record<string, string> = {};
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
     const response = await fetch(
       `${supabaseUrl}/functions/v1/${path}${search}`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': authHeader,
-        },
+        headers,
       }
     );
 

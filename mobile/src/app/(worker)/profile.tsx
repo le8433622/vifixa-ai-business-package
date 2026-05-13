@@ -25,9 +25,22 @@ const AVAILABLE_SKILLS = [
 ];
 
 const SERVICE_AREAS = [
-  'District 1', 'District 2', 'District 3', 'District 4', 'District 5',
-  'District 6', 'District 7', 'District 8', 'District 9', 'District 10',
-  'District 11', 'District 12', 'Binh Thanh', 'Phu Nhuan', 'Go Vap',
+  // Hồ Chí Minh
+  'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8',
+  'Quận 10', 'Quận 11', 'Quận 12', 'Bình Thạnh', 'Gò Vấp', 'Tân Bình', 'Tân Phú',
+  'Thủ Đức', 'Phú Nhuận',
+  // Hà Nội
+  'Cầu Giấy', 'Đống Đa', 'Ba Đình', 'Hoàn Kiếm', 'Hai Bà Trưng', 'Thanh Xuân',
+  'Hoàng Mai', 'Long Biên', 'Tây Hồ', 'Hà Đông', 'Nam Từ Liêm', 'Bắc Từ Liêm',
+  // Đà Nẵng
+  'Hải Châu', 'Thanh Khê', 'Sơn Trà', 'Ngũ Hành Sơn', 'Liên Chiểu', 'Cẩm Lệ',
+  // Cần Thơ
+  'Ninh Kiều', 'Bình Thủy', 'Cái Răng', 'Ô Môn', 'Thốt Nốt',
+  // Hải Phòng
+  'Hồng Bàng', 'Ngô Quyền', 'Lê Chân', 'Hải An', 'Kiến An', 'Đồ Sơn',
+  // Các tỉnh
+  'Bình Dương', 'Đồng Nai', 'Long An', 'Bà Rịa - Vũng Tàu',
+  'Quảng Ninh', 'Bắc Ninh', 'Hải Dương', 'Hưng Yên', 'Vĩnh Phúc',
 ];
 
 export default function WorkerProfile() {

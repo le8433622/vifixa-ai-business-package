@@ -43,7 +43,7 @@ export default function WalletSettings() {
       setSettings(data || [])
     } catch (err) {
       console.error('Error fetching wallet settings:', err)
-      toast('Failed to load wallet settings', 'error')
+      toast('Không thể tải cài đặt ví', 'error')
     } finally {
       setLoading(false)
     }
@@ -55,7 +55,7 @@ export default function WalletSettings() {
 
   const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
-      toast('No changes to save', 'info')
+      toast('Không có thay đổi', 'info')
       return
     }
 
@@ -77,11 +77,11 @@ export default function WalletSettings() {
       }
 
       setModified({})
-      toast('Wallet settings saved successfully', 'success')
+      toast('Đã lưu cài đặt ví thành công', 'success')
       fetchSettings()
     } catch (err) {
       console.error('Error saving wallet settings:', err)
-      toast('Failed to save settings', 'error')
+      toast('Không thể lưu cài đặt', 'error')
     } finally {
       setSaving(false)
     }
@@ -93,16 +93,16 @@ export default function WalletSettings() {
 
   if (!isEnabled('internal_wallet')) {
     return (
-      <SettingsPage title="Wallet & Billing Settings" description="Configure wallet and billing system preferences.">
+      <SettingsPage title="Cài đặt Ví & Thanh toán" description="Cấu hình ví và hệ thống thanh toán.">
         <FeatureDisabled
           feature="Internal Wallet"
-          message="Internal wallet feature is currently disabled. Enable it in Features settings first."
+          message="Tính năng ví nội bộ hiện đang tắt. Bật trong phần Tính năng trước."
         />
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Quick Setup</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">Thiết lập nhanh</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal pl-4">
-            <li>Go to <Link href="/admin/settings/features" className="underline">Features</Link> and enable &quot;Internal Wallet&quot;</li>
-            <li>Then return here to configure fee percentages and payout limits</li>
+            <li>Vào <Link href="/admin/settings/features" className="underline">Tính năng</Link> và bật &quot;Ví nội bộ&quot;</li>
+            <li>Sau đó quay lại để cấu hình phí và hạn mức thanh toán</li>
           </ol>
         </div>
       </SettingsPage>
@@ -111,7 +111,7 @@ export default function WalletSettings() {
 
   if (loading) {
     return (
-      <SettingsPage title="Wallet & Billing Settings" description="Configure wallet and billing system preferences.">
+      <SettingsPage title="Cài đặt Ví & Thanh toán" description="Cấu hình ví và hệ thống thanh toán.">
         <LoadingSkeleton rows={4} height="h-16" />
       </SettingsPage>
     )
@@ -119,16 +119,16 @@ export default function WalletSettings() {
 
   if (!isEnabled('wallet_system') && !isEnabled('auto_billing')) {
     return (
-      <SettingsPage title="Wallet & Billing Settings" description="Configure wallet and billing system preferences.">
+      <SettingsPage title="Cài đặt Ví & Thanh toán" description="Cấu hình ví và hệ thống thanh toán.">
         <FeatureDisabled
           feature="Wallet & Billing"
           message="Wallet and billing features are currently disabled. Enable them in Features settings first."
         />
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Quick Setup</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">Thiết lập nhanh</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal pl-4">
-            <li>Go to <Link href="/admin/settings/features" className="underline">Features</Link> and enable wallet_system and auto_billing</li>
-            <li>Then return here to configure settings</li>
+            <li>Vào <Link href="/admin/settings/features" className="underline">Tính năng</Link> và bật wallet_system và auto_billing</li>
+            <li>Sau đó quay lại để cấu hình</li>
           </ol>
         </div>
       </SettingsPage>
@@ -136,7 +136,7 @@ export default function WalletSettings() {
   }
 
   return (
-    <SettingsPage title="Wallet & Billing Settings" description="Configure wallet and billing system preferences.">
+    <SettingsPage title="Cài đặt Ví & Thanh toán" description="Cấu hình ví và hệ thống thanh toán.">
       <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
         {settings.map((setting) => (
           <div key={setting.key} className="p-6">

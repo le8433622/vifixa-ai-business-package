@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -51,8 +51,8 @@ const AGENT_PROMPTS = [
   {
     key: 'ai_diagnosis_prompt',
     settingKey: 'ai_diagnosis_prompt',
-    title: 'Diagnosis Agent',
-    description: 'System prompt for AI-powered diagnostic conversations with customers',
+    title: 'Tác vụ Chẩn đoán',
+    description: 'Prompt hệ thống cho hội thoại chẩn đoán với khách hàng',
     defaultPrompt: `You are a helpful home service diagnostic assistant. Your role is to:
 1. Ask targeted questions to understand the customer's issue
 2. Categorize the problem (electrical, plumbing, HVAC, etc.)
@@ -63,8 +63,8 @@ Be professional, empathetic, and concise. Always ask for photos when relevant.`,
   {
     key: 'ai_warranty_prompt',
     settingKey: 'ai_warranty_prompt',
-    title: 'Warranty Agent',
-    description: 'System prompt for AI warranty claim processing',
+    title: 'Tác vụ Bảo hành',
+    description: 'Prompt hệ thống cho xử lý yêu cầu bảo hành',
     defaultPrompt: `You are a warranty claim processing assistant. Your role is to:
 1. Verify warranty eligibility based on service date and policy
 2. Identify the issue reported by the customer
@@ -75,8 +75,8 @@ Be fair, transparent, and follow the warranty policy strictly.`,
   {
     key: 'ai_quality_prompt',
     settingKey: 'ai_quality_prompt',
-    title: 'Quality Monitor Agent',
-    description: 'System prompt for AI quality monitoring and trust scoring',
+    title: 'Tác vụ Giám sát Chất lượng',
+    description: 'Prompt hệ thống cho giám sát chất lượng và chấm điểm tin cậy',
     defaultPrompt: `You are a quality monitoring assistant. Your role is to:
 1. Review completed service interactions
 2. Assess worker performance based on customer feedback and service records
@@ -124,7 +124,7 @@ export default function AISettings() {
     } catch (err) {
       if (mountedRef.current) {
         console.error('Error fetching AI settings:', err)
-        toast('Failed to load AI settings', 'error')
+        toast('Không thể tải cài đặt AI', 'error')
       }
     } finally {
       if (mountedRef.current) setLoading(false)
@@ -148,7 +148,7 @@ export default function AISettings() {
 
   const handleSave = useCallback(async () => {
     if (Object.keys(modified).length === 0) {
-      toast('No changes to save', 'info')
+      toast('Không có thay đổi nào để lưu', 'info')
       return
     }
 
@@ -170,11 +170,11 @@ export default function AISettings() {
       }
 
       setModified({})
-      toast('AI settings saved successfully', 'success')
+      toast('Đã lưu cài đặt AI thành công', 'success')
       fetchSettings()
     } catch (err) {
       console.error('Error saving AI settings:', err)
-      toast('Failed to save settings', 'error')
+      toast('Không thể lưu cài đặt', 'error')
     } finally {
       setSaving(false)
     }
@@ -199,22 +199,22 @@ export default function AISettings() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">AI Configuration</h1>
-            <p className="text-gray-600 mt-1">Configure AI models, providers, and agent prompts</p>
+            <h1 className="text-3xl font-bold">Cấu hình AI</h1>
+            <p className="text-gray-600 mt-1">Cấu hình nhà cung cấp AI, model, và prompt cho các tác vụ.</p>
           </div>
           <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-            ← Back to Settings
+            ← Quay lại Cài đặt
           </Link>
         </div>
         <FeatureDisabled
-          feature="AI Features"
-          message="All AI features are currently disabled. Enable them in Features settings first."
+          feature="Tính năng AI"
+          message="Tất cả tính năng AI hiện đang bị tắt. Vui lòng bật chúng trong cài đặt Tính năng trước."
         />
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Quick Setup</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">Thiết lập nhanh</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal pl-4">
-            <li>Go to <Link href="/admin/settings/features" className="underline">Features</Link> and enable AI features</li>
-            <li>Then return here to configure model parameters and prompts</li>
+            <li>Truy cập <Link href="/admin/settings/features" className="underline">Tính năng</Link> và bật các tính năng AI</li>
+            <li>Sau đó quay lại đây để cấu hình tham số model và prompt</li>
           </ol>
         </div>
       </div>
@@ -224,7 +224,7 @@ export default function AISettings() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">AI Configuration</h1>
+        <h1 className="text-3xl font-bold mb-6">Cấu hình AI</h1>
         <div className="animate-pulse space-y-4">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="bg-gray-200 h-24 rounded-lg" />
@@ -243,25 +243,25 @@ export default function AISettings() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">AI Configuration</h1>
-          <p className="text-gray-600 mt-1">Configure AI provider, model, and agent prompts.</p>
+          <h1 className="text-3xl font-bold">Cấu hình AI</h1>
+          <p className="text-gray-600 mt-1">Cấu hình nhà cung cấp AI, model, và prompt cho các tác vụ.</p>
         </div>
         <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-          ← Back to Settings
+          ← Quay lại Cài đặt
         </Link>
       </div>
 
       {/* Active AI Features */}
       <div className="mb-6 bg-white rounded-lg shadow p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Active AI Features</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Tính năng AI đang hoạt động</h3>
         <div className="flex flex-wrap gap-2">
           {(['ai_chat', 'ai_warranty', 'ai_quality_monitor', 'ai_suggestions'] as const).map(key => {
             const enabled = isEnabled(key)
             const labels: Record<string, string> = {
               ai_chat: 'AI Chat',
-              ai_warranty: 'AI Warranty',
-              ai_quality_monitor: 'Quality Monitor',
-              ai_suggestions: 'AI Suggestions',
+              ai_warranty: 'Bảo hành AI',
+              ai_quality_monitor: 'Giám sát Chất lượng',
+              ai_suggestions: 'Đề xuất AI',
             }
             return (
               <span
@@ -272,7 +272,7 @@ export default function AISettings() {
                     : 'bg-gray-50 text-gray-500 border-gray-200'
                 }`}
               >
-                {labels[key]}: {enabled ? 'On' : 'Off'}
+                {labels[key]}: {enabled ? 'Bật' : 'Tắt'}
               </span>
             )
           })}
@@ -282,8 +282,8 @@ export default function AISettings() {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6">
         {[
-          { key: 'model', label: 'Model Settings' },
-          { key: 'prompts', label: 'Agent Prompts' },
+          { key: 'model', label: 'Cấu hình Model' },
+          { key: 'prompts', label: 'Prompt tác vụ' },
         ].map(tab => (
           <button
             key={tab.key}
@@ -304,8 +304,8 @@ export default function AISettings() {
           {/* Provider Selection */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Provider</h2>
-              <p className="text-sm text-gray-600 mt-1">Select the LLM provider for all AI features.</p>
+              <h2 className="text-lg font-semibold text-gray-900">Nhà cung cấp</h2>
+              <p className="text-sm text-gray-600 mt-1">Chọn nhà cung cấp LLM cho tất cả tính năng AI.</p>
             </div>
             <div className="p-6">
               <select
@@ -324,7 +324,7 @@ export default function AISettings() {
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Model</h2>
-              <p className="text-sm text-gray-600 mt-1">Choose the specific model for the selected provider.</p>
+              <p className="text-sm text-gray-600 mt-1">Chọn model cụ thể cho nhà cung cấp đã chọn.</p>
             </div>
             <div className="p-6">
               <select
@@ -342,14 +342,14 @@ export default function AISettings() {
           {/* Model Parameters */}
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Model Parameters</h2>
-              <p className="text-sm text-gray-600 mt-1">Fine-tune the model behavior.</p>
+              <h2 className="text-lg font-semibold text-gray-900">Tham số Model</h2>
+              <p className="text-sm text-gray-600 mt-1">Tinh chỉnh hành vi của model.</p>
             </div>
             <div className="p-6 space-y-5">
               {/* Temperature */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">Temperature</label>
+                  <label className="text-sm font-medium text-gray-700">Nhiệt độ</label>
                   <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
                     {currentTemperature || '0.7'}
                   </span>
@@ -364,8 +364,8 @@ export default function AISettings() {
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>0.0 (Deterministic)</span>
-                  <span>2.0 (Creative)</span>
+                  <span>0.0 (Chính xác)</span>
+                  <span>2.0 (Sáng tạo)</span>
                 </div>
               </div>
 
@@ -383,7 +383,7 @@ export default function AISettings() {
                   onChange={(e) => handleChange('ai_max_tokens', e.target.value)}
                   className="w-40 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">Maximum length of model responses</p>
+                <p className="text-xs text-gray-400 mt-1">Độ dài tối đa của phản hồi model</p>
               </div>
             </div>
           </div>
@@ -409,12 +409,12 @@ export default function AISettings() {
                     <div className="flex items-center gap-2">
                       {isDefault && (
                         <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
-                          Using default
+                          Đang dùng mặc định
                         </span>
                       )}
                       {isModified && (
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                          Modified
+                          Đã sửa
                         </span>
                       )}
                     </div>
@@ -430,14 +430,14 @@ export default function AISettings() {
                   />
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-xs text-gray-400">
-                      {displayPrompt.length} characters
+                      {displayPrompt.length} ký tự
                     </span>
                     {currentPrompt && (
                       <button
                         onClick={() => handleChange(agent.settingKey, '')}
                         className="text-xs text-red-500 hover:text-red-700"
                       >
-                        Reset to default
+                        Khôi phục mặc định
                       </button>
                     )}
                   </div>
@@ -452,21 +452,21 @@ export default function AISettings() {
       {Object.keys(modified).length > 0 && (
         <div className="mt-6 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-700">
-            {Object.keys(modified).length} change(s) pending
+            {Object.keys(modified).length} thay đổi đang chờ
           </p>
           <div className="flex gap-3">
             <button
               onClick={() => setModified({})}
               className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 bg-white"
             >
-              Cancel
+              Hủy
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
               className="px-6 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
             </button>
           </div>
         </div>
