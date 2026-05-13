@@ -15,6 +15,8 @@ type Order = {
   status: 'pending' | 'matched' | 'in_progress' | 'completed' | 'canceled' | 'disputed';
   estimated_price: number;
   final_price?: number;
+  payment_method?: string;
+  payment_status?: string;
   ai_diagnosis?: any;
   before_media?: string[];
   after_media?: string[];
@@ -40,7 +42,7 @@ export default function CustomerOrderDetail() {
         .single();
 
       if (error) throw error;
-      return data as Order;
+      return data;
     },
     enabled: !!id,
   });
@@ -238,6 +240,42 @@ export default function CustomerOrderDetail() {
           </View>
         )}
       </View>
+
+      {/* Payment Info */}
+      {order.payment_method && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thanh toán</Text>
+          <View style={styles.paymentCard}>
+            <View style={styles.infoRow}>
+              <Text style={styles.label}>Phương thức:</Text>
+              <Text style={styles.value}>
+                {order.payment_method === 'wallet' ? 'Ví nội bộ' :
+                 order.payment_method === 'gateway' ? 'Cổng thanh toán' :
+                 order.payment_method}
+              </Text>
+            </View>
+            {order.payment_status && (
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Trạng thái:</Text>
+                <Text style={styles.value}>
+                  {order.payment_status === 'paid' ? 'Đã thanh toán' :
+                   order.payment_status === 'pending' ? 'Chờ thanh toán' :
+                   order.payment_status === 'refunded' ? 'Đã hoàn tiền' :
+                   order.payment_status}
+                </Text>
+              </View>
+            )}
+            {order.final_price && (
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>Số tiền:</Text>
+                <Text style={[styles.value, { fontWeight: '700', color: '#059669' }]}>
+                  {order.final_price.toLocaleString('vi-VN')}₫
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Worker Info */}
       {order.workers && (
@@ -458,6 +496,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  paymentCard: {
+    backgroundColor: '#f0fdf4',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
   },
   workerCard: {
     backgroundColor: '#f0fdf4',
