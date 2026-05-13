@@ -6,6 +6,8 @@
 import { ReactNode, useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { NotificationsProvider } from '@/components/notifications/NotificationsContext'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import Link from 'next/link'
 
 export default function WorkerLayout({ children }: { children: ReactNode }) {
@@ -16,12 +18,21 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
+      try {
+        console.log('[WorkerLayout] Checking session...')
+        console.log('[WorkerLayout] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('[WorkerLayout] Session:', session ? 'found' : 'null')
+        if (!session) {
+          router.push('/login')
+          return
+        }
+        setUserEmail(session.user.email || '')
+      } catch (err) {
+        console.error('[WorkerLayout] Session check failed:', err)
+        console.error('[WorkerLayout] Error message:', (err as Error).message)
+        console.error('[WorkerLayout] Error stack:', (err as Error).stack)
       }
-      setUserEmail(session.user.email || '')
     }
     checkUser()
   }, [])
@@ -35,15 +46,18 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
     { href: '/worker', label: 'Dashboard', icon: '🏠' },
     { href: '/worker/jobs', label: 'Công việc', icon: '📋' },
     { href: '/worker/history', label: 'Lịch sử', icon: '📜' },
-    { href: '/worker/earnings', label: 'Thu nhập', icon: '💰' },
+    { href: '/worker/wallet', label: 'Ví', icon: '💰' },
+    { href: '/worker/earnings', label: 'Thu nhập', icon: '📊' },
     { href: '/worker/coach', label: 'AI Coach', icon: '🤖' },
     { href: '/worker/trust', label: 'Uy tín', icon: '⭐' },
     { href: '/worker/badges', label: 'Huy hiệu', icon: '💎' },
     { href: '/worker/verify', label: 'Xác thực', icon: '✅' },
+    { href: '/worker/notifications', label: 'Thông báo', icon: '🔔' },
     { href: '/worker/profile', label: 'Tài khoản', icon: '👤' },
   ]
 
   return (
+    <NotificationsProvider>
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,7 +83,8 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
                 ))}
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <NotificationBell />
               <span className="text-sm text-gray-600 hidden md:block">{userEmail}</span>
               <button
                 onClick={handleLogout}
@@ -119,5 +134,6 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
     </div>
+    </NotificationsProvider>
   )
 }
