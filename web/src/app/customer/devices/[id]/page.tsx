@@ -7,6 +7,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
+import StaticMapThumbnail from '@/components/map/StaticMapThumbnail'
 
 interface Device {
   id: string
@@ -17,6 +18,9 @@ interface Device {
   purchase_date?: string
   warranty_expiry?: string
   location_in_home?: string
+  location_lat?: number
+  location_lng?: number
+  location_address?: string
   specifications?: Record<string, unknown>
   notes?: string
   created_at: string
@@ -342,6 +346,20 @@ export default function DeviceDetailPage() {
             <div>
               <p className="text-sm text-gray-600 mb-1">Vị trí trong nhà</p>
               <p className="font-medium">{device.location_in_home}</p>
+            </div>
+          )}
+          {device.location_lat && device.location_lng && (
+            <div className="md:col-span-2">
+              <p className="text-sm text-gray-600 mb-2">Vị trí trên bản đồ</p>
+              <StaticMapThumbnail
+                lat={device.location_lat}
+                lng={device.location_lng}
+                width={400}
+                height={200}
+              />
+              {device.location_address && (
+                <p className="text-xs text-gray-500 mt-1">{device.location_address}</p>
+              )}
             </div>
           )}
         </div>

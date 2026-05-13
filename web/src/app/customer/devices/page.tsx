@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
+import LocationPicker from '@/components/map/LocationPicker'
 
 interface Device {
   id: string
@@ -17,6 +18,9 @@ interface Device {
   purchase_date?: string
   warranty_expiry?: string
   location_in_home?: string
+  location_lat?: number
+  location_lng?: number
+  location_address?: string
   specifications?: Record<string, unknown>
   notes?: string
   created_at: string
@@ -66,7 +70,7 @@ export default function DevicesPage() {
       if (error) throw error
       setDevices(data || [])
     } catch (err: unknown) {
-      toast(error.message || 'Không thể tải thiết bị', 'error')
+      toast(err instanceof Error ? err.message : 'Không thể tải thiết bị', 'error')
     }
   }
 
@@ -205,7 +209,24 @@ function AddDeviceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     location_in_home: '',
     notes: '',
   })
+  const [deviceLocation, setDeviceLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      supabase
+        .from('profiles')
+        .select('home_lat, home_lng')
+        .eq('id', session.user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.home_lat && data?.home_lng) {
+            setDeviceLocation({ lat: data.home_lat, lng: data.home_lng })
+          }
+        })
+    })
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -222,6 +243,9 @@ function AddDeviceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
           ...formData,
           purchase_date: formData.purchase_date || null,
           warranty_expiry: formData.warranty_expiry || null,
+          location_lat: deviceLocation?.lat ?? null,
+          location_lng: deviceLocation?.lng ?? null,
+          location_address: deviceLocation?.address ?? null,
         })
 
       if (error) throw error
@@ -332,6 +356,19 @@ function AddDeviceModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
               onChange={(e) => setFormData({ ...formData, location_in_home: e.target.value })}
               placeholder="VD: Phòng khách, Phòng ngủ 1..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Device Location on Map */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Vị trí trên bản đồ
+            </label>
+            <p className="text-xs text-gray-500 mb-2">Chọn vị trí thiết bị trên bản đồ (mặc định là vị trí nhà bạn)</p>
+            <LocationPicker
+              value={deviceLocation || undefined}
+              onChange={(v) => setDeviceLocation(v)}
+              height={200}
             />
           </div>
 

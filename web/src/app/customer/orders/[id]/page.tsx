@@ -10,6 +10,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
+import MapView from '@/components/map/MapView';
+import StaticMapThumbnail from '@/components/map/StaticMapThumbnail';
 
 interface OrderDetails {
   id: string;
@@ -24,6 +26,9 @@ interface OrderDetails {
   completed_at?: string;
   payment_status?: string;
   ai_diagnosis?: { diagnosis?: string; severity?: string; recommended_skills?: string[]; estimated_price_range?: { min: number; max: number } };
+  location_lat?: number;
+  location_lng?: number;
+  address?: string;
   before_media?: string[];
   after_media?: string[];
   media_urls?: string[];
@@ -412,6 +417,21 @@ export default function CustomerOrderDetailsPage() {
               </p>
             )}
           </div>
+
+          {order.location_lat && order.location_lng && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📍 Vị trí</h3>
+              {order.address && <p className="text-sm text-gray-600 mb-3">{order.address}</p>}
+              <div className="h-40 rounded-lg overflow-hidden">
+                <MapView
+                  center={[order.location_lat, order.location_lng]}
+                  zoom={15}
+                  markers={[{ position: [order.location_lat, order.location_lng], title: 'Vị trí đơn hàng' }]}
+                  className="h-full"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Hành động</h3>

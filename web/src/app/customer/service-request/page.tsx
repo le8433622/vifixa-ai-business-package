@@ -10,6 +10,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import QueryProvider from '@/components/QueryProvider';
 import MembershipUpsell from '@/components/MembershipUpsell';
+import LocationPicker from '@/components/map/LocationPicker';
+import LocationSelect from '@/components/ui/LocationSelect';
 
 interface MembershipPlan {
   id: string;
@@ -48,6 +50,10 @@ function ServiceRequestContent() {
   const [selectedMembership, setSelectedMembership] = useState<MembershipPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null);
+  const [addrCascade, setAddrCascade] = useState<{ province: string; district: string; ward: string; province_name?: string; district_name?: string; ward_name?: string } | null>(null);
+  const [streetAddr, setStreetAddr] = useState('');
+
   // TanStack Query for session check
   const { data: session, isLoading } = useQuery({
     queryKey: ['session-check'],
@@ -83,8 +89,8 @@ function ServiceRequestContent() {
         }
       }
 
-      // Get user's location (default to HCMC)
-      const location = { lat: 10.8231, lng: 106.6297 };
+      const requestLocation = location || { lat: 10.8231, lng: 106.6297 };
+      const fullAddress = [streetAddr, addrCascade?.ward_name, addrCascade?.district_name, addrCascade?.province_name].filter(Boolean).join(', ');
 
       const response = await fetch('/api/ai/customer-requests', {
         method: 'POST',
@@ -96,7 +102,8 @@ function ServiceRequestContent() {
           category: selectedCategory,
           description,
           media_urls: mediaUrls,
-          location,
+          location: requestLocation,
+          address: fullAddress,
         }),
       });
 
@@ -203,6 +210,29 @@ function ServiceRequestContent() {
                   rows={6}
                   required
                 />
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <h3 className="text-sm font-medium mb-3">📍 Vị trí của bạn</h3>
+                <div className="space-y-3">
+                  <LocationSelect
+                    value={addrCascade ? { province: addrCascade.province, district: addrCascade.district, ward: addrCascade.ward } : undefined}
+                    onChange={(v) => setAddrCascade(v)}
+                  />
+                  <input
+                    type="text"
+                    value={streetAddr}
+                    onChange={(e) => setStreetAddr(e.target.value)}
+                    placeholder="Số nhà, tên đường"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="h-48 rounded-lg overflow-hidden">
+                    <LocationPicker
+                      value={location || undefined}
+                      onChange={(v) => setLocation(v)}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
