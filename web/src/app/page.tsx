@@ -68,6 +68,7 @@ function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
 }
 
 export default function Home() {
+  console.log('[Home] Rendering');
   const [user, setUser] = useState<{ role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();

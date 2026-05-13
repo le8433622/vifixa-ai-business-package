@@ -4,6 +4,7 @@ import "./globals.css";
 import QueryProvider from "@/components/QueryProvider";
 import { ToastProvider } from "@/components/Toast";
 import { FeatureFlagProvider } from "@/components/FeatureFlagProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -31,13 +32,15 @@ export default function RootLayout({
   return (
     <html lang="vi" className={`${inter.variable} ${plusJakarta.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">
-        <QueryProvider>
-          <ToastProvider>
-            <FeatureFlagProvider>
-              {children}
-            </FeatureFlagProvider>
-          </ToastProvider>
-        </QueryProvider>
+        <ErrorBoundary>
+          <QueryProvider>
+            <ToastProvider>
+              <FeatureFlagProvider>
+                {children}
+              </FeatureFlagProvider>
+            </ToastProvider>
+          </QueryProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
