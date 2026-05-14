@@ -86,7 +86,7 @@ export interface DauRaOrchestrator {
 
 /** Đầu vào Navigator */
 export interface DauVaoNavigator {
-  hanhDong: 'tim_gan_day' | 'tinh_duong_di' | 'nhiet_do' | 'kiem_tra_vung'
+  hanhDong: 'tim_gan_day' | 'tinh_duong_di' | 'nhiet_do' | 'kiem_tra_vung' | 'du_doan_nhu_cau' | 'de_xuat_khu_vuc'
   viTri: ToaDo
   banKinh?: number
   danhMuc?: string
