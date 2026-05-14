@@ -1,80 +1,56 @@
-# 🧠🗺️ Vifixa AI — MAP + AI Operating System
+# 🚀 Vifixa AI-Native Platform v4
 
-**Hệ điều hành AI cho dịch vụ vật lý.**  
-MAP (điểm vật lý) + AI (bộ não trí tuệ) = Trung tâm. Mọi module xoay quanh.
+> **AI là app, app là AI** — 4 super-agents, 3 screens, không form, không table.
 
-## Stack
+## 🧠 Kiến trúc V4
+
 ```
-Layer       │ Technology
-────────────┼────────────────────────────────────
-Mobile      │ Expo SDK 54 / React Native 0.81
-Web Admin   │ Next.js 16 / React 19 / Tailwind v4
-Backend     │ Supabase (Postgres 17 + Auth + Realtime)
-AI Runtime  │ Supabase Edge Functions (Deno)
-AI Models   │ NVIDIA NIM (Llama 3.1, Mixtral, Llama 3.2 Vision)
-Maps        │ OpenStreetMap + Leaflet + OSRM
-CI/CD       │ GitHub Actions + Vercel + EAS Build
+4 Super-Agents (thay 36 functions cũ) → 3 Screens (thay 54 screens cũ)
 ```
 
-## Architecture
-```
-MAP 🗺️ (7 OSM functions) + AI 🧠 (28 agents) = CORE
-  ↓
-3 màn hình: Khách → Thợ → Admin (Map-first, AI-first)
-```
+| Layer | Công nghệ |
+|-------|-----------|
+| **AI Engine** | 4 Supabase Edge Functions (Orchestrator, Navigator, Monetizer, Humanizer) |
+| **Web** | Next.js 16 — 3 screens (Map + Chat + Dashboard) |
+| **Mobile** | Expo React Native — 3 screens (Map + Chat + Dashboard) |
+| **Backend** | Supabase (Postgres + Auth + Realtime) |
+| **AI Models** | NVIDIA NIM (Llama 3.1, Mixtral) |
+| **Maps** | OpenStreetMap + Leaflet + OSRM |
 
-## Quick Start
+## 🚀 Quick Start V4
+
 ```bash
-supabase login && supabase link --project-ref lipjakzhzosrhttsltwo
-cp .env.example .env.local  # Set NVIDIA_API_KEY
-supabase db push            # Apply migrations
-supabase functions deploy   # Deploy all 35+ functions
-cd web && npm run dev       # Web
-cd mobile && npx expo start # Mobile
+# Web V4
+cd web && npm run dev  # → http://localhost:3000/v4
+
+# Mobile V4
+cd mobile && npx expo start  # → /v4 (3 tabs)
+
+# Deploy super-agents
+supabase functions deploy v4-core v4-orchestrator v4-navigator v4-monetizer v4-humanizer
 ```
 
-## Project Structure
-```
-├── supabase/
-│   ├── functions/    # 35+ Edge Functions (28 AI + 7 OSM)
-│   │   ├── _shared/  # ai-core, ai-audit, ai-rag, auth-helper
-│   │   ├── ai-*/     # 28 AI agents
-│   │   └── osm-*/    # 7 OSM/map functions
-│   └── migrations/   # 12 migrations
-├── web/              # Next.js (customer + worker + admin)
-├── mobile/           # Expo React Native
-├── tests/            # E2E + API + load tests
-└── docs/             # ARCHITECTURE, DESIGN, API docs
-```
+## 🖥️ 3 Screens
 
-## 3 User Roles
-| Role | Core Flow | Key Pages |
-|------|-----------|-----------|
-| 👤 Khách | Map → thợ gần → Chat AI → Đặt → Theo dõi | Map, Chat, Orders |
-| 🛠️ Thợ | Map → đơn gần → Route → Nhận → Hoàn thành | Map, Jobs, Coach |
-| 👑 Admin | Map → thợ/đơn → AI Analytics → Heatmap | Dashboard, Monitor, Cost |
+| Screen | Web | Mobile | Mô tả |
+|--------|-----|--------|-------|
+| 🗺️ MAP | `/v4` | `/v4` | 1 screen cho Khách/Thợ/Admin |
+| 💬 CHAT | `/v4/chat` | `/v4/chat` | Mọi tương tác qua AI |
+| 📊 DASHBOARD | `/v4/dashboard` | `/v4/dashboard` | AI insights, không table |
 
-## Key Features
-- **Map-first**: Mọi thứ đều có tọa độ, hiển thị trên bản đồ
-- **AI-first**: 28 AI agents xử lý mọi tác vụ
-- **Streaming Chat**: AI trả lời real-time từng token
-- **Vision**: AI nhìn ảnh sự cố để chẩn đoán
-- **OSRM Route**: Khoảng cách lái xe thực tế, không chim bay
-- **Heatmap**: Bản đồ nhu cầu dịch vụ
-- **Auto-Pilot**: Một nút bấm, AI tự động xử lý đơn hàng
-- **A/B Testing**: Statistical significance cho prompt experiments
-- **100% tiếng Việt**: Toàn bộ UI và AI đều bằng tiếng Việt
+## 📖 Tài liệu
 
-## Documentation
-- [Architecture](docs/ARCHITECTURE.md)
-- [Design System](docs/DESIGN.md)
-- [API Reference](docs/API.md)
-- [AI Operating Model](docs/AI.md)
+- [V4 API Reference](docs/V4-API.md) — 4 super-agents endpoints
+- [Architecture](docs/ARCHITECTURE.md) — Kiến trúc hệ thống
+- [Design System](docs/DESIGN.md) — Components + patterns
 
-## Testing
-```bash
-bash scripts/run-all-tests.sh         # All tests
-npx playwright test tests/e2e/       # E2E
-deno test --allow-net tests/api/     # API contracts
-k6 run tests/load/scenario-100-users.js  # Load test
-```
+## ⚠️ LEGACY — Hệ thống cũ
+
+Hệ thống cũ (36 functions + 54 screens) vẫn hoạt động nhưng **không còn được phát triển**.
+Chuyển sang V4 cho các tính năng mới.
+
+| Cũ | Mới |
+|----|-----|
+| 36 edge functions riêng lẻ | 4 super-agents |
+| 54 screens (web + mobile) | 6 screens (3 web + 3 mobile) |
+| Forms + tables | Chat + Map |
