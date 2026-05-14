@@ -11,6 +11,7 @@ export default function RootLayout() {
       <Stack.Screen name="(customer)" options={{ headerShown: false }} />
       <Stack.Screen name="(worker)" options={{ headerShown: false }} />
       <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+      <Stack.Screen name="v4" options={{ headerShown: false }} />
     </Stack>
   );
 }
