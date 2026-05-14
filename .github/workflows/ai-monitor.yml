@@ -1,14 +1,29 @@
-name: AI Monitor — Hourly Check
+name: AI Monitor & Healthcheck
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 * * * *'    # Mỗi giờ
+    - cron: '*/5 * * * *'  # Mỗi 5 phút — healthcheck
   workflow_dispatch:
 
 jobs:
-  monitor:
+  healthcheck:
     runs-on: ubuntu-latest
     steps:
-      - name: Run AI monitor check
+      - name: Check system health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.SUPABASE_URL }}/functions/v1/ai-healthcheck" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}")
+          if [ "$STATUS" != "200" ]; then
+            echo "Healthcheck FAILED with status $STATUS"
+            exit 1
+          fi
+          echo "Healthcheck OK ($STATUS)"
+
+  monitor:
+    needs: healthcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run AI monitor
         run: |
           curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/ai-monitor" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \

@@ -11,6 +11,7 @@ const DANH_MUC_AI = [
     muc: [
       { href: '/admin/ai/dashboard', tieuDe: 'Bảng điều khiển', icon: '🗺️', moTa: 'Xem thợ, đơn hàng, nhu cầu trên bản đồ' },
       { href: '/admin/ai/heatmap', tieuDe: 'Bản đồ nhu cầu', icon: '🔥', moTa: 'Phân tích nhu cầu dịch vụ theo khu vực' },
+      { href: '/admin/ai/health', tieuDe: 'Giám sát sản xuất', icon: '🏥', moTa: 'Uptime, health check, performance toàn bộ hệ thống' },
       { href: '/admin/ai/monitor', tieuDe: 'Giám sát AI', icon: '📡', moTa: 'AI calls real-time, chi phí, cảnh báo' },
       { href: '/admin/ai/cost', tieuDe: 'Chi phí AI', icon: '💰', moTa: 'Chi phí theo ngày, agent, cache hit rate' },
     ],
