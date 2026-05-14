@@ -6,9 +6,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import BanDo from '@/components/map/BanDo'
+
+const BanDo = dynamic(() => import('@/components/map/BanDo'), { ssr: false })
 
 export default function V4Map() {
   const router = useRouter()
