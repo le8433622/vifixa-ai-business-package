@@ -14,8 +14,6 @@ export default function ThoMap() {
   const [loading, setLoading] = useState(true)
   const [thongKe, setThongKe] = useState({ hoanThanh: 0, thuNhap: 0 })
 
-  useEffect(() => { queueMicrotask(() => taiDuLieu()) }, [])
-
   async function taiDuLieu() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -60,6 +58,8 @@ export default function ThoMap() {
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }
+
+  useEffect(() => { queueMicrotask(() => taiDuLieu()) }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">

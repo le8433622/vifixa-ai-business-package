@@ -11,10 +11,8 @@ export default function AutoPilotPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  const [form, setForm] = useState({ category: 'plumbing', description: '', user_id: '' })
-
-  useEffect(() => { queueMicrotask(() => fetchStatus()) }, [])
+  const [result, setResult] = useState<Record<string, unknown> | null>(null)
+  const [form, setForm] = useState({ category: 'plumbing' as string, description: '', user_id: '' })
 
   async function fetchStatus() {
     try {
@@ -25,6 +23,8 @@ export default function AutoPilotPage() {
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }
+
+  useEffect(() => { queueMicrotask(() => fetchStatus()) }, [])
 
   async function toggleAutopilot() {
     setSaving(true)

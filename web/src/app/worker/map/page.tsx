@@ -12,16 +12,11 @@ export default function BanDoTho() {
   const [loading, setLoading] = useState(true)
   const [thongKe, setThongKe] = useState({ tongDon: 0, tongKm: 0 })
 
-  useEffect(() => {
-    queueMicrotask(() => taiDuLieu())
-  }, [])
-
   async function taiDuLieu() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
 
-      // Lấy đơn hàng của worker này
       const { data: orders } = await supabase
         .from('orders')
         .select('id, category, status, description, estimated_price, created_at')
@@ -48,6 +43,10 @@ export default function BanDoTho() {
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => taiDuLieu())
+  }, [])
 
   return (
     <div className="max-w-6xl mx-auto p-6">

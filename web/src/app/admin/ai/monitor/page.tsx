@@ -13,21 +13,6 @@ export default function TrangGiamSat() {
   const [chiPhiHomNay, setChiPhiHomNay] = useState(0)
   const [soCuocGoi, setSoCuocGoi] = useState(0)
 
-  useEffect(() => {
-    queueMicrotask(() => { kiemTraAuth(); taiCanhBao(); taiChiPhiHomNay() })
-    const kenh = supabase.channel('giam-sat-ai')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ai_logs' }, (p: any) => {
-        setLuotGoi(prev => [{ ...p.new }, ...prev].slice(0, 50))
-        setChiPhiHomNay(prev => prev + Number(p.new.cost || 0))
-        setSoCuocGoi(prev => prev + 1)
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'in_app_notifications' }, (p: any) => {
-        if (p.new.category === 'ai_alert') setCanhBao(prev => [{ ...p.new }, ...prev].slice(0, 20))
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(kenh) }
-  }, [])
-
   async function kiemTraAuth() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/'); return }
@@ -46,11 +31,20 @@ export default function TrangGiamSat() {
     setSoCuocGoi(logs.length)
   }
 
-  async function xuLyCanhBao(alert: any) {
-    await supabase.from('in_app_notifications').update({ is_read: true }).eq('id', alert.id)
-    setCanhBao(prev => prev.map(a => a.id === alert.id ? { ...a, is_read: true } : a))
-    if (alert.metadata?.action_url) router.push(alert.metadata.action_url)
-  }
+  useEffect(() => {
+    queueMicrotask(() => { kiemTraAuth(); taiCanhBao(); taiChiPhiHomNay() })
+    const kenh = supabase.channel('giam-sat-ai')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ai_logs' }, (p: any) => {
+        setLuotGoi(prev => [{ ...p.new }, ...prev].slice(0, 50))
+        setChiPhiHomNay(prev => prev + Number(p.new.cost || 0))
+        setSoCuocGoi(prev => prev + 1)
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'in_app_notifications' }, (p: any) => {
+        if (p.new.category === 'ai_alert') setCanhBao(prev => [{ ...p.new }, ...prev].slice(0, 20))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(kenh) }
+  }, [])
 
   return (
     <div className="max-w-6xl mx-auto p-6">

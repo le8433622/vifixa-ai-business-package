@@ -23,19 +23,14 @@ export default function BanDoKhachHang() {
     }
   }, [])
 
-  useEffect(() => {
-    queueMicrotask(() => taiThoGanDay())
-  }, [viTri])
-
   async function taiThoGanDay() {
     setLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) { router.push('/'); return }
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-      const res = await fetch(`${supabaseUrl}/functions/v1/osm-map?action=nearby&lat=${viTri[0]}&lng=${viTri[1]}&radius=20`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
+      const headers = { Authorization: `Bearer ${session.access_token}` }
+      const res = await fetch(`${supabaseUrl}/functions/v1/osm-map?action=nearby&lat=${viTri[0]}&lng=${viTri[1]}&radius=20`, { headers })
       const geo = await res.json()
       const data: MapPoint[] = (geo.features || []).map((f: any) => ({
         id: f.properties.id, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0],
@@ -44,13 +39,16 @@ export default function BanDoKhachHang() {
         description: `📍 ${f.properties.distance_km}km · ⭐ ${f.properties.rating}/5`,
         data: { skills: f.properties.skills, distance_km: f.properties.distance_km },
       }))
-      // Thêm vị trí nhà mình
       data.unshift({ id: 'home', lat: viTri[0], lng: viTri[1], type: 'home' as const, label: 'Vị trí của bạn' })
       setPoints(data)
       setThoGanDay(data.filter(d => d.type !== 'home').slice(0, 5))
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }
+
+  useEffect(() => {
+    queueMicrotask(() => taiThoGanDay())
+  }, [viTri])
 
   const raNgoaiTim = useCallback(async () => {
     if (!timKiem.trim()) return

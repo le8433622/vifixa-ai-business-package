@@ -15,8 +15,6 @@ export default function ToiUuTuyenDuong() {
   const [error, setError] = useState<string | null>(null)
   const [thongKe, setThongKe] = useState({ km: 0, phut: 0 })
 
-  useEffect(() => { queueMicrotask(() => taiDonHang()) }, [])
-
   async function taiDonHang() {
     setLoading(true)
     try {
@@ -68,6 +66,8 @@ export default function ToiUuTuyenDuong() {
     } catch { setError('Không thể tối ưu tuyến đường') }
     finally { setOptimizing(false) }
   }
+
+  useEffect(() => { queueMicrotask(() => taiDonHang()) }, [])
 
   return (
     <div className="max-w-6xl mx-auto p-6">
