@@ -69,7 +69,7 @@ test('order validation accepts complete confirmed context', () => {
 
 test('handoff actions return view_order only when order exists', () => {
   const actions = buildActions('handoff', [], { customer_confirmation: true }, 'order-123');
-  assert.deepEqual(actions, [{ type: 'view_order', label: 'Xem đơn hàng', value: 'order-123' }]);
+  assert.deepEqual(actions, [{ type: 'view_order', label: '📋 Xem đơn hàng', value: 'order-123' }]);
 });
 
 

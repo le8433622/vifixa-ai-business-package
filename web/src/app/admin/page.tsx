@@ -21,8 +21,8 @@ const ADMIN_MODULES = [
   { emoji: '⚖️', label: 'Khiếu nại', desc: 'Xử lý tranh chấp', href: '/admin/disputes', gradient: 'from-amber-500 to-orange-500' },
   { emoji: '🤖', label: 'AI Logs', desc: 'Chẩn đoán, giá AI', href: '/admin/ai-logs', gradient: 'from-cyan-500 to-blue-500' },
   { emoji: '✅', label: 'AI Approvals', desc: 'Hàng đợi duyệt tự động', href: '/admin/approvals', gradient: 'from-rose-500 to-pink-500' },
-  { emoji: '📊', label: 'Chat KPIs', desc: 'Conversion, drop-off, funnel', href: '/admin/chat-kpis', gradient: 'from-indigo-500 to-violet-500' },
-  { emoji: '💰', label: 'Price Accuracy', desc: 'So sánh giá AI vs thực tế', href: '/admin/price-accuracy', gradient: 'from-teal-500 to-emerald-500' },
+  { emoji: '📊', label: 'AI Analytics', desc: 'Churn, doanh thu, tổng quan', href: '/admin/ai/analytics', gradient: 'from-indigo-500 to-violet-500' },
+  { emoji: '💰', label: 'AI Cost', desc: 'Real-time chi phí AI', href: '/admin/ai/cost', gradient: 'from-teal-500 to-emerald-500' },
   { emoji: '⚙️', label: 'Cài đặt', desc: 'Feature flags, wallet, hệ thống', href: '/admin/settings', gradient: 'from-gray-500 to-gray-600' },
 ];
 

@@ -7,7 +7,10 @@ import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
-// TypeScript types
+const NHAN_TRANG_THAI: Record<string, string> = {
+  pending: 'Chờ xử lý', matched: 'Đã ghép thợ', in_progress: 'Đang thực hiện',
+  completed: 'Hoàn thành', canceled: 'Đã hủy', disputed: 'Tranh chấp',
+}
 type Job = {
   id: string;
   category: string;
@@ -158,7 +161,7 @@ export default function WorkerDashboard() {
               <View style={styles.jobHeader}>
                 <Text style={styles.jobCategory}>{job.category}</Text>
                 <View style={[styles.statusBadge, getStatusColor(job.status)]}>
-                  <Text style={styles.statusText}>{job.status}</Text>
+                  <Text style={styles.statusText}>{NHAN_TRANG_THAI[job.status] || job.status}</Text>
                 </View>
               </View>
               <Text style={styles.jobDescription} numberOfLines={2}>{job.description}</Text>

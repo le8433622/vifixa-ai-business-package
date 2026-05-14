@@ -50,13 +50,14 @@ export default function AdminDashboard() {
   });
 
   const quickLinks: QuickLink[] = [
+    { title: '🧠 AI Hub', description: 'Trung tâm AI', route: '/(admin)/ai', color: '#2563eb' },
     { title: 'Users', description: 'Quản lý người dùng', route: '/(admin)/users', color: '#3b82f6' },
     { title: 'Workers', description: 'Quản lý thợ', route: '/(admin)/workers', color: '#8b5cf6' },
     { title: 'Orders', description: 'Quản lý đơn hàng', route: '/(admin)/orders', color: '#10b981' },
     { title: 'Disputes', description: 'Xử lý tranh chấp', route: '/(admin)/disputes', color: '#f59e0b' },
     { title: 'Wallets', description: 'Quản lý ví', route: '/(admin)/wallets', color: '#06b6d4' },
     { title: 'Payouts', description: 'Duyệt rút tiền', route: '/(admin)/payouts', color: '#8b5cf6' },
-    { title: 'AI Logs', description: 'Xem lịch sử AI', route: '/(admin)/ai-logs', color: '#ef4444' },
+    { title: 'Nhật ký AI', description: 'Xem lịch sử AI', route: '/(admin)/ai-logs', color: '#ef4444' },
   ];
 
   if (isLoading) {
@@ -77,27 +78,27 @@ export default function AdminDashboard() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Admin Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Vifixa AI Management</Text>
+        <Text style={styles.headerTitle}>Quản trị AI</Text>
+        <Text style={styles.headerSubtitle}>Hệ điều hành AI cho dịch vụ vật lý</Text>
       </View>
 
       {/* Stats */}
       <View style={styles.statsGrid}>
         <View style={[styles.statCard, { backgroundColor: '#dbeafe' }]}>
           <Text style={styles.statValue}>{stats?.total_users || 0}</Text>
-          <Text style={styles.statLabel}>Users</Text>
+          <Text style={styles.statLabel}>Người dùng</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: '#ede9fe' }]}>
           <Text style={styles.statValue}>{stats?.total_workers || 0}</Text>
-          <Text style={styles.statLabel}>Workers</Text>
+          <Text style={styles.statLabel}>Thợ</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: '#d1fae5' }]}>
           <Text style={styles.statValue}>{stats?.total_orders || 0}</Text>
-          <Text style={styles.statLabel}>Orders</Text>
+          <Text style={styles.statLabel}>Đơn hàng</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: '#fee2e2' }]}>
           <Text style={styles.statValue}>{stats?.total_ai_calls || 0}</Text>
-          <Text style={styles.statLabel}>AI Calls</Text>
+          <Text style={styles.statLabel}>Lượt AI</Text>
         </View>
       </View>
 

@@ -1,79 +1,92 @@
-import type { AutonomyEvaluation, AutonomyPolicy, ChatContext } from './types.ts';
+import type { AutonomyEvaluation, AutonomyPolicy, ChatContext } from './types.ts'
 
 const DEFAULT_POLICY: AutonomyPolicy = {
   mode: 'autonomous',
   min_confidence: 0.6,
   max_auto_order_value: 2_000_000,
   allow_safety_risk: false,
-};
+}
 
 function getEstimatedPrice(context: ChatContext): number {
-  const quote = context.quote as { estimated_price?: number } | undefined;
-  return typeof quote?.estimated_price === 'number' ? quote.estimated_price : 0;
+  const quote = context.quote as { estimated_price?: number } | undefined
+  return typeof quote?.estimated_price === 'number' ? quote.estimated_price : 0
 }
 
 export async function resolveAutonomyPolicy(supabase: any, category?: string): Promise<AutonomyPolicy> {
   try {
     const { data, error } = await supabase
       .from('ai_autonomy_policies')
-      .select('mode,min_confidence,max_auto_order_value,allow_safety_risk')
+      .select('mode,min_confidence,max_auto_order_value,allow_safety_risk,category_overrides')
       .eq('is_active', true)
       .or(`scope_type.eq.global,scope_value.eq.${category || 'general'}`)
       .order('scope_type', { ascending: true })
       .limit(1)
-      .maybeSingle();
+      .maybeSingle()
 
-    if (error || !data) return DEFAULT_POLICY;
+    if (error || !data) return DEFAULT_POLICY
 
-    return {
+    const policy: AutonomyPolicy = {
       mode: data.mode || DEFAULT_POLICY.mode,
       min_confidence: Number(data.min_confidence ?? DEFAULT_POLICY.min_confidence),
       max_auto_order_value: Number(data.max_auto_order_value ?? DEFAULT_POLICY.max_auto_order_value),
       allow_safety_risk: Boolean(data.allow_safety_risk),
-    };
-  } catch (error) {
-    console.error('Failed to resolve autonomy policy; using default policy:', error);
-    return DEFAULT_POLICY;
+      category_overrides: data.category_overrides || undefined,
+    }
+
+    // Apply category-specific overrides
+    if (category && policy.category_overrides?.[category]) {
+      const override = policy.category_overrides[category]
+      if (override.min_confidence !== undefined) policy.min_confidence = override.min_confidence
+      if (override.max_auto_order_value !== undefined) policy.max_auto_order_value = override.max_auto_order_value
+    }
+
+    return policy
+  } catch {
+    return DEFAULT_POLICY
   }
 }
 
 export function evaluateAutonomy(context: ChatContext, policy: AutonomyPolicy = DEFAULT_POLICY): AutonomyEvaluation {
-  const riskFlags = context.risk_flags || [];
-  const confidence = context.confidence || 0;
-  const estimatedPrice = getEstimatedPrice(context);
+  const riskFlags = context.risk_flags || []
+  const confidence = context.confidence || 0
+  const estimatedPrice = getEstimatedPrice(context)
 
   if (!policy.allow_safety_risk && riskFlags.includes('safety')) {
-    return { decision: 'blocked', reason: 'safety_risk_requires_human', policy };
+    return { decision: 'blocked', reason: 'safety_risk_requires_human', policy }
   }
 
   if (policy.mode === 'manual') {
-    return { decision: 'requires_approval', reason: 'manual_mode_requires_human_approval', policy };
+    return { decision: 'requires_approval', reason: 'manual_mode_requires_human_approval', policy }
   }
 
   if (policy.mode === 'supervised') {
-    return { decision: 'requires_approval', reason: 'supervised_mode_requires_human_approval', policy };
+    return { decision: 'requires_approval', reason: 'supervised_mode_requires_human_approval', policy }
   }
 
   if (confidence < policy.min_confidence) {
-    return { decision: 'requires_approval', reason: 'confidence_below_auto_threshold', policy };
+    return { decision: 'requires_approval', reason: 'confidence_below_auto_threshold', policy }
   }
 
   if (estimatedPrice > policy.max_auto_order_value) {
-    return { decision: 'requires_approval', reason: 'estimated_price_above_auto_threshold', policy };
+    return { decision: 'requires_approval', reason: 'estimated_price_above_auto_threshold', policy }
   }
 
-  return { decision: 'execute', reason: 'autonomous_policy_allows_execution', policy };
+  if (riskFlags.includes('price_sensitive')) {
+    return { decision: 'requires_approval', reason: 'price_sensitive_customer', policy }
+  }
+
+  return { decision: 'execute', reason: 'autonomous_policy_allows_execution', policy }
 }
 
 export async function createApprovalRequest(
   supabase: any,
   input: {
-    requestId: string;
-    userId: string;
-    sessionId: string;
-    actionType: string;
-    context: ChatContext;
-    evaluation: AutonomyEvaluation;
+    requestId: string
+    userId: string
+    sessionId: string
+    actionType: string
+    context: ChatContext
+    evaluation: AutonomyEvaluation
   },
 ) {
   const { data: existing } = await supabase
@@ -82,9 +95,9 @@ export async function createApprovalRequest(
     .eq('session_id', input.sessionId)
     .eq('request_id', input.requestId)
     .eq('action_type', input.actionType)
-    .maybeSingle();
+    .maybeSingle()
 
-  if (existing?.id) return existing;
+  if (existing?.id) return existing
 
   const { data, error } = await supabase
     .from('ai_action_requests')
@@ -112,8 +125,8 @@ export async function createApprovalRequest(
       },
     })
     .select('id,status')
-    .single();
+    .single()
 
-  if (error) throw error;
-  return data;
+  if (error) throw error
+  return data
 }

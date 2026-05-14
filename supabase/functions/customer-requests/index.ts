@@ -4,7 +4,8 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { verifyAuth, requireManualApproval } from '../_shared/auth-helper.ts';
-import { createAIProvider } from '../_shared/ai-provider.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createAICore } from '../_shared/ai-core.ts';
 
 interface ServiceRequest {
   category: string;
@@ -47,22 +48,15 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Call AI Diagnosis
-      const aiProvider = createAIProvider();
-      const diagnosis = await aiProvider.diagnose({
-        category,
-        description,
-        media_urls,
-        location,
-      });
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const ai = createAICore(supabase, { requestId: crypto.randomUUID(), userId: customerId });
 
-      // Call AI Pricing
-      const priceEstimate = await aiProvider.estimatePrice({
-        category,
-        diagnosis: diagnosis.diagnosis,
-        location,
-        urgency: diagnosis.severity,
-      });
+      const diagResult = await ai.diagnose({ category, description, media_urls, location });
+      const diagnosis = diagResult.success ? diagResult.data : { diagnosis: description, severity: 'medium', recommended_skills: [category], confidence: 0.5 };
+      const priceResult = diagResult.success ? await ai.estimatePrice({
+        category, diagnosis: diagnosis.diagnosis, location, urgency: diagnosis.severity,
+      }) : null;
+      const priceEstimate = priceResult?.success ? priceResult.data : { estimated_price: 300000, price_breakdown: [{ item: 'Dịch vụ cơ bản', cost: 300000 }], confidence: 0.3 };
 
       const isManual = await requireManualApproval(supabaseUrl, serviceRoleKey);
 

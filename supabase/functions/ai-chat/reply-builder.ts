@@ -61,6 +61,7 @@ export function buildReply(state: ChatState, missingSlots: string[], context: Ch
     const price = quote?.estimated_price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(quote.estimated_price) : 'đang tính';
     const categoryName = CATEGORY_NAMES[context.category || ''] || context.category;
     const upsell = UPSELL_MAP[context.category || ''];
+    const aiUpsell = context.upsell_result as { suggestion?: string; product_type?: string; discount_percent?: number } | undefined;
 
     let reply = `📊 Kết quả chẩn đoán AI:\n\n`;
     reply += `🔧 Dịch vụ: ${categoryName}\n`;
@@ -69,9 +70,11 @@ export function buildReply(state: ChatState, missingSlots: string[], context: Ch
     if (context.location_text) reply += `📍 Khu vực: ${context.location_text}\n`;
     reply += `\n⚠️ Giá trên là ước tính. Giá cuối sẽ xác nhận sau khi thợ khảo sát thực tế.\n`;
 
-    // Upselling suggestion
-    if (upsell) {
-      reply += `\n💡 Gợi ý: ${upsell.reason}\n`;
+    if (aiUpsell?.suggestion && aiUpsell?.product_type) {
+      const discountText = aiUpsell.discount_percent ? ` (giảm ${aiUpsell.discount_percent}%)` : ''
+      reply += `\n💡 Gợi ý đặc biệt: ${aiUpsell.suggestion}${discountText}\n`
+    } else if (upsell) {
+      reply += `\n💡 Gợi ý: ${upsell.reason}\n`
     }
 
     reply += `\n👉 Bấm "Xác nhận tạo đơn" hoặc nhắn "Chốt đơn" để Vifixa ghép thợ ngay!`;

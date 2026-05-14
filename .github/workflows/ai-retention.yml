@@ -1,0 +1,15 @@
+name: AI Retention Campaign — Weekly
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run retention analysis
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/ai-retention" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json"

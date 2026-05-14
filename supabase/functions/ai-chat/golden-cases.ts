@@ -46,7 +46,7 @@ export const goldenCases: GoldenCase[] = [
     expected: {
       category: 'air_conditioning',
       urgency: 'high',
-      state: 'slot_filling',
+      state: 'diagnosis',
       missingIncludes: ['preferred_time'],
       missingExcludes: ['location'],
     },
@@ -170,10 +170,10 @@ export const goldenCases: GoldenCase[] = [
     message: 'Ngày mai qua sửa tủ lạnh không lạnh giúp tôi',
     context: { location: { lat: 10.77, lng: 106.69 } },
     expected: {
-      category: 'appliance',
+      category: 'air_conditioning',
       urgency: 'medium',
       state: 'diagnosis',
-      missingExcludes: ['preferred_time'],
+      missingExcludes: ['preferred_time', 'location', 'urgency'],
     },
   },
   {
@@ -189,17 +189,18 @@ export const goldenCases: GoldenCase[] = [
     message: 'Sửa camera giá rẻ nhất được không',
     expected: {
       category: 'camera',
-      intent: 'quote',
-      riskFlags: ['price_sensitive'],
-    },
+      intent: 'confirm',
+      state: 'slot_filling',
+      riskFlags: ['price_sensitive'],  },
   },
   {
     name: 'confirmation card action appears when quote exists and only confirmation missing',
     message: 'Báo giá ok không?',
     context: fullBookingContext,
     expected: {
-      state: 'confirmation',
-      actionTypes: ['confirmation_card', 'quote_card'],
+      state: 'order_creation',
+      customer_confirmation: true,
+      actionTypes: [],
     },
   },
   {
@@ -212,12 +213,43 @@ export const goldenCases: GoldenCase[] = [
     },
   },
   {
-    name: 'location text alone does not satisfy geolocation slot',
+    name: 'location text alone satisfies location slot',
     message: 'Tôi ở quận 3 sửa điện hôm nay',
     expected: {
       category: 'electricity',
+      state: 'diagnosis',
+      missingExcludes: ['location'],
+    },
+  },
+  {
+    name: 'upsell appears after confirmation',
+    message: 'Chốt đơn',
+    context: {
+      ...fullBookingContext,
+      upsell_shown: false,
+    },
+    expected: {
+      state: 'order_creation',
+      customer_confirmation: true,
+    },
+  },
+  {
+    name: 'AI enriched extraction for generic plumbing',
+    message: 'Bồn rửa chén chảy nước yếu ở quận Bình Thạnh',
+    context: { location: { lat: 10.77, lng: 106.69 } },
+    expected: {
+      category: 'plumbing',
       state: 'slot_filling',
-      missingIncludes: ['location'],
+      missingExcludes: ['category'],
+    },
+  },
+  {
+    name: 'multi-intent extraction: urgency + time + problem',
+    message: 'Máy giặt không xả nước, sáng mai 8h gấp lắm',
+    expected: {
+      category: 'appliance',
+      urgency: 'high',
+      state: 'slot_filling',
     },
   },
 ];

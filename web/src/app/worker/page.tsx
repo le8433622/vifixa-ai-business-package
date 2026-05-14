@@ -1,268 +1,141 @@
-// Vifixa AI v2.0 — Premium Worker Dashboard
-// Gradient stats, earnings overview, job cards with status
+// 🗺️ Thợ Map-first — Xem đơn hàng gần nhất trên bản đồ
+'use client'
 
-'use client';
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import BanDo from '@/components/map/BanDo'
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
-import PremiumBadge from '@/components/PremiumBadge';
+export default function ThoMap() {
+  const router = useRouter()
+  const [viTri] = useState<[number, number]>([10.77, 106.69])
+  const [points, setPoints] = useState<any[]>([])
+  const [donGan, setDonGan] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [thongKe, setThongKe] = useState({ hoanThanh: 0, thuNhap: 0 })
 
-interface Job {
-  id: string;
-  category: string;
-  description: string;
-  status: string;
-  estimated_price: number;
-  customer_id: string;
-  created_at: string;
-}
+  useEffect(() => { queueMicrotask(() => taiDuLieu()) }, [])
 
-interface Earnings {
-  total_earnings: number;
-  completed_jobs: number;
-  avg_earnings: number;
-  trust_score: number;
-}
+  async function taiDuLieu() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Chờ nhận', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-  matched: { label: 'Đã ghép', color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200' },
-  in_progress: { label: 'Đang làm', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-  completed: { label: 'Hoàn thành', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  cancelled: { label: 'Đã hủy', color: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' },
-};
+      // Lấy đơn hàng đang chờ gần đây
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, category, description, estimated_price, status, created_at')
+        .in('status', ['pending', 'matched'])
+        .order('created_at', { ascending: false })
+        .limit(20)
 
-const CATEGORY_ICONS: Record<string, string> = {
-  electricity: '⚡', plumbing: '🚿', appliance: '🔧',
-  air_conditioning: '❄️', camera: '📷', painting: '🎨',
-  lock_smith: '🔑',
-};
+      // Giả lập tọa độ (thực tế: lấy từ order.location)
+      const mapPoints = [{
+        id: 'me', lat: viTri[0], lng: viTri[1], type: 'worker_verified' as const,
+        label: 'Vị trí của tôi', desc: '📍 Đang ở đây',
+      }]
 
-const NAV_ITEMS = [
-  { emoji: '📋', label: 'Việc mới', href: '/worker/jobs' },
-  { emoji: '💰', label: 'Thu nhập', href: '/worker/earnings' },
-  { emoji: '📜', label: 'Lịch sử', href: '/worker/history' },
-  { emoji: '🤖', label: 'AI Coach', href: '/worker/coach' },
-  { emoji: '🛡️', label: 'Trust', href: '/worker/trust' },
-  { emoji: '👤', label: 'Hồ sơ', href: '/worker/profile' },
-];
+      const dsDon = (orders || []).map((o, i) => ({
+        id: o.id, lat: viTri[0] + (Math.random() - 0.5) * 0.06,
+        lng: viTri[1] + (Math.random() - 0.5) * 0.06,
+        type: 'order_pending' as const, label: o.category,
+        desc: `${o.estimated_price?.toLocaleString() || 0}₫ · ${o.status}`,
+      }))
+      mapPoints.push(...dsDon)
+      setPoints(mapPoints)
+      setDonGan(dsDon)
 
-function formatVnd(amount: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-}
+      // Thống kê
+      const { data: completed } = await supabase
+        .from('orders')
+        .select('final_price, estimated_price')
+        .eq('worker_id', session.user.id)
+        .eq('status', 'completed')
 
-export default function WorkerDashboard() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [earnings, setEarnings] = useState<Earnings | null>(null);
-  const [activeBadge, setActiveBadge] = useState<{ badge_label: string; badge_color: string; badge_icon: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        console.log('[WorkerDashboard] Fetching data...');
-        console.log('[WorkerDashboard] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('[WorkerDashboard] Session:', session ? 'found' : 'null');
-        if (!session) { router.push('/'); return; }
-
-        const [jobsRes, earningsRes] = await Promise.all([
-          fetch('/api/ai/worker-jobs?action=jobs', {
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
-          }),
-          fetch('/api/ai/worker-jobs?action=earnings', {
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
-          }),
-        ]);
-
-        const jobsData = await jobsRes.json();
-        const earningsData = await earningsRes.json();
-        console.log('[WorkerDashboard] jobs API response:', JSON.stringify(jobsData).slice(0, 200));
-        console.log('[WorkerDashboard] earnings API response:', JSON.stringify(earningsData).slice(0, 200));
-        setJobs(Array.isArray(jobsData.jobs) ? jobsData.jobs : []);
-        setEarnings(earningsData);
-
-        const { data: badgeData } = await supabase
-          .rpc('get_worker_active_badge', { p_worker_id: session.user.id });
-        if (badgeData && badgeData.length > 0) {
-          setActiveBadge(badgeData[0] as unknown as { badge_label: string; badge_color: string; badge_icon: string });
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--vf-bg))]">
-        <div className="w-12 h-12 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-      </div>
-    );
+      const dsHoanThanh = completed || []
+      setThongKe({
+        hoanThanh: dsHoanThanh.length,
+        thuNhap: dsHoanThanh.reduce((s: number, o: any) => s + (o.final_price || o.estimated_price || 0), 0),
+      })
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--vf-bg))]">
-      {/* Nav */}
-      <nav className="sticky top-0 z-40 glass-strong border-b border-[hsl(var(--vf-border))]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">V</div>
-            <span className="font-bold text-[hsl(var(--vf-text))]">Thợ chuyên nghiệp</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header map */}
+      <div className="relative h-[350px]">
+        <BanDo points={points} center={viTri} zoom={13} height="350px" showControls={false} className="rounded-none"
+          onMarkerClick={(id, type) => {
+            if (type === 'order_pending') router.push(`/worker/jobs/${id}`)
+          }}
+        />
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/40 to-transparent p-4">
+          <h1 className="text-white font-bold text-lg">🛠️ Việc làm gần đây</h1>
+          <p className="text-white/80 text-xs">{donGan.length} đơn đang chờ</p>
+        </div>
+      </div>
+
+      {/* Thống kê */}
+      <div className="px-4 -mt-6">
+        <div className="bg-white rounded-xl shadow-sm border p-4 grid grid-cols-3 gap-4 mb-4">
+          <div className="text-center">
+            <p className="text-xl font-bold text-blue-600">{donGan.length}</p>
+            <p className="text-xs text-gray-500">Đơn chờ</p>
           </div>
-          <div className="flex gap-1 overflow-x-auto">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.href}
-                onClick={() => router.push(item.href)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap text-[hsl(var(--vf-text-secondary))] hover:bg-[hsl(var(--vf-bg-subtle))] hover:text-[hsl(var(--vf-text))] transition-all"
-              >
-                <span>{item.emoji}</span>
-                <span className="hidden sm:inline">{item.label}</span>
-              </button>
-            ))}
+          <div className="text-center">
+            <p className="text-xl font-bold text-green-600">{thongKe.hoanThanh}</p>
+            <p className="text-xs text-gray-500">Hoàn thành</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-amber-600">{(thongKe.thuNhap / 1000).toFixed(0)}K</p>
+            <p className="text-xs text-gray-500">Thu nhập</p>
           </div>
         </div>
-      </nav>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 p-8 animate-fade-in-up">
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-[60px]" />
-            <div className="absolute bottom-0 left-1/4 w-32 h-32 bg-white/5 rounded-full blur-[40px]" />
+      {/* Đơn hàng gần đây */}
+      <div className="px-4 pb-6">
+        <h2 className="font-bold text-sm mb-3">📋 Đơn hàng gần bạn</h2>
+        {loading ? (
+          <p className="text-gray-500 text-sm text-center py-4">Đang tải...</p>
+        ) : donGan.length === 0 ? (
+          <div className="text-center py-8 bg-white rounded-xl border">
+            <p className="text-3xl mb-2">🔧</p>
+            <p className="text-gray-500 text-sm">Chưa có đơn hàng nào</p>
           </div>
-          <div className="relative z-10">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2" style={{ fontFamily: 'var(--font-display)' }}>
-              Xin chào! 🔧
-            </h1>
-            <p className="text-emerald-100/70 mb-4">
-              Hôm nay có {Array.isArray(jobs) ? jobs.filter(j => j.status === 'pending' || j.status === 'matched').length : 0} việc đang chờ bạn.
-            </p>
-            <button
-              onClick={() => router.push('/worker/jobs')}
-              className="inline-flex items-center gap-2 bg-white text-emerald-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-50 transition-all shadow-lg"
-            >
-              📋 Xem việc mới
-            </button>
-          </div>
-        </div>
-
-        {/* Active Badge */}
-        {activeBadge && (
-          <div className="card p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 animate-fade-in-up delay-75">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <PremiumBadge
-                  badgeLabel={activeBadge.badge_label}
-                  badgeColor={activeBadge.badge_color}
-                  badgeIcon={activeBadge.badge_icon}
-                  size="lg"
-                />
-                <span className="text-sm text-gray-600">Huy hiệu Premium đang hoạt động</span>
+        ) : (
+          <div className="space-y-3">
+            {donGan.map((don) => (
+              <div key={don.id} className="bg-white rounded-xl p-4 border flex items-center gap-3 hover:shadow-sm transition-all">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center text-lg shrink-0">📋</div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-sm capitalize">{don.label}</h3>
+                  <p className="text-xs text-gray-500">{don.desc}</p>
+                </div>
+                <button onClick={() => router.push(`/worker/jobs/${don.id}`)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 shrink-0">
+                  Xem
+                </button>
               </div>
-              <button
-                onClick={() => router.push('/worker/badges')}
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-              >
-                Quản lý →
-              </button>
-            </div>
+            ))}
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up delay-100">
-          {[
-            { icon: '💰', value: earnings ? formatVnd(earnings.total_earnings) : '0₫', label: 'Thu nhập', color: 'from-emerald-500/10 to-emerald-500/5' },
-            { icon: '✅', value: earnings?.completed_jobs || 0, label: 'Đơn hoàn thành', color: 'from-blue-500/10 to-blue-500/5' },
-            { icon: '📊', value: earnings ? formatVnd(earnings.avg_earnings) : '0₫', label: 'TB/đơn', color: 'from-violet-500/10 to-violet-500/5' },
-            { icon: '🛡️', value: earnings?.trust_score || 0, label: 'Trust Score', color: 'from-amber-500/10 to-amber-500/5' },
-          ].map((stat) => (
-            <div key={stat.label} className={`card p-4 bg-gradient-to-br ${stat.color}`}>
-              <div className="text-2xl mb-2">{stat.icon}</div>
-              <div className="text-lg sm:text-xl font-bold text-[hsl(var(--vf-text))] truncate">{stat.value}</div>
-              <div className="text-xs text-[hsl(var(--vf-text-muted))] mt-0.5">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-in-up delay-200">
-          {[
-            { emoji: '📋', label: 'Việc mới', href: '/worker/jobs', gradient: 'from-blue-500 to-indigo-500' },
-            { emoji: '💰', label: 'Thu nhập', href: '/worker/earnings', gradient: 'from-emerald-500 to-teal-500' },
-            { emoji: '🤖', label: 'AI Coach', href: '/worker/coach', gradient: 'from-violet-500 to-purple-500' },
-            { emoji: '🛡️', label: 'Xác minh', href: '/worker/verify', gradient: 'from-amber-500 to-orange-500' },
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={() => router.push(action.href)}
-              className="group card p-4 text-center hover:!shadow-xl"
-            >
-              <div className={`w-12 h-12 mx-auto rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform shadow-md`}>
-                {action.emoji}
-              </div>
-              <p className="text-sm font-medium text-[hsl(var(--vf-text))]">{action.label}</p>
-            </button>
-          ))}
-        </div>
-
-        {/* Recent Jobs */}
-        <div className="card p-5 animate-fade-in-up delay-300">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-[hsl(var(--vf-text))]">📋 Việc gần đây</h2>
-            <button onClick={() => router.push('/worker/jobs')} className="text-sm text-blue-500 hover:text-blue-400 font-medium">
-              Xem tất cả →
-            </button>
-          </div>
-
-          {jobs.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-4">📭</div>
-              <p className="text-[hsl(var(--vf-text-secondary))]">Chưa có việc nào</p>
-              <p className="text-sm text-[hsl(var(--vf-text-muted))] mt-1">Hoàn tất hồ sơ và xác minh để nhận việc</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {jobs.slice(0, 5).map((job) => {
-                const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
-                return (
-                  <div
-                    key={job.id}
-                    className="p-4 rounded-xl border border-[hsl(var(--vf-border))] hover:border-emerald-500/30 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => router.push(`/worker/jobs/${job.id}`)}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{CATEGORY_ICONS[job.category] || '📦'}</span>
-                          <span className="font-semibold text-[hsl(var(--vf-text))] text-sm capitalize">{job.category?.replace('_', ' ')}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.color}`}>
-                            {cfg.label}
-                          </span>
-                        </div>
-                        <p className="text-sm text-[hsl(var(--vf-text-secondary))] line-clamp-1">{job.description}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-[hsl(var(--vf-text))]">{formatVnd(job.estimated_price)}</p>
-                        <p className="text-xs text-[hsl(var(--vf-text-muted))] mt-1">
-                          {new Date(job.created_at).toLocaleDateString('vi-VN')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        {/* Quick actions */}
+        <div className="grid grid-cols-2 gap-3 mt-6">
+          <button onClick={() => router.push('/worker/map/optimize')}
+            className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-4 text-left">
+            <span className="text-2xl">🗺️</span>
+            <p className="font-bold text-sm mt-2">Tối ưu tuyến đường</p>
+          </button>
+          <button onClick={() => router.push('/worker/coach')}
+            className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl p-4 text-left">
+            <span className="text-2xl">🎓</span>
+            <p className="font-bold text-sm mt-2">AI Coach</p>
+          </button>
         </div>
       </div>
     </div>
-  );
+  )
 }

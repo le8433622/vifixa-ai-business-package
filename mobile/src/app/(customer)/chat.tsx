@@ -23,6 +23,7 @@ interface Message {
   content: string;
   timestamp: Date;
   actions?: any[];
+  isStreaming?: boolean;
 }
 
 interface ChatSession {
@@ -121,83 +122,93 @@ export default function CustomerChatScreen() {
     setInputMessage('')
     setIsLoading(true)
 
-    // Add user message to UI immediately
     const tempUserMsg: Message = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date()
+      id: `temp-${Date.now()}`, role: 'user', content: userMessage, timestamp: new Date()
     }
     setMessages(prev => [...prev, tempUserMsg])
 
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      if (!authSession) {
-        router.push('/login')
-        return
-      }
+      if (!authSession) { router.push('/login'); return }
+
+      const aiMsgId = `ai-${Date.now()}`
+      setMessages(prev => [...prev, { id: aiMsgId, role: 'assistant', content: '', timestamp: new Date(), actions: [], isStreaming: true }])
 
       const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
           session_id: session?.id || null,
           message: userMessage,
           context: contextOverride,
+          stream: true,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || 'Failed to send message')
       }
 
-      const data = await response.json()
+      // Streaming via SSE
+      let fullData: any = null
+      if (response.body) {
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
 
-      // Update session if new
-      if (data.session_id && session?.id !== data.session_id) {
-        setSession({ id: data.session_id, status: 'active', created_at: new Date().toISOString() })
-      }
-
-      // Add AI response to UI
-      const aiMessage: Message = {
-        id: `ai-${Date.now()}`,
-        role: 'assistant',
-        content: data.reply,
-        timestamp: new Date(),
-        actions: data.actions
-      }
-      setMessages(prev => [...prev, aiMessage])
-
-      // Reload messages from server
-      if (data.session_id) {
-        await loadMessages(data.session_id)
-      }
-
-      // If session complete
-      if (data.session_complete) {
-        Alert.alert(
-          'Thành công!',
-          'Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.',
-          [{
-            text: 'Xem đơn hàng',
-            onPress: () => {
-              if (data.order_id) {
-                router.push(`/(customer)/orders/${data.order_id}` as any)
-              } else {
-                router.push('/(customer)' as any)
-              }
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const parsed = JSON.parse(line.slice(6))
+                fullData = parsed
+                setMessages(prev => prev.map(m =>
+                  m.id === aiMsgId ? { ...m, content: parsed.reply || m.content, isStreaming: true } : m
+                ))
+              } catch { /* partial chunk */ }
             }
-          }]
-        )
+          }
+        }
+      } else {
+        // Fallback: non-streaming
+        throw new Error('Streaming not supported')
       }
 
+      if (fullData) {
+        const allActions = [...(fullData.actions || [])]
+        if (fullData.upsell?.show && !fullData.session_complete) {
+          allActions.push({ type: 'upsell_card', label: fullData.upsell.suggestion || '', value: fullData.upsell.product_type || '', data: fullData.upsell })
+        }
+        setMessages(prev => prev.map(m =>
+          m.id === aiMsgId ? { ...m, actions: allActions, isStreaming: false } : m
+        ))
+
+        if (fullData.session_id && session?.id !== fullData.session_id) {
+          setSession({ id: fullData.session_id, status: 'active', created_at: new Date().toISOString() })
+        }
+        if (fullData.session_id) await loadMessages(fullData.session_id)
+
+        if (fullData.session_complete) {
+          Alert.alert('Thành công!', 'Đơn dịch vụ đã được chốt thành công!', [{
+            text: 'Xem đơn hàng',
+            onPress: () => { if (fullData.order_id) router.push(`/(customer)/orders/${fullData.order_id}` as any) }
+          }])
+        }
+      }
     } catch (error: any) {
       console.error('Send message error:', error)
       Alert.alert('Lỗi', error.message)
+      setMessages(prev => prev.filter(m => m.content !== ''))
     } finally {
       setIsLoading(false)
     }
@@ -324,6 +335,41 @@ export default function CustomerChatScreen() {
           <Text style={styles.disclaimerText}>Bạn cần xác nhận rõ trước khi Vifixa tạo đơn và ghép thợ.</Text>
           <TouchableOpacity style={styles.confirmButton} onPress={() => handleAction(action)} disabled={isLoading}>
             <Text style={styles.confirmButtonText}>Tôi xác nhận tạo đơn</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    if (action.type === 'upsell_card') {
+      const upsell = action.data || {}
+      const productLabels: Record<string, string> = {
+        membership: 'Gói hội viên', warranty: 'Bảo hành mở rộng',
+        premium_worker: 'Thợ ưu tiên', material_kit: 'Vật tư',
+        maintenance_plan: 'Bảo trì định kỳ', boost_package: 'Gói nổi bật',
+      }
+      return (
+        <View key={idx} style={styles.upsellCard}>
+          <Text style={styles.cardTitle}>💎 Ưu đãi đặc biệt</Text>
+          <Text style={styles.cardText}>{upsell.suggestion || action.label}</Text>
+          {upsell.discount_percent > 0 && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountBadgeText}>Giảm {upsell.discount_percent}%</Text>
+            </View>
+          )}
+          <Text style={[styles.cardText, { color: '#9ca3af', fontSize: 11, marginTop: 4 }]}>
+            {productLabels[upsell.product_type] || upsell.product_type}
+          </Text>
+          <TouchableOpacity
+            style={styles.upsellButton}
+            onPress={() => sendMessage(`Tôi muốn tìm hiểu thêm về ${upsell.product_type || 'ưu đãi này'}`)}
+          >
+            <Text style={styles.upsellButtonText}>💎 Tìm hiểu thêm</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.upsellSkipButton}
+            onPress={() => sendMessage('Không, cảm ơn')}
+          >
+            <Text style={styles.upsellSkipText}>Bỏ qua</Text>
           </TouchableOpacity>
         </View>
       )
@@ -694,5 +740,46 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#d1d5db',
+  },
+  upsellCard: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    gap: 4,
+  },
+  discountBadge: {
+    backgroundColor: '#fee2e2',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  discountBadgeText: {
+    color: '#dc2626',
+    fontWeight: '700',
+    fontSize: 11,
+  },
+  upsellButton: {
+    marginTop: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f59e0b',
+    alignItems: 'center',
+  },
+  upsellButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  upsellSkipButton: {
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  upsellSkipText: {
+    color: '#9ca3af',
+    fontSize: 12,
   },
 })

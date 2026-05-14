@@ -78,9 +78,28 @@ export function checkRateLimit(userId: string, ip: string, config?: RateLimitCon
   const maxRequests = config?.maxRequests ?? MAX_REQUESTS_DEFAULT;
   const windowMs = config?.windowMs ?? WINDOW_MS;
   const now = Date.now();
-  const key = `${userId}:${ip}`;
+  const key = `${userId}:${ip}:global`;
 
   if (Math.random() < 0.1) cleanup();
+
+  const timestamps = buckets.get(key) || [];
+  const valid = timestamps.filter(t => now - t < windowMs);
+  valid.push(now);
+  buckets.set(key, valid);
+
+  if (valid.length > maxRequests) {
+    const retryAfter = Math.ceil((valid[0] + windowMs - now) / 1000);
+    throw new RateLimitError(retryAfter);
+  }
+}
+
+export function checkAgentRateLimit(userId: string, ip: string, agentType: string, config?: RateLimitConfig): void {
+  const maxRequests = config?.maxRequests ?? 10;
+  const windowMs = config?.windowMs ?? 60000;
+  const now = Date.now();
+  const key = `${userId}:${ip}:agent:${agentType}`;
+
+  if (Math.random() < 0.05) cleanup();
 
   const timestamps = buckets.get(key) || [];
   const valid = timestamps.filter(t => now - t < windowMs);

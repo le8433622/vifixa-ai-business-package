@@ -1,28 +1,22 @@
-// Smart Suggestions Edge Function
-// Handles user applying/dismissing suggestions;
-// Now supports A/B testing and enhanced suggestion logic.
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders as _corsHeaders } from '../_shared/cors.ts'
+import { createAICore } from '../_shared/ai-core.ts'
+import { createAIAudit } from '../_shared/ai-audit.ts'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req: Request) => {
   const optionsResp = handleOptions(req)
   if (optionsResp) return optionsResp
 
-  // Verify auth
   let user: any
   try {
-    // verifyAuth returns { id, email }
-    const auth = await verifyAuth(req)
-    user = auth
+    user = await verifyAuth(req)
   } catch {
     return jsonResponse({ error: 'Unauthorized' }, 401)
   }
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
   const url = new URL(req.url)
@@ -30,17 +24,11 @@ Deno.serve(async (req: Request) => {
   const action = url.searchParams.get('action')
 
   try {
-    // GET / → Get user's pending suggestions (with A/B test filtering)
     if (req.method === 'GET' && !action) {
-      // Get user's A/B test variant
-      const { data: abTests } = await supabase
-        .from('ab_tests')
-        .select('*')
-        .eq('active', true)
+      const { data: abTests } = await supabase.from('ab_tests').select('*').eq('active', true)
+      const userVariant = getABTestVariant(user.id, abTests || [])
 
-      const userVariant = await getABTestVariant(supabase, user.id, abTests || [])
-
-      const { data, error } = await supabase
+      const { data: suggestions } = await supabase
         .from('user_suggestions')
         .select('*')
         .eq('user_id', user.id)
@@ -48,156 +36,53 @@ Deno.serve(async (req: Request) => {
         .eq('dismissed', false)
         .order('confidence', { ascending: false })
 
-      if (error) throw error
-
-      return jsonResponse({ suggestions: data || [], ab_test: userVariant })
-    }
-
-    // GET /ab-tests → Get active A/B tests (admin only)
-    if (req.method === 'GET' && action === 'ab-tests') {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role !== 'admin') {
-        return jsonResponse({ error: 'Forbidden' }, 403)
+      if ((!suggestions || suggestions.length === 0) && user.role !== 'admin') {
+        const aiSuggestions = await generateAISuggestions(supabase, user.id)
+        if (aiSuggestions.length > 0) {
+          return jsonResponse({ suggestions: aiSuggestions, ab_test: userVariant, ai_generated: true })
+        }
       }
 
-      const { data, error } = await supabase
-        .from('ab_tests')
-        .select('*, user_suggestions(count)')
-        .order('created_at', { ascending: false })
+      return jsonResponse({ suggestions: suggestions || [], ab_test: userVariant, ai_generated: false })
+    }
 
-      if (error) throw error
-
+    if (req.method === 'GET' && action === 'ab-tests') {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (profile?.role !== 'admin') return jsonResponse({ error: 'Forbidden' }, 403)
+      const { data } = await supabase.from('ab_tests').select('*, user_suggestions(count)').order('created_at', { ascending: false })
       return jsonResponse({ ab_tests: data || [] })
     }
 
-    // POST /ab-tests → Create A/B test (admin only)
     if (req.method === 'POST' && action === 'ab-tests') {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role !== 'admin') {
-        return jsonResponse({ error: 'Forbidden' }, 403)
-      }
-
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (profile?.role !== 'admin') return jsonResponse({ error: 'Forbidden' }, 403)
       const body = await req.json()
       const { test_name, description, variant_a, variant_b, traffic_split } = body
-
-      if (!test_name) {
-        return jsonResponse({ error: 'Missing test_name' }, 400)
-      }
-
-      const { data, error } = await supabase
-        .from('ab_tests')
-        .insert({
-          test_name,
-          description,
-          variant_a,
-          variant_b,
-          traffic_split: traffic_split || 50,
-          active: true,
-          created_by: user.id,
-        })
-        .select()
-        .single()
-
+      if (!test_name) return jsonResponse({ error: 'Missing test_name' }, 400)
+      const { data, error } = await supabase.from('ab_tests').insert({
+        test_name, description, variant_a, variant_b,
+        traffic_split: traffic_split || 50, active: true, created_by: user.id,
+      }).select().single()
       if (error) throw error
-
       return jsonResponse({ success: true, ab_test: data })
     }
 
-    // PUT /apply?id=xxx → Apply suggestion (with A/B test tracking)
     if (req.method === 'PUT' && suggestionId && !action) {
-      const { data: suggestion } = await supabase
-        .from('user_suggestions')
-        .select('*, ab_tests(*)')
-        .eq('id', suggestionId)
-        .eq('user_id', user.id)
-        .single()
-
-      if (!suggestion) {
-        return jsonResponse({ error: 'Suggestion not found' }, 404)
-      }
-
-      // Apply the suggestion (update user preference)
-      const { error: prefError } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          preference_key: suggestion.suggestion_type,
-          value: suggestion.suggestion,
-          updated_at: new Date().toISOString(),
-        })
-
-      if (prefError) throw prefError
-
-      // Mark suggestion as applied
-      const { error: updateError } = await supabase
-        .from('user_suggestions')
-        .update({
-          applied: true,
-          applied_at: new Date().toISOString(),
-        })
-        .eq('id', suggestionId)
-
-      if (updateError) throw updateError
-
-      // Track A/B test conversion if applicable
+      const { data: suggestion } = await supabase.from('user_suggestions').select('*, ab_tests(*)').eq('id', suggestionId).eq('user_id', user.id).single()
+      if (!suggestion) return jsonResponse({ error: 'Suggestion not found' }, 404)
+      await supabase.from('user_preferences').upsert({
+        user_id: user.id, preference_key: suggestion.suggestion_type,
+        value: suggestion.suggestion, updated_at: new Date().toISOString(),
+      })
+      await supabase.from('user_suggestions').update({ applied: true, applied_at: new Date().toISOString() }).eq('id', suggestionId)
       if (suggestion.ab_test_id) {
-        await supabase
-          .from('ab_test_conversions')
-          .insert({
-            ab_test_id: suggestion.ab_test_id,
-            user_id: user.id,
-            suggestion_id: suggestionId,
-            converted_at: new Date().toISOString(),
-          })
+        await supabase.from('ab_test_conversions').insert({ ab_test_id: suggestion.ab_test_id, user_id: user.id, suggestion_id: suggestionId, converted: true })
       }
-
-      return jsonResponse({ success: true, message: 'Suggestion applied', ab_test: suggestion.ab_tests })
+      return jsonResponse({ success: true, message: 'Suggestion applied' })
     }
 
-    // PUT /dismiss?id=xxx&action=dismiss → Dismiss suggestion
     if (req.method === 'PUT' && suggestionId && action === 'dismiss') {
-      const { data: suggestion } = await supabase
-        .from('user_suggestions')
-        .select('ab_test_id')
-        .eq('id', suggestionId)
-        .eq('user_id', user.id)
-        .single()
-
-      if (!suggestion) {
-        return jsonResponse({ error: 'Suggestion not found' }, 404)
-      }
-
-      const { error } = await supabase
-        .from('user_suggestions')
-        .update({ dismissed: true })
-        .eq('id', suggestionId)
-        .eq('user_id', user.id)
-
-      if (error) throw error
-
-      // Track dismissal in A/B test if applicable
-      if (suggestion.ab_test_id) {
-        await supabase
-          .from('ab_test_conversions')
-          .insert({
-            ab_test_id: suggestion.ab_test_id,
-            user_id: user.id,
-            suggestion_id: suggestionId,
-            dismissed: true,
-            converted_at: new Date().toISOString(),
-          })
-      }
-
+      await supabase.from('user_suggestions').update({ dismissed: true }).eq('id', suggestionId).eq('user_id', user.id)
       return jsonResponse({ success: true, message: 'Suggestion dismissed' })
     }
 
@@ -208,29 +93,70 @@ Deno.serve(async (req: Request) => {
   }
 })
 
-// Helper: Get user's A/B test variant (deterministic based on user ID hash)
-function getABTestVariant(_supabase: any, userId: string, abTests: any[]): any {
-  if (!abTests || abTests.length === 0) return null
+async function generateAISuggestions(supabase: any, userId: string): Promise<any[]> {
+  try {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single()
+    if (!profile) return []
 
-  // For simplicity, assign user to a variant based on hash of user ID
-  const encoder = new TextEncoder()
-  const data = encoder.encode(userId)
-  
-  // Simple hash: sum of char codes
-  let hash = 0
-  for (let i = 0; i < data.length; i++) {
-    hash = (hash + data[i]) % 100
-  }
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('category, status, created_at, estimated_price, final_price')
+      .or(`customer_id.eq.${userId},worker_id.eq.${userId}`)
+      .order('created_at', { ascending: false })
+      .limit(20)
 
-  for (const test of abTests) {
-    const variant = hash < test.traffic_split ? 'a' : 'b'
-    return {
-      test_id: test.id,
-      test_name: test.test_name,
-      variant: `variant_${variant}`,
-      config: variant === 'a' ? test.variant_a : test.variant_b,
+    if (!orders || orders.length === 0) return []
+
+    const requestId = crypto.randomUUID()
+    const ai = createAICore(supabase, { requestId, userId })
+
+    const isWorker = profile.role === 'worker'
+    const result = await ai.orchestrateInternal('suggestion', async () => ({
+      systemPrompt: `Bạn là chuyên gia phân tích hành vi và đưa ra gợi ý thông minh cho ${isWorker ? 'thợ sửa chữa' : 'khách hàng'} trên nền tảng Vifixa.`,
+      userPrompt: `Người dùng: ${isWorker ? 'Thợ' : 'Khách hàng'}
+Đơn hàng (${orders.length}): ${orders.slice(0, 10).map((o: any) => `${o.category} (${o.status})`).join(', ')}
+${isWorker ? 'Gợi ý về: tối ưu thu nhập, kỹ năng nên học, giờ làm việc hiệu quả' : 'Gợi ý về: dịch vụ phù hợp, gói bảo trì, tiết kiệm chi phí'}
+Trả về JSON array: [{suggestion_type: string, suggestion: object, confidence: 0-1, reason: string}] (tối đa 3 gợi ý)`,
+    }))
+
+    if (!result.success) return []
+
+    const suggestions = Array.isArray(result.data) ? result.data.slice(0, 3) : [result.data]
+    const saved: any[] = []
+
+    for (const sug of suggestions) {
+      const { data } = await supabase.from('user_suggestions').insert({
+        user_id: userId,
+        suggestion_type: sug.suggestion_type || 'ai_generated',
+        suggestion: sug.suggestion || sug,
+        confidence: sug.confidence || 0.5,
+      }).select().single()
+      if (data) saved.push(data)
     }
-  }
 
+    const audit = createAIAudit(supabase)
+    await audit.log({
+      agentType: 'suggestion',
+      input: { orders_count: orders.length, is_worker: isWorker },
+      output: saved,
+      userId,
+    })
+
+    return saved
+  } catch (err) {
+    console.error('AI suggestion generation failed:', err)
+    return []
+  }
+}
+
+function getABTestVariant(userId: string, abTests: any[]): any {
+  if (!abTests?.length) return null
+  let hash = 0
+  const data = new TextEncoder().encode(userId)
+  for (const b of data) hash = (hash + b) % 100
+  for (const test of abTests) {
+    const variant = hash < (test.traffic_split || 50) ? 'a' : 'b'
+    return { test_id: test.id, test_name: test.test_name, variant: `variant_${variant}`, config: variant === 'a' ? test.variant_a : test.variant_b }
+  }
   return null
 }

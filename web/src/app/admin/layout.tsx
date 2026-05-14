@@ -101,7 +101,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { href: '/admin/wallets', label: 'Ví', icon: '💰' },
     { href: '/admin/payouts', label: 'Thanh toán', icon: '💳' },
     { href: '/admin/news', label: 'Bản tin', icon: '📢' },
-    { href: '/admin/ai-logs', label: 'AI Logs', icon: '🤖' },
+    { href: '/admin/ai/dashboard', label: 'AI', icon: '🗺️' },
     { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
   ]
 

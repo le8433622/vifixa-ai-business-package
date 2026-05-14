@@ -1,0 +1,16 @@
+name: AI Weekly Report
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate weekly AI report
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/ai-weekly-report" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"source":"cron"}'

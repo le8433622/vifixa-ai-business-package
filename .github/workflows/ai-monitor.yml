@@ -1,0 +1,16 @@
+name: AI Monitor — Hourly Check
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run AI monitor check
+        run: |
+          curl -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/ai-monitor" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"source":"cron"}'

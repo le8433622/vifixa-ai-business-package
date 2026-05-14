@@ -25,12 +25,15 @@ export default function CoachScreen() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: 'Xin chào! Tôi là AI Coach của Vifixa. Tôi có thể giúp bạn:\n\n• Phân tích hiệu suất làm việc\n• Gợi ý kỹ năng cần học\n• Dự đoán xu hướng việc làm\n• Tư vấn cách tăng điểm tin cậy\n\nBạn muốn hỏi gì?' 
+      content: 'Xin chào! Tôi là AI Coach của Vifixa. Tôi có thể giúp bạn:\n\n• Phân tích hiệu suất làm việc\n• Gợi ý kỹ năng cần học\n• Dự đoán xu hướng việc làm\n• Tư vấn cách tăng điểm tin cậy\n• Tối ưu thu nhập 🚀\n\nBạn muốn hỏi gì?' 
     }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState<WorkerStats | null>(null)
+  const [revenueInsights, setRevenueInsights] = useState<any>(null)
+  const [loadingRevenue, setLoadingRevenue] = useState(false)
+  const [showRevenue, setShowRevenue] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -87,6 +90,37 @@ export default function CoachScreen() {
     } catch (error: any) {
       console.error('fetchStats error:', error)
     }
+  }
+
+  async function fetchRevenueInsights() {
+    setLoadingRevenue(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-worker-revenue`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worker_id: session.user.id }),
+      })
+      if (res.ok) setRevenueInsights(await res.json())
+    } catch { /* best-effort */ }
+    finally { setLoadingRevenue(false); setShowRevenue(true) }
+  }
+
+  async function handlePriceNegotiation(orderId: string, estimatedPrice: number) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-negotiate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, estimated_price: estimatedPrice, category: stats?.topCategory || 'general', description: 'Price negotiation from mobile' }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        Alert.alert('💰 Gợi ý giá', `Giá hợp lý: ${data.fair_price?.toLocaleString()}đ\nKhoảng: ${data.min_acceptable?.toLocaleString()}đ - ${data.max_suggested?.toLocaleString()}đ\n\n${data.reasoning || ''}`)
+      }
+    } catch { Alert.alert('Lỗi', 'Không thể thương lượng giá') }
   }
 
   async function sendMessage() {
@@ -212,7 +246,49 @@ Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Vi�
                 <View style={[styles.dot, { opacity: 0.8 }]} />
               </View>
             </View>
+      )}
+
+      {/* Revenue Insights + Quick Actions */}
+      {stats && (
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 8 }}>
+          <TouchableOpacity onPress={fetchRevenueInsights} style={[styles.actionButton, { flex: 1, backgroundColor: '#059669', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, borderRadius: 10, gap: 6 }]}>
+            <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>🚀</Text>
+            <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Phân tích thu nhập</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {showRevenue && revenueInsights && (
+        <View style={{ margin: 16, marginTop: 0, padding: 14, backgroundColor: '#ecfdf5', borderRadius: 12, borderWidth: 1, borderColor: '#a7f3d0' }}>
+          <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#065f46', marginBottom: 8 }}>📊 Phân tích thu nhập</Text>
+          <Text style={{ fontSize: 13, color: '#047857', marginBottom: 4 }}>Thu nhập: {revenueInsights.revenue?.total?.toLocaleString()}đ</Text>
+          <Text style={{ fontSize: 13, color: '#047857', marginBottom: 4 }}>TB/đơn: {revenueInsights.revenue?.avg_per_job?.toLocaleString()}đ</Text>
+          <Text style={{ fontSize: 13, color: '#047857', marginBottom: 4 }}>Giờ tốt nhất: {revenueInsights.insights?.best_hour || 'N/A'}</Text>
+          <Text style={{ fontSize: 13, color: '#047857', marginBottom: 4 }}>Dịch vụ chính: {revenueInsights.insights?.best_category || 'N/A'}</Text>
+          {revenueInsights.ai_recommendations?.quick_wins?.length > 0 && (
+            <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#a7f3d0' }}>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#065f46', marginBottom: 4 }}>Quick Wins:</Text>
+              {revenueInsights.ai_recommendations.quick_wins.slice(0, 3).map((w: string, i: number) => (
+                <Text key={i} style={{ fontSize: 12, color: '#047857', marginBottom: 2 }}>• {w}</Text>
+              ))}
+            </View>
           )}
+          {revenueInsights.ai_recommendations?.monthly_projection && (
+            <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#a7f3d0' }}>
+              <Text style={{ fontSize: 12, color: '#065f46' }}>
+                Dự báo: {revenueInsights.ai_recommendations.monthly_projection.current?.toLocaleString()}đ → 
+                <Text style={{ fontWeight: 'bold' }}> {revenueInsights.ai_recommendations.monthly_projection.optimized?.toLocaleString()}đ</Text>
+                {revenueInsights.ai_recommendations.monthly_projection.growth_pct && (
+                  <Text style={{ color: '#16a34a' }}> (+{revenueInsights.ai_recommendations.monthly_projection.growth_pct}%)</Text>
+                )}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity onPress={() => setShowRevenue(false)} style={{ marginTop: 8, alignItems: 'center' }}>
+            <Text style={{ color: '#6b7280', fontSize: 12 }}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      )}
         </ScrollView>
 
         {/* Input */}

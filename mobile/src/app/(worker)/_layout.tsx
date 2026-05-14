@@ -1,7 +1,7 @@
 // Worker Stack
 // Per 15_CODEX_BUSINESS_CONTEXT.md - Worker flow
 
-import { Stack } from 'expo-router';
+import { Stack } from 'expo-router'
 
 export default function WorkerLayout() {
   return (
@@ -16,6 +16,7 @@ export default function WorkerLayout() {
       <Stack.Screen name="verify" />
       <Stack.Screen name="wallet" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="route" />
     </Stack>
-  );
+  )
 }

@@ -130,48 +130,86 @@ export default function CustomerChatPage() {
       const { data: { session: authSession } } = await supabase.auth.getSession()
       if (!authSession) { router.push('/login'); return }
 
+      const aiMsgId = `ai-${++idCounter.current}`
+      setMessages(prev => [...prev, { id: aiMsgId, role: 'assistant', content: '', timestamp: new Date(), actions: [] }])
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
           session_id: session?.id || null,
           message: userMessage,
           context: contextOverride,
+          stream: true,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || 'Failed to send message')
       }
 
-      const data = await response.json()
+      if (!response.body) throw new Error('No response body')
 
-      if (data.session_id && session?.id !== data.session_id) {
-        setSession({ id: data.session_id, status: 'active', created_at: new Date() })
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullData: any = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(line.slice(6))
+              fullData = parsed
+              setMessages(prev => prev.map(m =>
+                m.id === aiMsgId ? { ...m, content: parsed.reply || m.content, timestamp: new Date() } : m
+              ))
+            } catch { /* partial chunk, continue */ }
+          }
+        }
       }
 
-      const aiMessage: Message = {
-        id: `ai-${++idCounter.current}`, role: 'assistant',
-        content: data.reply, timestamp: new Date(), actions: data.actions
-      }
-      setMessages(prev => [...prev, aiMessage])
+      if (fullData) {
+        const allActions = [...(fullData.actions || [])]
+        if (fullData.upsell?.show && !fullData.session_complete) {
+          allActions.push({
+            type: 'upsell_card', label: fullData.upsell.suggestion || '',
+            value: fullData.upsell.product_type || '', data: fullData.upsell,
+          })
+        }
+        setMessages(prev => prev.map(m =>
+          m.id === aiMsgId ? { ...m, actions: allActions } : m
+        ))
 
-      if (data.session_id) await loadMessages(data.session_id)
+        if (fullData.session_id && session?.id !== fullData.session_id) {
+          setSession({ id: fullData.session_id, status: 'active', created_at: new Date() })
+        }
 
-      if (data.session_complete) {
-        setTimeout(() => {
-          if (data.order_id) router.push(`/customer/orders/${data.order_id}`)
-          else { alert('Đơn dịch vụ đã được chốt thành công!'); router.push('/customer') }
-        }, 1000)
+        if (fullData.session_id) await loadMessages(fullData.session_id)
+
+        if (fullData.session_complete) {
+          setTimeout(() => {
+            if (fullData.order_id) router.push(`/customer/orders/${fullData.order_id}`)
+            else { alert('Đơn dịch vụ đã được chốt thành công!'); router.push('/customer') }
+          }, fullData.upsell?.show ? 3000 : 1000)
+        }
       }
     } catch (err) {
       console.error('Send message error:', err)
       const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định'
-      setMessages(prev => [...prev, {
+      setMessages(prev => [...prev.filter(m => m.content !== ''), {
         id: `err-${++idCounter.current}`, role: 'assistant',
         content: `⚠️ Xin lỗi, đã có lỗi xảy ra: ${errorMessage}. Vui lòng thử lại.`,
         timestamp: new Date()
@@ -288,6 +326,40 @@ export default function CustomerChatPage() {
             className="mt-4 w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
           >
             ✅ Xác nhận tạo đơn
+          </button>
+        </div>
+      )
+    }
+
+    if (action.type === 'upsell_card') {
+      const upsell = action.data || {}
+      const productLabels: Record<string, string> = {
+        membership: 'Gói hội viên', warranty: 'Bảo hành mở rộng',
+        premium_worker: 'Thợ ưu tiên', material_kit: 'Vật tư',
+        maintenance_plan: 'Bảo trì định kỳ', boost_package: 'Gói nổi bật',
+      }
+      return (
+        <div key={idx} className="mt-3 rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-orange-500/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-sm">💎</span>
+            <span className="font-bold text-sm text-[hsl(var(--vf-text))]">Ưu đãi đặc biệt</span>
+          </div>
+          <p className="text-sm text-[hsl(var(--vf-text))] mb-2">{upsell.suggestion || action.label}</p>
+          {upsell.discount_percent > 0 && (
+            <div className="inline-flex px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-bold mb-2">Giảm {upsell.discount_percent}%</div>
+          )}
+          <div className="text-xs text-[hsl(var(--vf-text-muted))] mb-3">{productLabels[upsell.product_type] || upsell.product_type}</div>
+          <button
+            onClick={() => sendMessage(`Tôi muốn tìm hiểu thêm về ${upsell.product_type || 'ưu đãi này'}`)}
+            className="w-full py-2 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-all shadow-md"
+          >
+            💎 Tìm hiểu thêm
+          </button>
+          <button
+            onClick={() => sendMessage('Không, cảm ơn')}
+            className="w-full py-1.5 mt-1.5 rounded-xl text-xs font-medium text-[hsl(var(--vf-text-muted))] hover:text-[hsl(var(--vf-text-secondary))] transition-all"
+          >
+            Bỏ qua
           </button>
         </div>
       )

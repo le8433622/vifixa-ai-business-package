@@ -1,7 +1,7 @@
 // Service Request Page
 // Per 05_PRODUCT_SOLUTION.md - Customer flow: Create service request
 
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +13,8 @@ export default function ServiceRequest() {
   const [description, setDescription] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [upsell, setUpsell] = useState<{ show: boolean; suggestion: string; productType: string; discountPercent: number } | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -102,6 +104,39 @@ export default function ServiceRequest() {
 
       if (error) throw error;
 
+      setOrderId(order.id);
+
+      // Check for upsell
+      try {
+        const upsellResponse = await fetch(
+          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-upsell`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              trigger_type: 'after_completion',
+              category,
+              order_value: diagnosis.estimated_price_range?.min || 0,
+              is_first_time: false,
+            }),
+          }
+        );
+        const upsellData = await upsellResponse.json();
+        if (upsellData.show_upsell && upsellData.suggestion) {
+          setUpsell({
+            show: true,
+            suggestion: upsellData.suggestion,
+            productType: upsellData.product_type,
+            discountPercent: upsellData.discount_percent || 0,
+          });
+          setLoading(false);
+          return;
+        }
+      } catch { /* upsell best-effort */ }
+
       Alert.alert('Thành công', 'Yêu cầu dịch vụ đã được tạo');
       router.push(`/(customer)/${order.id}`);
     } catch (error: any) {
@@ -149,6 +184,45 @@ export default function ServiceRequest() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {upsell?.show && (
+        <Modal transparent animationType="slide">
+          <View style={styles.upsellOverlay}>
+            <View style={styles.upsellModal}>
+              <Text style={styles.upsellIcon}>💎</Text>
+              <Text style={styles.upsellTitle}>Ưu đãi đặc biệt!</Text>
+              <Text style={styles.upsellDesc}>{upsell.suggestion}</Text>
+              {upsell.discountPercent > 0 && (
+                <View style={styles.upsellBadge}>
+                  <Text style={styles.upsellBadgeText}>Giảm {upsell.discountPercent}%</Text>
+                </View>
+              )}
+              <Text style={styles.upsellLabel}>{upsell.productType === 'membership' ? 'Gói hội viên' : upsell.productType}</Text>
+              <View style={styles.upsellActions}>
+                <TouchableOpacity
+                  style={styles.upsellPrimaryButton}
+                  onPress={() => {
+                    setUpsell(null)
+                    Alert.alert('Cảm ơn!', 'Vui lòng vào mục Tài khoản để đăng ký.')
+                    orderId && router.push(`/(customer)/${orderId}`)
+                  }}
+                >
+                  <Text style={styles.upsellPrimaryText}>Tìm hiểu thêm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.upsellSkipButton}
+                  onPress={() => {
+                    setUpsell(null)
+                    orderId && router.push(`/(customer)/${orderId}`)
+                  }}
+                >
+                  <Text style={styles.upsellSkipText}>Bỏ qua</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -220,6 +294,25 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
+  upsellOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: 20,
+  },
+  upsellModal: {
+    backgroundColor: 'white', borderRadius: 16, padding: 24,
+    width: '100%', maxWidth: 340, alignItems: 'center',
+  },
+  upsellIcon: { fontSize: 48, marginBottom: 12 },
+  upsellTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 8, color: '#1a1a1a' },
+  upsellDesc: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 12, lineHeight: 20 },
+  upsellBadge: { backgroundColor: '#fee2e2', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 },
+  upsellBadgeText: { color: '#dc2626', fontWeight: 'bold', fontSize: 13 },
+  upsellLabel: { fontSize: 13, color: '#999', marginBottom: 20 },
+  upsellActions: { width: '100%', gap: 8 },
+  upsellPrimaryButton: { backgroundColor: '#f59e0b', borderRadius: 12, padding: 14, alignItems: 'center' },
+  upsellPrimaryText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  upsellSkipButton: { borderRadius: 12, padding: 12, alignItems: 'center' },
+  upsellSkipText: { color: '#999', fontSize: 14 },
   submitButtonText: {
     color: 'white',
     fontSize: 16,

@@ -1,92 +1,76 @@
-// AI Dispute Resolution Edge Function
-// Per 11_AI_OPERATING_MODEL.md - Dispute Agent
+// ⚖️ AI Tranh chấp — Phân tích và đề xuất giải pháp cho khiếu nại
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createAIProvider } from '../_shared/ai-provider.ts';
-import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
-
-interface DisputeRequest {
-  order_id: string;
-  complainant_id: string;
-  complaint_type: 'quality' | 'pricing' | 'timeliness' | 'damage';
-  description: string;
-  evidence_urls?: string[];
-}
-
-interface DisputeResponse {
-  summary: string;
-  severity: 'low' | 'medium' | 'high';
-  recommended_action: 'refund' | 'rework' | 'partial_refund' | 'dismiss';
-  confidence: number;
-  explanation: string;
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createAICore } from '../_shared/ai-core.ts'
+import { createAIRAG } from '../_shared/ai-rag.ts'
+import { createAIAudit } from '../_shared/ai-audit.ts'
+import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req) => {
-  const opt = handleOptions(req);
-  if (opt) return opt;
+  const opt = handleOptions(req)
+  if (opt) return opt
 
   try {
-    const user = await verifyAuth(req);
-    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-    checkRateLimit(user.id, clientIp, { maxRequests: 5 });
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const user = await verifyAuth(req)
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    checkRateLimit(user.id, clientIp, { maxRequests: 5 })
 
-    const { order_id, complainant_id, complaint_type, description, evidence_urls }: DisputeRequest = await req.json();
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    const { order_id, complainant_id, complaint_type, description, evidence_urls } = await req.json()
     if (!order_id || !complainant_id || !complaint_type || !description) {
-      return jsonResponse({ error: 'Missing required fields' }, 400);
+      return jsonResponse({ error: 'Thiếu trường bắt buộc' }, 400)
     }
 
-    const requestId = crypto.randomUUID();
-    const disputeResult = await createAIProvider(requestId).summarizeDispute({
+    const requestId = crypto.randomUUID()
+    const rag = createAIRAG(supabase)
+    const { order, pastDisputes } = await rag.getDisputeContext(order_id)
+
+    const ai = createAICore(supabase, { requestId, userId: user.id })
+    const result = await ai.summarizeDispute({
       order_id, complainant_id, complaint_type, description, evidence_urls,
-    });
+      metadata: { past_disputes: pastDisputes.length, order_value: order?.final_price || 0 },
+    })
 
-    // Human review threshold: flag disputes with low confidence or high severity refunds
-    const needsHumanReview = disputeResult.confidence < 0.6 ||
-      (disputeResult.recommended_action === 'refund' && disputeResult.confidence < 0.8) ||
-      disputeResult.severity === 'high';
-
-    const enrichedResult = {
-      ...disputeResult,
-      needs_human_review: needsHumanReview,
-      review_reason: needsHumanReview
-        ? (disputeResult.confidence < 0.6 ? 'Low AI confidence' :
-           disputeResult.severity === 'high' ? 'High severity' :
-           'High-value refund recommendation')
-        : null,
-    };
-
-    await supabase.from('ai_logs').insert({
-      user_id: user.id,
-      request_id: requestId,
-      agent_type: 'dispute',
-      input: { order_id, complainant_id, complaint_type, description, evidence_urls },
-      output: enrichedResult,
-    });
-
-    // If needs human review, create review task
-    if (needsHumanReview) {
-      try {
-        await supabase.from('admin_review_queue').insert({
-          entity_type: 'dispute',
-          entity_id: order_id,
-          ai_decision: enrichedResult,
-          review_status: 'pending',
-          created_by: user.id,
-        });
-      } catch (reviewError) {
-        console.error('Failed to create review task:', reviewError);
-      }
+    const ketQua = result.success ? result.data : {
+      summary: 'AI dispute unavailable — routed to manual review',
+      severity: 'medium', recommended_action: 'review', confidence: 0,
+      explanation: 'Dịch vụ AI tạm thời không khả dụng',
     }
 
-    return jsonResponse(enrichedResult);
+    const canNguoiXemXet = !result.success || ketQua.confidence < 0.6 ||
+      (ketQua.recommended_action === 'refund' && ketQua.confidence < 0.8) ||
+      ketQua.severity === 'high'
+
+    const duLieuRa = {
+      ...ketQua,
+      can_nguoi_xem_xet: canNguoiXemXet,
+      ly_do_xem_xet: canNguoiXemXet
+        ? (!result.success ? 'AI không khả dụng' : ketQua.confidence < 0.6 ? 'Độ tin cậy thấp' : ketQua.severity === 'high' ? 'Mức độ nghiêm trọng cao' : 'Đề xuất hoàn tiền giá trị lớn')
+        : null,
+    }
+
+    const audit = createAIAudit(supabase)
+    await audit.log({
+      agentType: 'tranh_chap',
+      input: { maDon: order_id, nguoiKhieuNai: complainant_id, loai: complaint_type, moTa: description },
+      output: duLieuRa, userId: user.id, requestId,
+    })
+
+    if (canNguoiXemXet) {
+      await supabase.from('admin_review_queue').insert({
+        entity_type: 'dispute', entity_id: order_id,
+        ai_decision: duLieuRa, review_status: 'pending', created_by: user.id,
+      })
+    }
+
+    return jsonResponse(duLieuRa)
   } catch (error: any) {
-    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
-    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
-    console.error('Dispute error:', error);
-    return jsonResponse({ error: error.message }, 500);
+    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401)
+    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429)
+    console.error('Lỗi xử lý tranh chấp:', error)
+    return jsonResponse({ error: error.message || 'Lỗi máy chủ nội bộ' }, 500)
   }
-});
+})
