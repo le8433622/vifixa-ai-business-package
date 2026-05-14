@@ -125,17 +125,17 @@ export default function WorkerDashboard() {
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(worker)/jobs')}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/(worker)/jobs')}>
           <Text style={styles.actionButtonText}>Xem tất cả việc làm</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondaryButton]}
-          onPress={() => router.push('/(worker)/earnings')}
-        >
+        <TouchableOpacity style={[styles.actionButton, styles.secondaryButton]} onPress={() => router.push('/(worker)/earnings')}>
           <Text style={[styles.actionButtonText, { color: '#3b82f6' }]}>Chi tiết thu nhập</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#fef3c7' }]} onPress={() => router.push('/(worker)/heatmap' as any)}>
+          <Text style={[styles.actionButtonText, { color: '#d97706' }]}>🔥 Bản đồ nhu cầu</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#dbeafe' }]} onPress={() => router.push('/(worker)/route' as any)}>
+          <Text style={[styles.actionButtonText, { color: '#2563eb' }]}>🗺️ Tối ưu tuyến đường</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionButton, styles.secondaryButton]}

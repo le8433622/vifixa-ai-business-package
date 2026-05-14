@@ -17,6 +17,7 @@ export default function WorkerLayout() {
       <Stack.Screen name="wallet" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="route" />
+      <Stack.Screen name="heatmap" />
     </Stack>
   )
 }
