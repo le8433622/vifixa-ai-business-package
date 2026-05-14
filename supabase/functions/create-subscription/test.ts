@@ -1,1 +1,0 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; test('create-subscription/ function exists', (_t) => { assert.ok(true, 'Function file exists'); }); test('create-subscription/ handles basic request', (_t) => { assert.ok(true, 'Placeholder test'); });

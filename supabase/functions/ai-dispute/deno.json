@@ -1,5 +1,0 @@
-{
-  "imports": {
-    "@/shared/ai-provider.ts": "../../_shared/ai-provider.ts"
-  }
-}
