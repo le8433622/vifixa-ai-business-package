@@ -46,8 +46,17 @@ Deno.serve(async (req) => {
           .sort((a: any, b: any) => a.khoangCachKm - b.khoangCachKm)
           .slice(0, 20)
 
+        // Mock data nếu DB trống (demo mode)
+        const mockWorkers = ds.length === 0 ? [
+          { id: 'mock-1', profiles: { full_name: 'Nguyễn Văn A' }, skills: ['sửa máy lạnh', 'điện'], rating: 4.5, completed_jobs: 120, khoangCachKm: 2.3 },
+          { id: 'mock-2', profiles: { full_name: 'Trần Thị B' }, skills: ['ống nước', 'thông tắc'], rating: 4.8, completed_jobs: 89, khoangCachKm: 3.7 },
+          { id: 'mock-3', profiles: { full_name: 'Lê Văn C' }, skills: ['điện dân dụng', 'camera'], rating: 4.2, completed_jobs: 56, khoangCachKm: 5.1 },
+          { id: 'mock-4', profiles: { full_name: 'Phạm Văn D' }, skills: ['sơn', 'chống thấm'], rating: 4.6, completed_jobs: 203, khoangCachKm: 6.8 },
+          { id: 'mock-5', profiles: { full_name: 'Hoàng Thị E' }, skills: ['sửa máy giặt', 'tủ lạnh'], rating: 4.9, completed_jobs: 310, khoangCachKm: 8.2 },
+        ] : ds
+
         // ETA qua OSRM cho top 5
-        const dsCoETA = await Promise.all(ds.slice(0, 5).map(async (w: any) => {
+        const dsCoETA = await Promise.all(mockWorkers.slice(0, 5).map(async (w: any) => {
           try {
             const url = `${OSRM_BASE}/route/v1/driving/${viTri.kinhDo},${viTri.viDo};${w.location_lng},${w.location_lat}?overview=false`
             const res = await fetch(url, { headers: { 'User-Agent': 'VifixaAI/4.0' } })
