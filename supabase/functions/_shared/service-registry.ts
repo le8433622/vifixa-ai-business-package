@@ -2,6 +2,8 @@
 // Core system: minimal, stable
 // Plugins: mọi dịch vụ trong cuộc sống (🔧🧹👨‍🏫👩‍⚕️🚗...)
 
+import { logVifixa } from './logger.ts'
+
 export interface ServiceProvider {
   id: string
   name: string
@@ -61,7 +63,7 @@ class ServiceRegistry {
   
   register(service: ServiceDefinition) {
     this.services.set(service.id, service)
-    console.log(`[ServiceRegistry] Registered: ${service.icon} ${service.name}`)
+    logVifixa('service-registry', 'registered', { icon: service.icon, name: service.name })
   }
   
   get(id: string): ServiceDefinition | undefined {

@@ -1,5 +1,6 @@
 // Worker Jobs Edge Function
 // Per 21_API_SPECIFICATION.md - Profile, jobs, earnings
+// TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
 // Per 05_PRODUCT_SOLUTION.md - Worker flow
 
 import { corsHeaders } from '../_shared/cors.ts';

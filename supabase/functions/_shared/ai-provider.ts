@@ -2,6 +2,8 @@
 // NVIDIA AI Provider for Vifixa AI
 // Optimized for NVIDIA API integration
 
+import { logVifixa } from './logger.ts'
+
 export interface AIProvider {
   diagnose(input: DiagnosisInput, knowledgeBase?: any[]): Promise<DiagnosisOutput>;
   estimatePrice(input: PriceInput, priceBands?: any[]): Promise<PriceOutput>;
@@ -361,7 +363,7 @@ export class AIProvider {
       console.error('[NVIDIA] Missing NVIDIA_API_KEY environment variable');
     }
     
-    console.log(`[NVIDIA] Initialized requestId=${this.requestId} model=${this.model}`);
+    logVifixa('nvidia', 'initialized', { requestId: this.requestId, model: this.model });
   }
 
   async healthcheck(): Promise<{ ok: boolean; model: string; latency: number; error?: string }> {
@@ -515,7 +517,7 @@ QUY TẮC AN TOÀN (BẮT BUỘC):
         
         if (attempt < maxRetries - 1) {
           const delay = 1000 * Math.pow(2, attempt);
-          console.log(`[NVIDIA:${this.requestId}] Retrying in ${delay}ms...`);
+          logVifixa('nvidia', 'retry', { requestId: this.requestId, delayMs: delay });
           await new Promise(r => setTimeout(r, delay));
         }
       }

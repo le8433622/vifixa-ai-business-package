@@ -1,5 +1,6 @@
 // Enhanced AI Fraud Check Edge Function
 // Per 12_OPERATIONS_AND_TRUST.md - Anti-fraud detection
+// TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
 // Per Step 7: Trust & Quality - Task 5
 
 import { corsHeaders } from '../_shared/cors.ts';

@@ -1,5 +1,6 @@
 // AI Warranty Check Edge Function
 // Per 12_OPERATIONS_AND_TRUST.md - Warranty claims
+// TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
 // Per Step 7: Trust & Quality - Task 7
 
 import { corsHeaders } from '../_shared/cors.ts';

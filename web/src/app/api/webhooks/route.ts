@@ -30,15 +30,13 @@ export async function POST(request: NextRequest) {
     // Handle different webhook events
     switch (eventType) {
       case 'user.created':
-        // Handle new user signup
-        console.log('New user created:', body.record);
+        console.log('[VIFIXA][webhook] user_created | user_id=' + body.record?.id);
         break;
       case 'order.completed':
-        // Handle completed order
-        console.log('Order completed:', body.record);
+        console.log('[VIFIXA][webhook] order_completed | order_id=' + body.record?.id);
         break;
       default:
-        console.log('Unhandled webhook event:', eventType);
+        console.log('[VIFIXA][webhook] unhandled_event | type=' + eventType);
     }
 
     return NextResponse.json({ success: true });

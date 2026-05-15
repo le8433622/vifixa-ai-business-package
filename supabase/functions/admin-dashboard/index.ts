@@ -1,5 +1,6 @@
 // Admin Dashboard Edge Function
 // Per 21_API_SPECIFICATION.md - Dashboard, users, workers, disputes
+// TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
 // Per 05_PRODUCT_SOLUTION.md - Admin flow
 
 import { corsHeaders } from '../_shared/cors.ts';
