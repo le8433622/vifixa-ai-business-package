@@ -30,6 +30,14 @@ if grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ > /dev/null 2>&1
 fi
 echo "✅"
 
+printf "🔍 console.log in API... "
+if grep -rn "console.log" web/src/app/api/ 2>/dev/null | grep -v ".test.ts" | grep . > /dev/null 2>&1; then
+  echo "⚠️  Found (check above)"
+  grep -rn "console.log" web/src/app/api/ 2>/dev/null | grep -v ".test.ts"
+else
+  echo "✅"
+fi
+
 # 3. Tests
 printf "🔍 Deno Tests... "
 deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts 1>&2

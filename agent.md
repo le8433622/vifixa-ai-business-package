@@ -813,6 +813,9 @@ echo "✅ Self-check pass → commit allowed"
     - Không deploy khi build còn đỏ
     - Không push khi test còn fail
     - Không merge khi CI chưa xanh
+23. **Pre-commit hook kiểm tra 6 mục** — E2E workflow + @ts-nocheck + Admin routes + console.log trong API + Deno tests + Web build (CI)
+    - console.log trong `web/src/app/api/` = ⚠️ cảnh báo (server-side logging là được phép, cần xem xét từng cái)
+    - Web build check chạy trong CI (không trong pre-commit vì chậm)
 
 ### Lưu ý Husky
 - Sau `npx husky init`, pre-commit hook BỊ GHI ĐÈ — phải restore lại từ `.husky/pre-commit` (bản custom)
@@ -939,6 +942,21 @@ Thumbs.db
 - 🚀 **Git commit + push** — đồng bộ toàn bộ lên GitHub
 - 📋 **Rule #22** — Đồng bộ đa nền tảng sau mỗi Phase
 - 📝 **Lưu ý Husky** — thêm vào agent.md để không bị ghi đè lần sau
+
+### 2026-05-15 — v1.9: Build Cleanup & TypeScript Fixes
+
+### 2026-05-15 — v1.10: Pre-commit + Turbopack + Rule #23
+- 🔧 **Turbopack root config** — thêm `turbopack.root` vào next.config.ts, hết warning
+- 🛡️ **Pre-commit hook** — thêm check `console.log` trong API routes
+- 🤖 **GitHub Actions** — thêm `setup-node` + check console.log trong API
+- 📋 **Rule #23** — Pre-commit kiểm tra 6 mục, web build trong CI
+- 🚀 **Web build** — 0 warnings, 0 errors
+- 🔧 **Removed `typescript.ignoreBuildErrors`** — build giờ kiểm tra type thật
+- 🧹 **Fixed 15+ type errors** — forwardRef, Supabase types, missing modules, L globals
+- 📦 **Created `src/lib/haversine.ts`** — missing import cho DistanceBadge
+- 🏗️ **Deleted `playwright.config.ts`** — stale e2e config (tests deleted)
+- 🚀 **Pushed to GitHub** — 905c30a, 29 files changed
+- 📋 **Lesson**: `typescript.ignoreBuildErrors: true` che giấu lỗi thật — không bao giờ dùng
 - 🤖 **Self-Enforcement section** — 6 pre-commit self-checks (E2E, @ts-nocheck, admin routes, tests, agent.md, ERROR_ANALYSIS)
 - ✅ **Script chạy 1 lệnh** — copy-paste terminal, check tất cả rules
 - ⛔ **5 điều khoản bắt buộc** — KHÔNG được từ chối: "để sau", mark complete khi đỏ, skip check, skip changelog

@@ -8,6 +8,9 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Self-Check E2E Workflow
         run: |
           echo "🔍 Checking Customer..."
@@ -27,6 +30,9 @@ jobs:
           echo "🔍 Admin routes in customer/worker..."
           ! grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ | grep .
           echo "✅ Admin routes CLEAN"
+          echo "🔍 console.log in API routes..."
+          ! grep -rn "console.log" web/src/app/api/ | grep -v ".test.ts" | grep .
+          echo "✅ console.log CLEAN"
       - name: Deno Test
         run: deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts
       - name: Web Build
