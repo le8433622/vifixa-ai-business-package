@@ -11,9 +11,11 @@
     "deploy:web": "cd web && vercel --prod",
     "deploy:mobile:ios": "cd mobile && eas build --platform ios",
     "deploy:mobile:android": "cd mobile && eas build --platform android",
-    "deploy:all": "npm run deploy:supabase && npm run deploy:web"
+    "deploy:all": "npm run deploy:supabase && npm run deploy:web",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "deno": "^1.40.0"
+    "deno": "^1.40.0",
+    "typescript": "^6.0.3"
   }
 }

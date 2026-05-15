@@ -5,6 +5,11 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 import { createAICore } from '../_shared/ai-core.ts';
+import { buildPersonalizedPrompt, getPersonalizedWelcome, type UserData } from '../_shared/personalization-engine.ts';
+import { webSearch, fetchWebPage, shouldSearch, extractSearchQuery, formatSearchResults } from '../_shared/web-search.ts';
+import { serviceRegistry, type ServiceDefinition } from '../_shared/service-registry.ts';
+import { buildCoTPrompt, buildReActPrompt, parseReasoningTrace, formatReasoningForUI } from '../_shared/reasoning-engine.ts';
+import { processFeedback, adaptPersonality, consolidateMemory, generateInsights, type FeedbackEvent, type LearnedFact } from '../_shared/learning-engine.ts';
 
 interface CompanionChatRequest {
   message: string;
@@ -68,9 +73,10 @@ Deno.serve(async (req: Request) => {
 
      // Initialize AICore for NVIDIA NIM processing
      const aiCore = createAICore(supabase, {
-       userId: user.id,
-       requestId: crypto.randomUUID(),
-     });
+        userId: user.id,
+        requestId: crypto.randomUUID(),
+        persona: context.persona,
+      });
 
      // Classify intent using AI Core
      let intent = 'general_chat'; // fallback
@@ -179,8 +185,51 @@ Deno.serve(async (req: Request) => {
 
      // Intent is already classified above using AI Core
     
+    // Build personalized user data for the AI
+    const userData: UserData = {
+      userId: user.id,
+      persona: context.persona,
+      name: companionProfile?.full_name || user.email?.split('@')[0] || 'Người dùng',
+      email: user.email,
+      companionProfile: companionProfile ? {
+        personality_traits: companionProfile.personality_traits,
+        communication_style: companionProfile.communication_style,
+        interests: companionProfile.interests,
+        goals: companionProfile.goals,
+        tone: companionProfile.tone,
+        formality: companionProfile.formality,
+        empathy_level: companionProfile.empathy_level,
+        autonomy_level: companionProfile.autonomy_level,
+      } : undefined,
+      memories: (memories || []).map(m => ({
+        key: m.key, value: m.value, category: m.category,
+        importance: m.importance, created_at: m.created_at,
+      })),
+      devices: knowledge && 'devices' in knowledge ? (knowledge as any).devices : undefined,
+      skills: knowledge && 'skills' in knowledge ? (knowledge as any).skills : undefined,
+      orders: undefined, // Will be fetched if needed
+      currentTime: new Date().toISOString(),
+      sessionCount: await supabase.from('companion_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .then(r => r.count || 0),
+      lastSessionDate: memories?.find(m => m.category === 'session_end')?.created_at,
+      totalConversations: memories?.filter(m => m.category === 'conversation').length || 0,
+    }
+
+    // If new session, send personalized welcome message
+    const isFirstMessage = !context.session_id || !memories?.length
+    let welcomeReply = ''
+    if (isFirstMessage) {
+      welcomeReply = getPersonalizedWelcome(userData)
+    }
+
+    // Override the AI Core's system prompt with personalized one
+    const systemPrompt = buildPersonalizedPrompt('chat', userData)
+
     // Prepare variables for response
-    let reply: string = "Xin lỗi, tôi không hiểu. Bạn có thể mô tả rõ hơn không?";
+    let reply: string = welcomeReply || "Xin lỗi, tôi không hiểu. Bạn có thể mô tả rõ hơn không?";
     let actions: Array<{ type: string; label: string }> = [];
     let newFacts: Array<{ key: string; value: string; importance: number }> = [];
 
@@ -398,18 +447,63 @@ Deno.serve(async (req: Request) => {
        }
      }
     else {
-      // General chat or fallback - use AI chat function for natural conversation
+      // General chat or fallback
+      // Step 1: Service Detection (Service Abstraction Layer)
+      let detectedService: ServiceDefinition | undefined
+      try {
+        const matched = serviceRegistry.detect(message)
+        if (matched.length > 0) {
+          detectedService = matched[0]
+          // Store detected service in memory
+          newFacts.push({
+            key: 'last_detected_service',
+            value: detectedService.name,
+            importance: 3
+          })
+        }
+      } catch (svcError) {
+        console.warn('[Companion] Service detection error:', svcError)
+      }
+
+      // Step 2: Web Search if needed
+      let webContext = ''
+      try {
+        if (shouldSearch(message)) {
+          const query = extractSearchQuery(message)
+          const searchResults = await webSearch(query, 5)
+          if (searchResults.length > 0) {
+            webContext = formatSearchResults(searchResults)
+            newFacts.push({
+              key: 'last_web_search',
+              value: `${query}: ${searchResults[0].title}`,
+              importance: 2
+            })
+          }
+        }
+      } catch (searchError) {
+        console.warn('[Companion] Web search error:', searchError)
+      }
+
+      // Step 3: Build reasoning prompt (Chain-of-Thought)
+      const serviceName = detectedService?.name || 'Tư vấn chung'
+      const reasoningPrompt = buildCoTPrompt(serviceName, message, {
+        userInfo: companionProfile?.full_name,
+        serviceInfo: detectedService?.description,
+        memoryHints: (memories || []).filter(m => m.importance >= 3).slice(0, 5).map(m => m.value),
+      })
+
+      // Step 4: Call AI with enhanced reasoning
       try {
         const chatResponse = await aiCore.chat({
-          message,
+          systemPrompt: `${systemPrompt}\n\n${reasoningPrompt}`,
+          message: webContext ? `${message}\n\n${webContext}` : message,
           context: {
             persona: context.persona,
             companionProfile,
             memories: memories || [],
-            knowledge,
+            knowledge: { ...knowledge, detectedService },
             timestamp: new Date().toISOString()
           },
-          // Include conversation history as messages
           history: memories?.filter(m => m.category === 'conversation')
                         .map(m => ({
                           role: m.key.includes('_user_') ? 'user' : 'assistant',
@@ -429,8 +523,27 @@ Deno.serve(async (req: Request) => {
             }));
           }
           
-          // Extract any new facts from AI response (if implemented)
-          // For now, we'll rely on explicit fact storage above
+          // Extract reasoning trace for UI display
+          const trace = parseReasoningTrace(data.reasoning || '')
+          if (trace.steps.length > 0) {
+            const reasoningUI = formatReasoningForUI(trace)
+            reply += reasoningUI
+          }
+
+          // Learn from this interaction
+          const learningFacts = processFeedback({
+            userId: user.id,
+            type: 'conversation_end',
+            data: {
+              outcome: data.session_complete ? 'success' : 'continue',
+              summary: message.slice(0, 100),
+              detectedService: serviceName,
+            },
+            timestamp: new Date().toISOString(),
+          })
+          for (const fact of learningFacts) {
+            newFacts.push(fact)
+          }
         } else {
           reply = 'Xin lỗi, tôi đang gặp sự cố xử lý. Vui lòng thử lại sau.';
         }

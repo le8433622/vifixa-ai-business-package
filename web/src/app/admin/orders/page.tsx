@@ -1,165 +1,89 @@
-// Admin Orders Management Page
-// Per 05_PRODUCT_SOLUTION.md - Admin flow: Track orders
-// Per Step 3: Build admin flows
+'use client'
 
-'use client';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
-interface Order {
-  id: string;
-  category: string;
-  description: string;
-  status: string;
-  estimated_price: number;
-  final_price?: number;
-  customer_email?: string;
-  created_at: string;
-  fraud_alerts?: any[];
-}
+type Order = { id: string; category: string; status: string; estimated_price: number; customer_id: string; worker_id?: string; created_at: string; payment_status?: string }
 
 export default function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const router = useRouter()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<string>('all')
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  useEffect(() => { load() }, [])
 
-  async function fetchOrders() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/');
-        return;
-      }
-
-      const response = await fetch('/api/ai/admin-dashboard?action=orders', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(data.orders || []);
-      } else {
-        router.push('/admin');
-      }
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
+  async function load() {
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false })
+    setOrders(data as any || [])
+    setLoading(false)
   }
 
-  async function checkFraud(orderId: string) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-fraud-check`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          order_id: orderId,
-          user_id: session.user.id,
-          check_type: 'suspicious_activity',
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.alerts?.length > 0) {
-          alert(`Phát hiện ${data.alerts.length} cảnh báo gian lận!`);
-        } else {
-          alert('Không phát hiện gian lận.');
-        }
-        fetchOrders();
-      }
-    } catch (error: any) {
-      alert(`Lỗi: ${error.message}`);
-    }
+  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter)
+  const stats = {
+    total: orders.length,
+    revenue: orders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.estimated_price || 0), 0),
+    pending: orders.filter(o => o.status === 'pending').length,
+    disputed: orders.filter(o => o.status === 'disputed').length,
   }
+
+  if (loading) return <div className="flex justify-center py-20 bg-gray-900"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" /></div>
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <button
-        onClick={() => router.push('/admin')}
-        className="text-blue-600 hover:underline mb-6"
-      >
-        ← Back to Dashboard
-      </button>
-
-      <h1 className="text-3xl font-bold mb-6">Manage Orders</h1>
-
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Est. Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Final Price</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-              </tr>
-            </thead>
-              <tbody className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <tr key={order.id} className={order.fraud_alerts?.length > 0 ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"}>
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-medium">{order.category}</p>
-                        <p className="text-sm text-gray-600 truncate max-w-xs">{order.description}</p>
-                        {order.fraud_alerts?.length > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
-                            ⚠️ {order.fraud_alerts.length} cảnh báo
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{order.customer_email || '-'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        order.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        order.status === 'disputed' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">${order.estimated_price}</td>
-                    <td className="px-6 py-4">{order.final_price ? `$${order.final_price}` : '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => checkFraud(order.id)}
-                        className="text-sm bg-orange-100 text-orange-700 px-3 py-1 rounded hover:bg-orange-200"
-                      >
-                        Check Fraud
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-          </table>
+    <div className="max-w-5xl mx-auto p-4 space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-100">📋 Orders</h1>
+        <div className="flex gap-3 text-sm text-gray-400">
+          <span>Tổng: <strong className="text-gray-200">{stats.total}</strong></span>
+          <span>Doanh thu: <strong className="text-emerald-400">{stats.revenue.toLocaleString()}₫</strong></span>
+          <span>Pending: <strong className="text-amber-400">{stats.pending}</strong></span>
+          <span>Disputed: <strong className="text-rose-400">{stats.disputed}</strong></span>
         </div>
-      )}
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {['all', 'pending', 'matched', 'in_progress', 'completed', 'disputed'].map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${filter === s ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+            {s === 'all' ? 'Tất cả' : s}
+          </button>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-gray-300">
+          <thead>
+            <tr className="border-b border-gray-700 text-gray-500 text-left">
+              <th className="py-3 px-4">ID</th><th className="py-3 px-4">Dịch vụ</th><th className="py-3 px-4">Status</th><th className="py-3 px-4">Giá</th><th className="py-3 px-4">Thanh toán</th><th className="py-3 px-4">Ngày</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(o => (
+              <tr key={o.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={() => router.push(`/customer/orders/${o.id}`)}>
+                <td className="py-3 px-4 font-mono text-xs text-gray-500">{o.id.slice(0, 8)}</td>
+                <td className="py-3 px-4">{o.category}</td>
+                <td className="py-3 px-4">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    o.status === 'completed' ? 'bg-emerald-900/50 text-emerald-300'
+                    : o.status === 'in_progress' ? 'bg-blue-900/50 text-blue-300'
+                    : o.status === 'pending' ? 'bg-amber-900/50 text-amber-300'
+                    : o.status === 'disputed' ? 'bg-rose-900/50 text-rose-300'
+                    : 'bg-gray-700 text-gray-400'
+                  }`}>{o.status}</span>
+                </td>
+                <td className="py-3 px-4">{(o.estimated_price || 0).toLocaleString()}₫</td>
+                <td className="py-3 px-4">
+                  <span className={`text-xs ${o.payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {o.payment_status || 'unpaid'}
+                  </span>
+                </td>
+                <td className="py-3 px-4 text-gray-500">{new Date(o.created_at).toLocaleDateString('vi-VN')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  );
+  )
 }

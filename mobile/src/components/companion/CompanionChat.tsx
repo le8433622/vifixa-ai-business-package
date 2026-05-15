@@ -15,6 +15,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
+import AvailableWorkersMap from '@/components/map/AvailableWorkersMap';
 
 interface Message {
   id: string;
@@ -48,8 +49,10 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [showWorkerMap, setShowWorkerMap] = useState(false);
+  const [selectedWorkerSkills, setSelectedWorkerSkills] = useState<string[]>([]);
   const flatListRef = useRef<FlatList>(null);
-  const fileInputRef = useRef<any>(null); // For web fallback, but we'll use ImagePicker in mobile
+  const fileInputRef = useRef<any>(null);
 
   useEffect(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
@@ -142,6 +145,14 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
     if (onAction) {
       onAction(action);
     }
+
+    // Handle specific actions that need special UI
+    if (action.type === 'match_worker') {
+      // Extract skills from action data if available
+      const skillsFromData = action.data?.skills || [];
+      setSelectedWorkerSkills(skillsFromData);
+      setShowWorkerMap(true);
+    }
   }
 
   async function handleImageUpload() {
@@ -162,7 +173,6 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
 
       const { data: { session: authSession } } = await supabase.auth.getSession();
       if (!authSession) {
-        // In a real app, we'd handle navigation to login
         Alert.alert('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại.');
         return;
       }
@@ -275,6 +285,24 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
         </View>
       )}
 
+      {/* Worker Map View - shown when match_worker action is triggered */}
+      {showWorkerMap && (
+        <View style={{ flex: 1 }}>
+          <AvailableWorkersMap
+            requiredSkills={selectedWorkerSkills}
+            onWorkerSelect={(workerId) => {
+              // When a worker is selected, we can send a message to the chat
+              // to continue the conversation with the selected worker context
+              setShowWorkerMap(false);
+              
+              // Send a message indicating worker selection
+              setInput(`Tôi đã chọn thợ ID: ${workerId}. Bạn có thể tiếp tục với quy trình đặt dịch vụ.`);
+              sendMessage();
+            }}
+          />
+        </View>
+      )}
+
       {/* Input Area */}
       <View style={styles.inputContainer}>
         <View style={styles.inputInner}>
@@ -303,6 +331,44 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
         </View>
       </View>
     </React.Fragment>
+  );
+}
+
+function renderMessage({ item }: { item: Message }) {
+  const isUser = item.role === 'user';
+  
+  return (
+    <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.assistantMessage]}>
+      <View style={styles.messageHeader}>
+        <Text style={styles.messageIcon}>
+          {item.role === 'assistant' ? (persona === 'customer' ? '🤖' : persona === 'worker' ? '🔧' : '🛡️') : '👤'}
+        </Text>
+        <Text style={[styles.messageTime, isUser ? styles.userTime : styles.assistantTime]}>
+          {item.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+      <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
+        {item.content}
+      </Text>
+      {item.actions && item.actions.length > 0 && (
+        <View style={styles.actionsContainer}>
+          {item.actions.map((action: any, idx: number) => renderAction(action, idx))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function renderAction(action: Action, index: number) {
+  return (
+    <TouchableOpacity 
+      key={index} 
+      style={styles.actionBadge}
+      onPress={() => handleAction(action)}
+      disabled={loading}
+    >
+      <Text style={styles.actionText}>{action.label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -432,106 +498,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  },
-});
-
-function renderMessage({ item }: { item: Message }) {
-  const isUser = item.role === 'user';
-  
-  return (
-    <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.assistantMessage]}>
-      <View style={styles.messageHeader}>
-        <Text style={styles.messageIcon}>
-          {item.role === 'assistant' ? (persona === 'customer' ? '🤖' : persona === 'worker' ? '🔧' : '🛡️') : '👤'}
-        </Text>
-        <Text style={[styles.messageTime, isUser ? styles.userTime : styles.assistantTime]}>
-          {item.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
-        {item.content}
-      </Text>
-      {item.actions && item.actions.length > 0 && (
-        <View style={styles.actionsContainer}>
-          {item.actions.map((action: any, idx: number) => renderAction(action, idx))}
-        </View>
-      )}
-    </View>
-  );
-}
-
-function renderAction(action: Action, index: number) {
-  return (
-    <TouchableOpacity 
-      key={index} 
-      style={styles.actionBadge}
-      onPress={() => handleAction(action)}
-      disabled={loading}
-    >
-      <Text style={styles.actionText}>{action.label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  messageContainer: {
-    marginVertical: 8,
-    maxWidth: '85%',
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#2563eb',
-  },
-  assistantMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  messageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: 6,
-  },
-  messageIcon: {
-    fontSize: 20,
-  },
-  messageTime: {
-    fontSize: 10,
-    color: '#9ca3af',
-  },
-  userTime: {
-    color: '#bfdbfe',
-  },
-  assistantTime: {
-    color: '#9ca3af',
-  },
-  messageText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  userText: {
-    color: 'white',
-  },
-  assistantText: {
-    color: '#111827',
-  },
-  actionsContainer: {
-    marginTop: 8,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  actionBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-    borderRadius: 16,
-  },
-  actionText: {
-    fontSize: 12,
-    color: '#2563eb',
-    fontWeight: '500',
   },
 });

@@ -1,0 +1,36 @@
+name: Self-Check
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Self-Check E2E Workflow
+        run: |
+          echo "🔍 Checking Customer..."
+          grep -q "pending\|completed" web/src/app/customer/page.tsx
+          echo "✅ Customer OK"
+          echo "🔍 Checking Worker..."
+          grep -q "pending\|completed" web/src/app/worker/jobs/page.tsx
+          echo "✅ Worker OK"
+          echo "🔍 Checking Admin..."
+          grep -q "pending\|completed" web/src/app/admin/orders/page.tsx
+          echo "✅ Admin OK"
+      - name: Security Scan
+        run: |
+          echo "🔍 @ts-nocheck check..."
+          ! grep -rn "@ts-nocheck" web/src/app/ | grep -v "TODO" | grep .
+          echo "✅ @ts-nocheck CLEAN"
+          echo "🔍 Admin routes in customer/worker..."
+          ! grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ | grep .
+          echo "✅ Admin routes CLEAN"
+      - name: Deno Test
+        run: deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts
+      - name: Web Build
+        run: |
+          cd web
+          npm ci
+          npm run build

@@ -1,275 +1,155 @@
-// Worker Profile
-// Per 05_PRODUCT_SOLUTION.md - Worker flow: Profile management with ID upload
-// Per Step 7: Trust & Quality - Verification flow
+'use client'
 
-'use client';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+const ALL_SKILLS = [
+  'Máy lạnh', 'Điện', 'Nước', 'Camera', 'Tủ lạnh',
+  'Máy giặt', 'Bếp gas', 'Bình nóng lạnh',
+]
 
-const SKILLS = [
-  'Plumbing', 'Electrical', 'HVAC', 'Appliance Repair',
-  'Carpentry', 'Painting', 'Cleaning', 'Lock Smith',
-];
+const ALL_AREAS = [
+  'Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 7',
+  'Quận 10', 'Quận Bình Thạnh', 'Quận Phú Nhuận', 'Quận Tân Bình',
+  'Quận Tân Phú', 'Quận Gò Vấp', 'TP. Thủ Đức', 'Huyện Bình Chánh',
+  'Huyện Nhà Bè',
+]
 
-const SERVICE_AREAS = [
-  'District 1', 'District 2', 'District 3', 'District 4', 'District 5',
-  'District 6', 'District 7', 'District 8', 'District 9', 'District 10',
-  'District 11', 'District 12', 'Binh Thanh', 'Phu Nhuan', 'Go Vap',
-];
+export default function WorkerProfile() {
+  const router = useRouter()
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [skills, setSkills] = useState<string[]>([])
+  const [areas, setAreas] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
 
-interface WorkerProfile {
-  user_id: string;
-  skills: string[];
-  service_areas: string[];
-  is_verified: boolean;
-  trust_score: number;
-  avg_earnings: number;
-  profiles?: { email: string; phone?: string };
-}
+  useEffect(() => { load() }, [])
 
-export default function WebWorkerProfile() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ['web-worker-profile'],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return null;
-      }
-
-      const response = await fetch('/api/ai/worker-jobs?action=profile', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch profile');
-      const data = await response.json();
-      return data.profile as WorkerProfile;
-    },
-  });
-
-  const [skills, setSkills] = useState<string[]>([]);
-  const [serviceAreas, setServiceAreas] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  // Update local state when profile loads
-  useEffect(() => {
-    if (profile) {
-      setSkills(profile.skills || []);
-      setServiceAreas(profile.service_areas || []);
+  async function load() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+    const [pRes, wRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', session.user.id),
+      supabase.from('workers').select('*').eq('id', session.user.id).single().catch(() => ({ data: null })),
+    ])
+    const p = pRes.data?.[0]
+    const w = wRes.data
+    if (p) { setName(p.full_name || ''); setPhone(p.phone || '') }
+    if (w) {
+      setProfile(w)
+      setSkills(w.skills || [])
+      setAreas(w.service_areas || [])
     }
-  }, [profile]);
-
-  async function saveProfile() {
-    setSaving(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { error } = await (supabase as any)
-        .from('workers')
-        .update({ skills, service_areas: serviceAreas })
-        .eq('user_id', session.user.id);
-
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['web-worker-profile'] });
-      alert('Profile updated successfully!');
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
+    setLoading(false)
   }
 
-  async function uploadIDDocument() {
-    setUploading(true);
-    try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*,.pdf';
-      input.onchange = async (e: any) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const fileName = `id-${Date.now()}-${file.name}`;
-        const { data, error } = await supabase.storage
-          .from('worker-documents')
-          .upload(fileName, file);
-
-        if (error) throw error;
-        alert('ID document uploaded! Admin will review for verification.');
-      };
-      input.click();
-    } catch (error: any) {
-      alert(`Error: ${error.message}`);
-    } finally {
-      setUploading(false);
-    }
+  async function save() {
+    setSaving(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await supabase.from('profiles' as any).update({ full_name: name, phone } as any).eq('id', session.user.id)
+    await supabase.from('workers').upsert({ id: session.user.id, skills, service_areas: areas, updated_at: new Date().toISOString() } as any)
+    setSaving(false)
   }
 
-  const toggleSkill = (skill: string) => {
-    setSkills(prev =>
-      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
-    );
-  };
-
-  const toggleArea = (area: string) => {
-    setServiceAreas(prev =>
-      prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]
-    );
-  };
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
+  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto p-6">
-        <button
-          onClick={() => router.push('/worker')}
-          className="text-blue-600 hover:underline mb-6"
-        >
-          ← Back to Dashboard
-        </button>
+    <div className="max-w-2xl mx-auto p-4 space-y-5">
+      <h1 className="text-2xl font-bold">👤 Hồ sơ của tôi</h1>
 
-        <h1 className="text-3xl font-bold mb-6">Worker Profile</h1>
-
-        {/* Profile Info */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Profile Information</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Email</p>
-              <p className="font-semibold">{profile?.profiles?.email}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Phone</p>
-              <p className="font-semibold">{profile?.profiles?.phone || 'No phone'}</p>
-            </div>
-          </div>
-
-          {/* Verification Status */}
-          <div className="mt-6 p-4 rounded bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold">Verification Status</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Upload your ID document for verification
-                </p>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                profile?.is_verified 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                {profile?.is_verified ? 'Verified' : 'Pending Verification'}
-              </span>
-            </div>
-            <button
-              onClick={uploadIDDocument}
-              disabled={uploading}
-              className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-            >
-              {uploading ? 'Uploading...' : 'Upload ID Document'}
-            </button>
-          </div>
+      {/* Basic info */}
+      <div className="bg-white rounded-xl border p-5 space-y-4">
+        <h2 className="font-semibold">Thông tin cơ bản</h2>
+        <div>
+          <label className="text-xs text-gray-500">Họ tên</label>
+          <input type="text" value={name} onChange={e => setName(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg text-sm mt-1" />
         </div>
-
-        {/* Trust Score */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Trust Score</h2>
-          <div className="flex items-center gap-4">
-            <div className="text-4xl font-bold text-blue-600">
-              {profile?.trust_score || 50}
-            </div>
-            <div className="flex-1">
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full"
-                  style={{ width: `${profile?.trust_score ?? 50}%` }}
-                ></div>
-              </div>
-              <p className="text-sm text-gray-600 mt-2">
-                {profile?.trust_score && profile.trust_score >= 80 ? 'Excellent! High trust.' :
-                 profile?.trust_score && profile.trust_score >= 60 ? 'Good standing.' :
-                 'Improve by completing more jobs and getting positive reviews.'}
-              </p>
-            </div>
-          </div>
+        <div>
+          <label className="text-xs text-gray-500">Số điện thoại</label>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg text-sm mt-1" />
         </div>
-
-        {/* Skills */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Skills</h2>
-          <div className="grid grid-cols-4 gap-2">
-            {SKILLS.map((skill) => (
-              <button
-                key={skill}
-                onClick={() => toggleSkill(skill)}
-                className={`px-3 py-2 rounded border ${
-                  skills.includes(skill)
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-800 border-gray-300'
-                }`}
-              >
-                {skill}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Service Areas */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Service Areas</h2>
-          <div className="grid grid-cols-3 gap-2">
-            {SERVICE_AREAS.map((area) => (
-              <button
-                key={area}
-                onClick={() => toggleArea(area)}
-                className={`px-3 py-2 rounded border text-sm ${
-                  serviceAreas.includes(area)
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-800 border-gray-300'
-                }`}
-              >
-                {area}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Statistics</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-600">Average Earnings</p>
-              <p className="text-2xl font-bold text-green-600">${profile?.avg_earnings || 0}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Trust Score</p>
-              <p className="text-2xl font-bold text-blue-600">{profile?.trust_score || 50}</p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={saveProfile}
-          disabled={saving}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 font-bold"
-        >
-          {saving ? 'Saving...' : 'Save Profile'}
-        </button>
       </div>
+
+      {/* Skills */}
+      <div className="bg-white rounded-xl border p-5">
+        <h2 className="font-semibold mb-3">🔧 Kỹ năng</h2>
+        <div className="flex flex-wrap gap-2">
+          {ALL_SKILLS.map(skill => (
+            <button key={skill} onClick={() => setSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill])}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                skills.includes(skill) ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+              }`}>
+              {skill} {skills.includes(skill) ? '✓' : '+'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Service areas */}
+      <div className="bg-white rounded-xl border p-5">
+        <h2 className="font-semibold mb-3">📍 Khu vực phục vụ</h2>
+        <div className="flex flex-wrap gap-2">
+          {ALL_AREAS.map(area => (
+            <button key={area} onClick={() => setAreas(prev => prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area])}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                areas.includes(area) ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300'
+              }`}>
+              {area} {areas.includes(area) ? '✓' : '+'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Trust score */}
+      {profile && (
+        <div className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold mb-3">🛡️ Độ tin cậy</h2>
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-full border-4 border-emerald-400 flex items-center justify-center">
+              <span className="text-2xl font-bold text-emerald-600">{profile.trust_score || 0}</span>
+            </div>
+            <div>
+              <p className="font-medium">{profile.is_verified ? '✅ Đã xác thực' : '⏳ Chưa xác thực'}</p>
+              <p className="text-xs text-gray-500 mt-1">Tăng điểm bằng cách hoàn thành job đúng hạn</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Work settings */}
+      <div className="bg-white rounded-xl border p-5">
+        <h2 className="font-semibold mb-3">⚙️ Cài đặt làm việc</h2>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Trạng thái</span>
+            <select className="px-3 py-1.5 border rounded-lg text-sm">
+              <option>Đang hoạt động</option>
+              <option>Bận</option>
+              <option>Nghỉ</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Bán kính phục vụ</span>
+            <select className="px-3 py-1.5 border rounded-lg text-sm">
+              <option>10 km</option>
+              <option>20 km</option>
+              <option>30 km</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Save */}
+      <button onClick={save} disabled={saving}
+        className="w-full py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 transition">
+        {saving ? 'Đang lưu...' : '💾 Lưu thay đổi'}
+      </button>
     </div>
-  );
+  )
 }

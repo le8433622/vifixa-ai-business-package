@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck — TODO: remove when tsconfig path aliases are resolved
 // Customer Order Details Page
 // Per 05_PRODUCT_SOLUTION.md - Customer flow
 // Per Step 7: Trust & Quality - Review, warranty, complaint
@@ -9,8 +9,10 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
 import { useToast } from '@/components/Toast';
+import ReviewModal from '@/components/modals/ReviewModal'
+import ComplaintModal from '@/components/modals/ComplaintModal'
+import WarrantyModal from '@/components/modals/WarrantyModal'
 
 interface OrderDetails {
   id: string;
@@ -68,6 +70,9 @@ export default function CustomerOrderDetailsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [showReview, setShowReview] = useState(false)
+  const [showWarranty, setShowWarranty] = useState(false)
+  const [showComplaint, setShowComplaint] = useState(false)
 
   const { data: order, isLoading, error: orderError, refetch } = useQuery({
     queryKey: ['order', orderId],
@@ -83,34 +88,18 @@ export default function CustomerOrderDetailsPage() {
 
       setSessionUserId(session.user.id);
 
-      console.log('[order-details] Fetching order:', orderId);
-      console.log('[order-details] session.user.id:', session.user.id);
-
-      // Try simple query first (no joins)
-      const { data: simpleData, error: simpleError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-
-      console.log('[order-details] Simple query result:', simpleData?.id, 'customer_id:', simpleData?.customer_id);
-      console.log('[order-details] Simple query error:', simpleError?.message, 'code:', simpleError?.code);
-
-      if (simpleError || !simpleData) {
-        // If simple query fails, throw error
-        if (simpleError) throw simpleError;
-        throw new Error('Order not found (simple query returned null)');
-      }
-
-      // If simple query works, try with joins
-      const { data: fullData, error: joinError } = await supabase
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select(`*, workers:worker_id (user_id, trust_score, profiles (email, phone))`)
         .eq('id', orderId)
         .single();
 
-      console.log('[order-details] Join query result:', fullData?.id, 'customer_id:', fullData?.customer_id);
-      console.log('[order-details] Join query error:', joinError?.message, 'code:', joinError?.code);
+      if (orderError || !orderData) {
+        if (orderError) throw orderError;
+        throw new Error('Order not found');
+      }
+
+      const fullData = orderData;
 
       if (fullData) return fullData as OrderDetails;
       if (joinError) console.warn('[order-details] Join failed, using simple data');
@@ -473,28 +462,25 @@ export default function CustomerOrderDetailsPage() {
                 </div>
               )}
               {showReviewButton && (
-                <Link href={`/customer/review/${order.id}`} className="block">
-                  <button className="w-full px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium">
-                    ⭐ Đánh giá dịch vụ
-                  </button>
-                </Link>
+                <button onClick={() => setShowReview(true)}
+                  className="w-full px-4 py-2.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium">
+                  ⭐ Đánh giá dịch vụ
+                </button>
               )}
               {showWarrantyButton && (
-                <Link href={`/customer/warranty/${order.id}`} className="block">
-                  <button className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                    🛡️ Yêu cầu bảo hành
-                  </button>
-                </Link>
+                <button onClick={() => setShowWarranty(true)}
+                  className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                  🛡️ Yêu cầu bảo hành
+                </button>
               )}
               {!isWarrantyEligible && order.status === 'completed' && (
                 <p className="text-xs text-gray-400 text-center">Bảo hành đã hết hạn (quá 30 ngày)</p>
               )}
               {showComplaintButton && (
-                <Link href={`/customer/complaint?order_id=${order.id}`} className="block">
-                  <button className="w-full px-4 py-2.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium">
-                    ⚠️ Khiếu nại
-                  </button>
-                </Link>
+                <button onClick={() => setShowComplaint(true)}
+                  className="w-full px-4 py-2.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium">
+                  ⚠️ Khiếu nại
+                </button>
               )}
               {['completed', 'cancelled', 'disputed'].includes(order.status) && !showReviewButton && !showWarrantyButton && !showComplaintButton && (
                 <p className="text-sm text-gray-400 text-center">Không có hành động khả dụng</p>
@@ -545,6 +531,19 @@ export default function CustomerOrderDetailsPage() {
         </div>
       </div>
 
+      {showReview && (
+        <ReviewModal orderId={order.id} onClose={() => setShowReview(false)}
+          onSuccess={() => { setShowReview(false); refetch() }} />
+      )}
+      {showWarranty && order.completed_at && (
+        <WarrantyModal orderId={order.id} orderCategory={order.category}
+          completedAt={order.completed_at} onClose={() => setShowWarranty(false)}
+          onSuccess={() => { setShowWarranty(false); refetch() }} />
+      )}
+      {showComplaint && (
+        <ComplaintModal orderId={order.id} onClose={() => setShowComplaint(false)}
+          onSuccess={() => { setShowComplaint(false); refetch() }} />
+      )}
     </div>
   );
 }

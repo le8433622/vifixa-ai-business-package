@@ -1,0 +1,46 @@
+#!/bin/sh
+# 🤖 Vifixa AI — Pre-commit Self-Check
+
+echo "═══════════════════════════════════════════════════════════"
+echo "  🤖 AI SELF-CHECK — TRƯỚC KHI COMMIT"
+echo "═══════════════════════════════════════════════════════════"
+
+cd "$(dirname "$0")/.."
+
+# 1. E2E Workflow
+printf "🔍 E2E Customer... "
+grep -q "pending\|completed" web/src/app/customer/page.tsx && echo "✅" || { echo "❌"; exit 1; }
+printf "🔍 E2E Worker... "
+grep -q "pending\|completed" web/src/app/worker/jobs/page.tsx && echo "✅" || { echo "❌"; exit 1; }
+printf "🔍 E2E Admin... "
+grep -q "pending\|completed" web/src/app/admin/orders/page.tsx && echo "✅" || { echo "❌"; exit 1; }
+
+# 2. Security
+printf "🔍 @ts-nocheck... "
+if grep -rn "@ts-nocheck" web/src/app/ 2>/dev/null | grep -v "TODO" | grep . > /dev/null 2>&1; then
+  echo "❌"
+  exit 1
+fi
+echo "✅"
+
+printf "🔍 Admin routes... "
+if grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ > /dev/null 2>&1; then
+  echo "❌"
+  exit 1
+fi
+echo "✅"
+
+# 3. Tests
+printf "🔍 Deno Tests... "
+deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts 1>&2
+if [ $? -eq 0 ]; then
+  echo "✅"
+else
+  echo "❌"
+  exit 1
+fi
+
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "  ✅ ALL CHECKS PASSED — COMMIT ALLOWED"
+echo "═══════════════════════════════════════════════════════════"

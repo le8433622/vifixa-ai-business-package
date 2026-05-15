@@ -1,205 +1,111 @@
-// Admin Dashboard
-// Per 05_PRODUCT_SOLUTION.md - Admin flow: View stats, quick links
-// Uses: TanStack Query, Supabase, Expo Router
-
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-
-type DashboardStats = {
-  total_users: number;
-  total_workers: number;
-  total_orders: number;
-  total_ai_calls: number;
-};
-
-type QuickLink = {
-  title: string;
-  description: string;
-  route: string;
-  color: string;
-};
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
+  const [stats, setStats] = useState({ users: 0, workers: 0, orders: 0, disputes: 0, revenue: 0 });
+  const [loading, setLoading] = useState(true);
 
-  // TanStack Query for dashboard stats
-  const { data: stats, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['admin-dashboard'],
-    queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return null;
-      }
+  useEffect(() => {
+    (async () => {
+      const [u, w, o, d] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('workers').select('id', { count: 'exact', head: true }),
+        supabase.from('orders').select('estimated_price,status'),
+        supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      ]);
+      const orders = (o.data || []) as any[];
+      setStats({
+        users: u.count || 0, workers: w.count || 0, orders: orders.length,
+        revenue: orders.filter((o: any) => o.status === 'completed').reduce((s: number, o: any) => s + (o.estimated_price || 0), 0),
+        disputes: d.count || 0,
+      });
+      setLoading(false);
+    })();
+  }, []);
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/admin-dashboard?action=dashboard`,
-        {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch dashboard stats');
-      const data = await response.json();
-      return data.stats as DashboardStats;
-    },
-  });
-
-  const quickLinks: QuickLink[] = [
-    { title: 'Users', description: 'Quản lý người dùng', route: '/(admin)/users', color: '#3b82f6' },
-    { title: 'Workers', description: 'Quản lý thợ', route: '/(admin)/workers', color: '#8b5cf6' },
-    { title: 'Orders', description: 'Quản lý đơn hàng', route: '/(admin)/orders', color: '#10b981' },
-    { title: 'Disputes', description: 'Xử lý tranh chấp', route: '/(admin)/disputes', color: '#f59e0b' },
-    { title: 'AI Logs', description: 'Xem lịch sử AI', route: '/(admin)/ai-log-s', color: '#ef4444' },
-  ];
-
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-      </View>
-    );
-  }
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#818cf8" /></View>;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Admin Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Vifixa AI Management</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.hero}>
+        <Text style={styles.heroTitle}>🛡️ AI Analyst</Text>
+        <View style={styles.modeRow}>
+          <TouchableOpacity style={[styles.modeBtn, mode === 'auto' && styles.modeActive]} onPress={() => setMode('auto')}>
+            <Text style={[styles.modeText, mode === 'auto' && styles.modeTextActive]}>🤖 Auto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.modeBtn, mode === 'manual' && styles.modeActive]} onPress={() => setMode('manual')}>
+            <Text style={[styles.modeText, mode === 'manual' && styles.modeTextActive]}>👆 Manual</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Stats */}
       <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: '#dbeafe' }]}>
-          <Text style={styles.statValue}>{stats?.total_users || 0}</Text>
-          <Text style={styles.statLabel}>Users</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#ede9fe' }]}>
-          <Text style={styles.statValue}>{stats?.total_workers || 0}</Text>
-          <Text style={styles.statLabel}>Workers</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#d1fae5' }]}>
-          <Text style={styles.statValue}>{stats?.total_orders || 0}</Text>
-          <Text style={styles.statLabel}>Orders</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#fee2e2' }]}>
-          <Text style={styles.statValue}>{stats?.total_ai_calls || 0}</Text>
-          <Text style={styles.statLabel}>AI Calls</Text>
-        </View>
+        {[
+          { label: 'Users', value: stats.users, color: '#60a5fa', bg: '#1e3a5f' },
+          { label: 'Workers', value: stats.workers, color: '#34d399', bg: '#064e3b' },
+          { label: 'Orders', value: stats.orders, color: '#fbbf24', bg: '#78350f' },
+          { label: 'Revenue', value: `${(stats.revenue / 1000000).toFixed(1)}M`, color: '#a78bfa', bg: '#4c1d95' },
+          { label: 'Disputes', value: stats.disputes, color: '#f87171', bg: '#7f1d1d' },
+        ].map(s => (
+          <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
+            <Text style={[styles.statNum, { color: s.color }]}>{s.value}</Text>
+            <Text style={styles.statLabel}>{s.label}</Text>
+          </View>
+        ))}
       </View>
 
-      {/* Quick Links */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quản lý nhanh</Text>
-        <View style={styles.linksGrid}>
-          {quickLinks.map((link) => (
-            <TouchableOpacity
-              key={link.route}
-              style={[styles.linkCard, { borderLeftColor: link.color }]}
-              onPress={() => router.push(link.route)}
-            >
-              <Text style={styles.linkTitle}>{link.title}</Text>
-              <Text style={styles.linkDescription}>{link.description}</Text>
-            </TouchableOpacity>
-          ))}
+      {stats.disputes > 0 && (
+        <TouchableOpacity style={styles.alertBtn} onPress={() => router.push('/admin/orders')}>
+          <Text style={styles.alertText}>🚨 {stats.disputes} dispute cần xử lý</Text>
+        </TouchableOpacity>
+      )}
+
+      {mode === 'manual' && (
+        <View>
+          <Text style={styles.sectionTitle}>📋 Menu</Text>
+          <View style={styles.menuGrid}>
+            {[
+              { icon: '📊', name: 'Dashboard', href: '/admin' },
+              { icon: '👥', name: 'Users', href: '/admin/users' },
+              { icon: '📋', name: 'Orders', href: '/admin/orders' },
+              { icon: '🔌', name: 'Integrations', href: '/admin/integrations' },
+            ].map(item => (
+              <TouchableOpacity key={item.name} style={styles.menuItem} onPress={() => router.push(item.href as any)}>
+                <Text style={styles.menuIcon}>{item.icon}</Text>
+                <Text style={styles.menuName}>{item.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    backgroundColor: '#3b82f6',
-    padding: 20,
-    paddingTop: 60,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    gap: 12,
-  },
-  statCard: {
-    width: '45%',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1e40af',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#1e40af',
-    marginTop: 4,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#333',
-  },
-  linksGrid: {
-    gap: 12,
-  },
-  linkCard: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  linkTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  linkDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  content: { paddingBottom: 32 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' },
+  hero: { backgroundColor: '#1e293b', padding: 24, paddingTop: 60, alignItems: 'center' },
+  heroTitle: { fontSize: 24, fontWeight: 'bold', color: '#e2e8f0', marginBottom: 16 },
+  modeRow: { flexDirection: 'row', backgroundColor: '#334155', borderRadius: 8 },
+  modeBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8 },
+  modeActive: { backgroundColor: '#6366f1' },
+  modeText: { fontSize: 14, color: '#94a3b8' },
+  modeTextActive: { color: 'white', fontWeight: 'bold' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
+  statCard: { width: '30%', padding: 14, borderRadius: 16, alignItems: 'center' },
+  statNum: { fontSize: 20, fontWeight: 'bold' },
+  statLabel: { fontSize: 10, color: '#94a3b8', marginTop: 4 },
+  alertBtn: { backgroundColor: '#7f1d1d', margin: 12, padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#991b1b' },
+  alertText: { color: '#fca5a5', fontSize: 14, fontWeight: 'bold' },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#e2e8f0', marginHorizontal: 16, marginBottom: 12 },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 12, gap: 8 },
+  menuItem: { width: '46%', backgroundColor: '#1e293b', padding: 20, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
+  menuIcon: { fontSize: 28, marginBottom: 4 },
+  menuName: { fontSize: 14, fontWeight: '500', color: '#cbd5e1' },
 });

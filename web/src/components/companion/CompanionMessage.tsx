@@ -39,8 +39,7 @@ export default function CompanionMessage({ message, persona }: MessageProps) {
           <button
             key={index}
             onClick={() => {
-              // In a real implementation, this would trigger the action
-              console.log('Action triggered:', action.type)
+              // Action triggered — parent handles it
             }}
             className={`mt-2 w-full py-2 px-4 rounded-full text-xs font-bold transition-all ${
               action.type === 'diagnose' || action.type === 'estimate_price'

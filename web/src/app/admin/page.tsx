@@ -1,113 +1,144 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import CompanionChat from '@/components/companion/CompanionChat'
+import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
+
+type AppState = 'idle' | 'analysing' | 'alert' | 'oversight'
 
 export default function AdminDashboard() {
   const router = useRouter()
-  const [stats, setStats] = useState<any>({})
+  const [mode, setMode] = useState<AppMode>('auto')
+  const [appState, setAppState] = useState<AppState>('idle')
+  const [stats, setStats] = useState({ users: 0, workers: 0, orders: 0, revenue: 0, disputes: 0 })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadStats() }, [])
 
-  async function loadData() {
+  async function loadStats() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-    const { count: workerCount } = await supabase.from('workers').select('*', { count: 'exact', head: true }).eq('is_verified', true)
-    const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true })
-    const { count: pendingCount } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-    const { data: recentOrders } = await supabase.from('orders').select('*, customer:customer_id(full_name)').order('created_at', { ascending: false }).limit(10)
-    const { data: revenue } = await supabase.from('transactions').select('amount').eq('status', 'succeeded')
+    const [uRes, wRes, oRes, dRes] = await Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
+      supabase.from('workers').select('id', { count: 'exact', head: true }),
+      supabase.from('orders').select('estimated_price,status'),
+      supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ])
+
+    const orders = (oRes.data || []) as any[]
+    const revenue = orders.filter((o: any) => o.status === 'completed')
+      .reduce((s: number, o: any) => s + (o.estimated_price || 0), 0)
 
     setStats({
-      users: userCount || 0,
-      workers: workerCount || 0,
-      orders: orderCount || 0,
-      pending: pendingCount || 0,
-      revenue: (revenue || []).reduce((s: number, t: any) => s + (t.amount || 0), 0),
-      recentOrders: recentOrders || [],
+      users: uRes.count || 0,
+      workers: wRes.count || 0,
+      orders: orders.length,
+      revenue,
+      disputes: dRes.count || 0,
     })
+
+    // Check if there are alerts
+    if (dRes.count && dRes.count > 0) setAppState('alert')
     setLoading(false)
   }
 
-  if (loading) {
-    return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" /></div>
-  }
+  const handleAction = useCallback((action: any) => {
+    if (action.type === 'view_users') router.push('/admin/users')
+    else if (action.type === 'view_orders') router.push('/admin/orders')
+    else if (action.type === 'view_integrations') router.push('/admin/integrations')
+    else if (action.type === 'view_disputes') router.push('/admin/orders')
+  }, [router])
+
+  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-900"><div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-500 border-t-transparent" /></div>
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">🛡️ Admin Dashboard</h1>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Người dùng" value={stats.users} color="blue" />
-        <StatCard label="Thợ đã xác thực" value={stats.workers} color="emerald" />
-        <StatCard label="Đơn hàng" value={stats.orders} color="purple" />
-        <StatCard label="Đơn chờ xử lý" value={stats.pending} color="amber" />
-      </div>
-
-      <div className="bg-white rounded-xl border p-6">
-        <h2 className="font-bold mb-1">💰 Doanh thu</h2>
-        <p className="text-3xl font-bold text-emerald-600">{stats.revenue.toLocaleString()}₫</p>
-        <p className="text-xs text-gray-500">Từ các giao dịch đã hoàn thành</p>
-      </div>
-
-      <div>
-        <h2 className="font-bold mb-3">📋 Đơn hàng gần đây</h2>
-        <div className="space-y-2">
-          {stats.recentOrders?.length > 0 ? stats.recentOrders.map((o: any) => (
-            <div key={o.id} className="bg-white rounded-xl border p-4 flex justify-between items-center">
-              <div>
-                <p className="font-medium capitalize">{o.category}</p>
-                <p className="text-xs text-gray-500">{(o as any).customer?.full_name || '?'} · {o.status}</p>
-              </div>
-              <span className="font-bold">{(o.estimated_price || 0).toLocaleString()}₫</span>
-            </div>
-          )) : (
-            <p className="text-gray-500 text-sm">Chưa có đơn hàng</p>
-          )}
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-900">
+      {/* Header */}
+      <div className="bg-gray-800 border-b border-gray-700 px-4 py-2.5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">A</div>
+          <div>
+            <p className="font-medium text-sm text-gray-200">Admin</p>
+            <p className="text-[10px] text-indigo-400 font-medium">
+              {appState === 'alert' ? '🚨 Có vấn đề cần xử lý' : appState === 'oversight' ? '📋 Đang giám sát' : '🤖 AI Analyst'}
+            </p>
+          </div>
         </div>
+        {stats.disputes > 0 && (
+          <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-rose-900/50 text-rose-300 animate-pulse">🚨 {stats.disputes} dispute</span>
+        )}
+        <ModeToggle mode={mode} onChange={setMode} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <button onClick={() => router.push('/admin/users')}
-          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
-          <span className="text-2xl">👥</span>
-          <p className="font-medium text-sm mt-1">Người dùng</p>
-        </button>
-        <button onClick={() => router.push('/admin/workers')}
-          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
-          <span className="text-2xl">🔧</span>
-          <p className="font-medium text-sm mt-1">Quản lý thợ</p>
-        </button>
-        <button onClick={() => router.push('/admin/orders')}
-          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
-          <span className="text-2xl">📋</span>
-          <p className="font-medium text-sm mt-1">Đơn hàng</p>
-        </button>
-        <button onClick={() => router.push('/admin/settings/payments')}
-          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
-          <span className="text-2xl">💳</span>
-          <p className="font-medium text-sm mt-1">Cấu hình Payment</p>
-        </button>
-      </div>
-    </div>
-  )
-}
+      {/* Main */}
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* AI Analyst Chat */}
+        <div className="absolute inset-0">
+          <CompanionChat persona="admin" onAction={handleAction} />
+        </div>
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-700',
-    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    purple: 'bg-purple-50 border-purple-200 text-purple-700',
-    amber: 'bg-amber-50 border-amber-200 text-amber-700',
-  }
-  return (
-    <div className={`rounded-xl border p-4 ${colors[color] || colors.blue}`}>
-      <p className="text-3xl font-bold">{value}</p>
-      <p className="text-sm opacity-80">{label}</p>
+        {/* Stats overlay */}
+        <div className="absolute top-3 left-3 right-3 pointer-events-none">
+          <div className="grid grid-cols-5 gap-2 pointer-events-auto max-w-2xl mx-auto">
+            {[
+              { label: 'Users', value: stats.users, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+              { label: 'Workers', value: stats.workers, color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
+              { label: 'Orders', value: stats.orders, color: 'text-amber-400', bg: 'bg-amber-900/30' },
+              { label: 'Revenue', value: `${(stats.revenue / 1000000).toFixed(1)}M`, color: 'text-violet-400', bg: 'bg-violet-900/30' },
+              { label: 'Disputes', value: stats.disputes, color: 'text-rose-400', bg: 'bg-rose-900/30' },
+            ].map(s => (
+              <div key={s.label} className={`${s.bg} rounded-xl p-2 text-center backdrop-blur`}>
+                <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+                <p className="text-[10px] text-gray-500">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Manual mode menu */}
+        {mode === 'manual' && (
+          <div className="absolute inset-x-0 bottom-0 px-3 pb-3 pointer-events-none">
+            <div className="bg-gray-800/95 backdrop-blur rounded-2xl shadow-2xl border border-gray-700 pointer-events-auto p-4 max-w-lg mx-auto">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">📋 Admin Menu</p>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { icon: '📊', name: 'Dashboard', href: '/admin' },
+                  { icon: '👥', name: 'Users', count: stats.users, href: '/admin/users' },
+                  { icon: '📋', name: 'Orders', count: stats.orders, href: '/admin/orders' },
+                  { icon: '🔌', name: 'Integrations', href: '/admin/integrations' },
+                  { icon: '🚨', name: 'Disputes', count: stats.disputes, href: '/admin/orders' },
+                  { icon: '⚙️', name: 'Settings', href: '/admin/settings' },
+                ].map(item => (
+                  <button key={item.name} onClick={() => router.push(item.href)}
+                    className="flex flex-col items-center p-3 bg-gray-700/50 rounded-xl hover:bg-gray-700 transition relative">
+                    <span className="text-2xl mb-1">{item.icon}</span>
+                    <span className="text-[10px] font-medium text-gray-400">{item.name}</span>
+                    {item.count ? <span className="text-[10px] text-indigo-400 font-bold">{item.count}</span> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Alert overlay */}
+        {appState === 'alert' && stats.disputes > 0 && mode === 'auto' && (
+          <div className="absolute bottom-3 left-3 right-3 pointer-events-none max-w-lg mx-auto">
+            <button onClick={() => router.push('/admin/orders')}
+              className="w-full bg-rose-900/90 backdrop-blur rounded-xl border border-rose-700 p-3 flex items-center gap-3 pointer-events-auto hover:bg-rose-800/90 transition">
+              <span className="text-2xl">🚨</span>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold text-rose-100">{stats.disputes} dispute cần xử lý</p>
+                <p className="text-xs text-rose-300">AI đã phân tích sơ bộ — click để xem</p>
+              </div>
+              <span className="text-rose-300 text-lg">→</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

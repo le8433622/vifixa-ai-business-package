@@ -81,7 +81,7 @@ export default function CustomerOrders() {
       <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
       <View style={styles.cardFooter}>
         <Text style={styles.price}>
-          {item.final_price ? `$${item.final_price}` : 'Chưa có giá'}
+          {item.final_price ? `${item.final_price.toLocaleString('vi-VN')}₫` : 'Chưa có giá'}
         </Text>
         <Text style={styles.date}>{new Date(item.created_at).toLocaleDateString()}</Text>
       </View>
@@ -115,9 +115,9 @@ export default function CustomerOrders() {
             <Text style={styles.emptyText}>Chưa có đơn hàng nào</Text>
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => router.push('/(customer)/service-request')}
+              onPress={() => router.push('/(customer)/chat')}
             >
-              <Text style={styles.createButtonText}>Tạo yêu cầu dịch vụ</Text>
+              <Text style={styles.createButtonText}>💬 Chat với AI</Text>
             </TouchableOpacity>
           </View>
         }
@@ -139,8 +139,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#3b82f6',
-    padding: 20,
-    paddingTop: 60,
+    padding: 16,
+    paddingTop: 16,
   },
   headerTitle: {
     fontSize: 20,

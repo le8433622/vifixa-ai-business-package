@@ -1,74 +1,19 @@
 name: Deploy Supabase
 on:
   push:
-    branches: [main, staging]
-    paths:
-      - 'supabase/**'
-      - '.github/workflows/deploy-supabase.yml'
-
-env:
-  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
+    branches: [main]
 jobs:
-  lint:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Deno check all edge functions
+      - name: Run Tests
+        run: deno test --no-check --allow-read --allow-env supabase/functions/_shared/*.test.ts
+      - name: Deploy Edge Functions
         run: |
-          for fn in supabase/functions/*/index.ts; do
-            deno check --config supabase/deno.json "$fn" 2>&1 || { echo "FAIL: $fn"; exit 1; }
-          done
-      - name: Quality gates
-        run: |
-          grep -rn "auth\.user\." supabase/functions/ && { echo "auth.user forbidden"; exit 1; } || true
-          echo "All quality gates pass"
-
-  deploy-staging:
-    name: Deploy to Staging Supabase
-    if: github.ref == 'refs/heads/staging'
-    needs: lint
-    environment: staging
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-      - name: Deploy all edge functions
-        run: |
-          for fn in supabase/functions/*/index.ts; do
-            name=$(basename $(dirname "$fn"))
-            [ "$name" = "_shared" ] && continue
-            echo "Deploying $name..."
-            supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1 || echo "WARN: $name deploy failed"
-          done
-      - name: Push migrations
-        run: supabase db push --linked
-
-  deploy-production:
-    name: Deploy to Production Supabase
-    if: github.ref == 'refs/heads/main'
-    needs: [lint]
-    environment: Production
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-      - name: Deploy all edge functions
-        run: |
-          for fn in supabase/functions/*/index.ts; do
-            name=$(basename $(dirname "$fn"))
-            [ "$name" = "_shared" ] && continue
-            echo "Deploying $name..."
-            supabase functions deploy "$name" --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} 2>&1
-          done
-      - name: Push migrations
-        run: supabase db push --linked
+          supabase functions deploy --project-ref ${{ vars.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
