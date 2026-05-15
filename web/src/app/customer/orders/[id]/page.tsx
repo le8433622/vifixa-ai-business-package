@@ -10,6 +10,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/Toast';
+import Link from 'next/link'
 import ReviewModal from '@/components/modals/ReviewModal'
 import ComplaintModal from '@/components/modals/ComplaintModal'
 import WarrantyModal from '@/components/modals/WarrantyModal'
@@ -454,11 +455,18 @@ export default function CustomerOrderDetailsPage() {
               {order.status === 'completed' && order.payment_status === 'unpaid' && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-gray-700">Thanh toán</p>
-                  <button onClick={() => payWithVNPay(order.id, order.final_price || order.estimated_price)}
-                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium">
-                    💳 Thanh toán với VNPay
-                  </button>
-                  <p className="text-xs text-gray-400 text-center">Chấp nhận thẻ ATM, QR, Internet Banking</p>
+                  <Link href={`/customer/payment?order_id=${order.id}&amount=${order.final_price || order.estimated_price || 0}`}>
+                    <button className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-medium shadow-lg shadow-blue-200">
+                      💳 Thanh toán ngay
+                    </button>
+                  </Link>
+                  <div className="flex gap-2 text-xs text-gray-400 justify-center">
+                    <span>💳 VNPay</span>
+                    <span>·</span>
+                    <span>💳 Stripe</span>
+                    <span>·</span>
+                    <span>🏦 Ví Vifixa</span>
+                  </div>
                 </div>
               )}
               {showReviewButton && (
