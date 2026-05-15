@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
+import WalletDashboard from '../../components/WalletDashboard';
 
 export default function WorkerEarnings() {
   const router = useRouter();
@@ -39,11 +40,8 @@ export default function WorkerEarnings() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.walletCard}>
-        <Text style={styles.walletLabel}>Số dư ví</Text>
-        <Text style={styles.walletBalance}>{wallet.balance.toLocaleString()}₫</Text>
-        {wallet.locked > 0 && <Text style={styles.walletLocked}>Đang khóa: {wallet.locked.toLocaleString()}₫</Text>}
-      </View>
+      {/* 4-Wallet Dashboard */}
+      <WalletDashboard />
 
       <View style={styles.statsRow}>
         {[

@@ -952,6 +952,19 @@ Thumbs.db
     - Không chuyển sang task tiếp theo khi task hiện tại chưa hoàn thành
     - Todo list là SOURCE OF TRUTH cho tiến độ — không làm ngoài todo
 19. **E2E Workflow Verification bắt buộc sau mỗi Phase** — Trước khi mark Phase complete:
+20. **Mobile Sync Rule — Web có gì, Mobile phải có đó**:
+    - Mọi module xây trên Web → PHẢI có Mobile version tương ứng
+    - Mobile version gọi CÙNG Edge Function (không viết API riêng)
+    - UI khác platform (React Native ≠ React DOM) nhưng logic giống
+    - Checklist bắt buộc: [ ] AI Chat [ ] Payment [ ] Wallet [ ] Map [ ] i18n
+21. **Mobile 3-Core Audit Checklist (chạy sau mỗi Phase)**:
+    ```
+    [🤖 AI] Companion Chat + Auto/Manual modes
+    [🗺️ Map] Contextual tracking + worker navigation
+    [💳 Payment] Wallet 4-ví + Deposit/Withdraw + Transaction History
+    [🔗 Flow] Orders → Jobs → Complete → Review → Pay
+    [🌐 i18n] EN + VI support
+    ```
     - Chạy `grep` trace: kiểm tra state transition tồn tại ở CẢ Customer + Worker + Admin
     - Chứng minh: `pending → matched → in_progress → completed` đồng bộ 3 màn hình
     - Nếu thiếu bất kỳ transition nào → Phase chưa hoàn thành
@@ -1092,6 +1105,47 @@ Thumbs.db
 SEC-001: ✅ CLEAN     SEC-002: ⚠️ 4 TODO    SEC-003: ✅ CLEAN
 QUAL-001: ⚠️ 1 TODO   QUAL-002: ✅ CLEAN     LOG-001: ⚠️ 12 files
 ARCH-001: ✅ COMPLIANT ARCH-002: ✅ COMPLIANT
+```
+
+### 2026-05-15 — v1.16: 📱 Mobile Phase — Đồng bộ 3 Core Modules
+- 📋 **Rules #20, #21** — Mobile Sync Rule + 3-Core Audit Checklist
+- 💳 **Payment Mobile**: WalletDashboard + DepositModal + WithdrawModal + TransactionHistory
+- 🔗 **Order Flow Mobile**: Tích hợp escrow + payment status vào order detail
+- 🗺️ **Map Mobile**: Worker tracking + customer location sharing
+- 🌐 **i18n**: Đồng bộ EN + VI lên Mobile
+- 📝 **Task Plan chi tiết** — 6 Phase, 18 Steps, mỗi Step có proof hoàn thành
+
+### Mobile Task Plan (tuần tự)
+```
+Phase 1: Payment Mobile (Wallet + Deposit + Withdraw + History)
+  Step 1: Mobile WalletDashboard — 4 ví + balance + staking
+  Step 2: Mobile Deposit Modal — nạp tiền (chọn gateway)
+  Step 3: Mobile Withdraw Modal — rút tiền (chọn ví)
+  Step 4: Mobile Transaction History — lịch sử + phân trang
+
+Phase 2: Map Mobile (Tracking + Navigation)
+  Step 5: Customer tracking map — real-time worker location
+  Step 6: Worker navigation map — dẫn đường đến khách
+  Step 7: Location picker — chọn vị trí khi đặt dịch vụ
+
+Phase 3: Payment Flow Mobile (Escrow + Complete + Review)
+  Step 8: Order detail mobile — escrow status + pay button
+  Step 9: Worker complete → auto escrow release
+  Step 10: Review flow — ⭐ rating sau khi hoàn thành
+
+Phase 4: Admin Mobile (Payment Monitor)
+  Step 11: Admin payments list — transaction monitoring
+  Step 12: Admin cashflow chart — doanh thu theo thời gian
+
+Phase 5: i18n Mobile (EN + VI)
+  Step 13: Mobile translation hook (dùng chung web i18n keys)
+  Step 14: Language toggle trên tất cả mobile screens
+  Step 15: Nav titles + button labels dịch sang EN
+
+Phase 6: Polish + Test + Deploy
+  Step 16: Test 3-core mobile flow (AI + Map + Payment)
+  Step 17: E2E verification (Customer → Worker → Admin mobile)
+  Step 18: Build + deploy app
 ```
 
 ### Next Update (sau mỗi Phase mới)

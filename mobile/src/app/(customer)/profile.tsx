@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert,
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import WalletDashboard from '../../components/WalletDashboard';
 
 export default function CustomerProfile() {
   const router = useRouter();
@@ -70,6 +71,9 @@ export default function CustomerProfile() {
           <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}><Text style={styles.editBtnText}>Chỉnh sửa</Text></TouchableOpacity>
         )}
       </View>
+
+      {/* Wallet */}
+      <WalletDashboard />
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>📊 Thống kê</Text>
