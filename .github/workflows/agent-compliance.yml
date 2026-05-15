@@ -1,0 +1,145 @@
+name: Agent Compliance Audit
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+  DENO_VERSION: v2.x
+
+jobs:
+  agent-compliance-check:
+    runs-on: ubuntu-latest
+    name: Check agent.md compliance
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+      
+      - name: Run agent compliance audit
+        run: |
+          echo "🔍 Running Agent Compliance Audit..."
+          deno run --allow-read --allow-write scripts/audit-agent-compliance.ts
+          
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-compliance-report
+          path: docs/AGENT_COMPLIANCE_AUDIT.md
+          retention-days: 30
+      
+      - name: Fail if critical violations found
+        run: |
+          if grep -q "CRITICAL VIOLATIONS:" docs/AGENT_COMPLIANCE_AUDIT.md; then
+            echo "❌ Critical violations found!"
+            cat docs/AGENT_COMPLIANCE_AUDIT.md
+            exit 1
+          fi
+          echo "✅ No critical violations found"
+
+  security-check:
+    runs-on: ubuntu-latest
+    name: Security compliance check
+    needs: agent-compliance-check
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for API keys in frontend
+        run: |
+          echo "🔒 Checking for API keys in frontend code..."
+          if grep -rn "sk_live_\|sk_test_\|api_key\|apiKey" src/app/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "process.env" | grep -v ".env"; then
+            echo "❌ Found potential API keys in frontend code!"
+            exit 1
+          fi
+          echo "✅ No API keys found in frontend"
+      
+      - name: Verify auth in Edge Functions
+        run: |
+          echo "🔐 Verifying authentication in Edge Functions..."
+          errors=0
+          for fn in supabase/functions/*/index.ts; do
+            # Skip healthcheck and public endpoints
+            if echo "$fn" | grep -q "healthcheck\|_shared"; then
+              continue
+            fi
+            if ! grep -q "verifyAuth" "$fn"; then
+              echo "❌ $fn missing verifyAuth()"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "❌ $errors Edge Functions missing authentication"
+            exit 1
+          fi
+          echo "✅ All Edge Functions have proper authentication"
+
+  quality-check:
+    runs-on: ubuntu-latest
+    name: Code quality check
+    needs: security-check
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      
+      - name: Check for type 'any'
+        run: |
+          echo "📊 Checking for type 'any' usage..."
+          if grep -rn ": any" src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "node_modules" | grep -v ".test."; then
+            echo "❌ Found type 'any' usage!"
+            exit 1
+          fi
+          echo "✅ No type 'any' found"
+      
+      - name: Verify Zod validation
+        run: |
+          echo "✅ Checking for Zod validation in API routes..."
+          count=$(grep -rn "z\\.object\|zod" src/app/api/ --include="*.ts" 2>/dev/null | wc -l)
+          if [ "$count" -eq 0 ]; then
+            echo "⚠️ Warning: No Zod validation found in API routes"
+          else
+            echo "✅ Found $count Zod validation schemas"
+          fi
+      
+      - name: Check logging standards
+        run: |
+          echo "📝 Checking logging standards..."
+          if grep -rn "console\.log" src/ supabase/functions/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "\[VIFIXA\]" | grep -v "node_modules" | head -5; then
+            echo "⚠️ Warning: Found console.log without [VIFIXA] prefix"
+          else
+            echo "✅ Logging standards compliant"
+          fi
+
+  summary:
+    runs-on: ubuntu-latest
+    name: Compliance Summary
+    needs: [agent-compliance-check, security-check, quality-check]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🎯 Agent Compliance Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Agent Compliance | ${{ needs.agent-compliance-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Check | ${{ needs.security-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Quality Check | ${{ needs.quality-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.agent-compliance-check.result }}" == "success" ] && \
+             [ "${{ needs.security-check.result }}" == "success" ] && \
+             [ "${{ needs.quality-check.result }}" == "success" ]; then
+            echo "✅ **All compliance checks passed!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some compliance checks failed. Please review the logs.**" >> $GITHUB_STEP_SUMMARY
+          fi
