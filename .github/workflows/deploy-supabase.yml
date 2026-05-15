@@ -10,8 +10,11 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Run Tests
-        run: deno test --no-check --allow-read --allow-env supabase/functions/_shared/*.test.ts
+        run: deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts
       - name: Deploy Edge Functions
         run: |
           supabase functions deploy --project-ref ${{ vars.SUPABASE_PROJECT_ID }}

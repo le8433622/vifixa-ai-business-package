@@ -2,5 +2,12 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "redirects": [
+    {
+      "source": "/v4(.*)",
+      "destination": "/",
+      "permanent": true
+    }
+  ]
 }
