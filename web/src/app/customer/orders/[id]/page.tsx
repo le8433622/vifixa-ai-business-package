@@ -471,9 +471,11 @@ export default function CustomerOrderDetailsPage() {
         </div>
 
         <div className="space-y-6">
-          {/* Price Breakdown — Minh bạch giá cả */}
+          {/* Price Breakdown / Invoice */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">💰 Chi tiết giá</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {order.status === 'completed' ? '🧾 Hóa đơn' : '💰 Chi tiết giá'}
+            </h3>
             {order.final_price ? (
               <div className="space-y-3">
                 <div className="flex justify-between items-baseline py-2 border-b border-gray-100">
@@ -492,9 +494,24 @@ export default function CustomerOrderDetailsPage() {
                   <span className="font-semibold text-gray-900">🏁 Tổng cộng</span>
                   <span className="text-xl font-bold text-green-600">{formatPrice(order.final_price)}</span>
                 </div>
-                {order.parts_used && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg text-xs text-gray-600">
-                    <strong>🔧 Vật tư đã dùng:</strong> {order.parts_used}
+                {order.status === 'completed' && (
+                  <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-sm text-green-700">
+                      <span>✅</span>
+                      <div>
+                        <p className="font-medium">
+                          {order.payment_status === 'paid' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+                        </p>
+                        {order.completed_at && (
+                          <p className="text-xs text-green-500">Hoàn thành: {new Date(order.completed_at).toLocaleString('vi-VN')}</p>
+                        )}
+                      </div>
+                    </div>
+                    {order.parts_used && (
+                      <div className="mt-2 pt-2 border-t border-green-200 text-xs text-green-600">
+                        <strong>🔧 Vật tư:</strong> {order.parts_used}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
