@@ -25,12 +25,13 @@ export default function CoachScreen() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: 'Xin chào! Tôi là AI Coach của Vifixa. Tôi có thể giúp bạn:\n\n• Phân tích hiệu suất làm việc\n• Gợi ý kỹ năng cần học\n• Dự đoán xu hướng việc làm\n• Tư vấn cách tăng điểm tin cậy\n\nBạn muốn hỏi gì?' 
+      content: 'Xin chào! Tôi là AI Companion của Vifixa cho thợ. Tôi có thể giúp bạn:\n\n• Tìm việc phù hợp với kỹ năng và vị trí\n• Tối ưu tuyến đường và lịch làm việc\n• Phát triển kỹ năng và tăng thu nhập\n• Giám sát hiệu suất và đề xuất cải thiện\n\nBạn muốn hỏi gì?' 
     }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState<WorkerStats | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     checkUser()
@@ -103,31 +104,19 @@ export default function CoachScreen() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/companion/chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [
-            { 
-              role: 'system' as const, 
-              content: `Bạn là AI Coach cho thợ sửa chữa tại Vifixa. Nhiệm vụ: Tư vấn thợ cách tăng hiệu suất, cải thiện dịch vụ, tăng điểm tin cậy.
-              
-Thông tin thợ:
-- Tổng việc: ${stats?.totalJobs || 0}
-- Việc hoàn thành: ${stats?.completedJobs || 0}
-- Điểm trung bình: ${stats?.avgRating || 0}/5
-- Điểm tin cậy: ${stats?.trustScore || 0}/100
-- Chuyên môn chính: ${stats?.topCategory || 'Chưa có'}
-
-Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Việt.` 
-            },
-            ...messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-            { role: 'user' as const, content: userMessage }
-          ],
-          session_id: `coach-${session.user.id}`,
+          message: userMessage,
+          context: {
+            user_id: session.user.id,
+            persona: 'worker',
+            session_id: sessionId,
+          },
         }),
       })
 
@@ -138,10 +127,17 @@ Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Vi�
 
       const data = await response.json()
       
+      // Update session if new
+      if (data.session_id && sessionId !== data.session_id) {
+        setSessionId(data.session_id)
+      }
+      
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: data.message || 'Cảm ơn câu hỏi. Tôi sẽ phản hồi sớm.' 
+        content: data.reply || 'Cảm ơn câu hỏi. Tôi sẽ phản hồi sớm.' 
       }])
+      
+      // TODO: Handle actions if needed (e.g., navigate to job search, etc.)
     } catch (error: any) {
       console.error('sendMessage error:', error)
       setMessages(prev => [...prev, { 
@@ -159,7 +155,7 @@ Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Vi�
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Quay lại</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>🤖 AI Coach</Text>
+        <Text style={styles.headerTitle}>🤖 AI Companion (Worker)</Text>
         <Text style={styles.headerSubtitle}>Tư vấn và hỗ trợ thợ sửa chữa</Text>
       </LinearGradient>
 
@@ -221,7 +217,7 @@ Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Vi�
             value={input}
             onChangeText={setInput}
             onSubmitEditing={sendMessage}
-            placeholder="Hỏi AI Coach..."
+            placeholder="Hỏi AI Companion..."
             style={styles.input}
             editable={!loading}
             multiline
@@ -236,13 +232,13 @@ Trả lời ngắn gọn, thực tế, chuyên nghiệp. Sử dụng tiếng Vi�
         </View>
 
         <Text style={styles.inputHint}>
-          Ví dụ: "Làm sao để tăng điểm tin cậy?"
+          Ví dụ: "Tìm việc điện lạnh gần đây"
         </Text>
       </View>
 
       {/* Quick Tips */}
       <View style={styles.tipsCard}>
-        <Text style={styles.tipsTitle}>💡 Mẹo nhanh từ AI</Text>
+        <Text style={styles.tipsTitle}>💡 Mẹo nhanh từ AI Companion</Text>
         <View style={styles.tipsList}>
           <Text style={styles.tipItem}>• Điểm tin cậy ≥80 sẽ được ưu tiên nhận việc</Text>
           <Text style={styles.tipItem}>• Phản hồi nhanh trong 5 phút đầu tăng 30% cơ hội</Text>
@@ -300,7 +296,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: '#3b82f6',
   },
   statLabel: {
     fontSize: 12,

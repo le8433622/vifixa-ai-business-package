@@ -2,6 +2,15 @@
 -- Date: 2026-05-10
 -- Purpose: Store payment gateway configurations (VNPay, MoMo, ZaloPay, Stripe)
 
+-- Utility function (nếu chưa tồn tại từ migration khác)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1. Create gateway_configs table
 CREATE TABLE IF NOT EXISTS gateway_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

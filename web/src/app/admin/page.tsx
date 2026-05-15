@@ -1,172 +1,113 @@
-// Admin Dashboard Page
-// Per 05_PRODUCT_SOLUTION.md - Admin flow: Dashboard, manage users/workers/orders
-// Per Step 3: Build admin flows
+'use client'
 
-'use client';
-
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
-
-interface DashboardStats {
-  total_users: number;
-  total_workers: number;
-  total_orders: number;
-  total_ai_calls: number;
-}
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const router = useRouter();
+  const router = useRouter()
+  const [stats, setStats] = useState<any>({})
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { loadData() }, [])
 
-  async function fetchStats() {
-    setLoading(true);
-    setApiError(null);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+  async function loadData() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
 
-      const response = await fetch('/api/ai/admin-dashboard?action=dashboard', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+    const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
+    const { count: workerCount } = await supabase.from('workers').select('*', { count: 'exact', head: true }).eq('is_verified', true)
+    const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true })
+    const { count: pendingCount } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+    const { data: recentOrders } = await supabase.from('orders').select('*, customer:customer_id(full_name)').order('created_at', { ascending: false }).limit(10)
+    const { data: revenue } = await supabase.from('transactions').select('amount').eq('status', 'succeeded')
 
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-      } else {
-        const errBody = await response.text();
-        const errDetail = errBody.slice(0, 300);
-        console.error('Dashboard API error:', response.status, errDetail);
-        setApiError(`Lỗi ${response.status}: ${errDetail}`);
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      setApiError('Lỗi kết nối. Vui lòng tải lại trang.');
-    } finally {
-      setLoading(false);
-    }
+    setStats({
+      users: userCount || 0,
+      workers: workerCount || 0,
+      orders: orderCount || 0,
+      pending: pendingCount || 0,
+      revenue: (revenue || []).reduce((s: number, t: any) => s + (t.amount || 0), 0),
+      recentOrders: recentOrders || [],
+    })
+    setLoading(false)
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" /></div>
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold">🛡️ Admin Dashboard</h1>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-          <span className="ml-3 text-gray-600">Đang tải dữ liệu...</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Người dùng" value={stats.users} color="blue" />
+        <StatCard label="Thợ đã xác thực" value={stats.workers} color="emerald" />
+        <StatCard label="Đơn hàng" value={stats.orders} color="purple" />
+        <StatCard label="Đơn chờ xử lý" value={stats.pending} color="amber" />
+      </div>
+
+      <div className="bg-white rounded-xl border p-6">
+        <h2 className="font-bold mb-1">💰 Doanh thu</h2>
+        <p className="text-3xl font-bold text-emerald-600">{stats.revenue.toLocaleString()}₫</p>
+        <p className="text-xs text-gray-500">Từ các giao dịch đã hoàn thành</p>
+      </div>
+
+      <div>
+        <h2 className="font-bold mb-3">📋 Đơn hàng gần đây</h2>
+        <div className="space-y-2">
+          {stats.recentOrders?.length > 0 ? stats.recentOrders.map((o: any) => (
+            <div key={o.id} className="bg-white rounded-xl border p-4 flex justify-between items-center">
+              <div>
+                <p className="font-medium capitalize">{o.category}</p>
+                <p className="text-xs text-gray-500">{(o as any).customer?.full_name || '?'} · {o.status}</p>
+              </div>
+              <span className="font-bold">{(o.estimated_price || 0).toLocaleString()}₫</span>
+            </div>
+          )) : (
+            <p className="text-gray-500 text-sm">Chưa có đơn hàng</p>
+          )}
         </div>
-      ) : apiError ? (
-        <div className="text-center py-20">
-          <div className="text-5xl mb-4">⚠️</div>
-          <p className="text-red-600 mb-4">{apiError}</p>
-          <button
-            onClick={fetchStats}
-            className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-          >
-            Thử lại
-          </button>
-        </div>
-      ) : stats ? (
-        <>
-          <div className="grid grid-cols-4 gap-6 mb-8">
-            <div className="bg-blue-50 p-6 rounded-lg">
-              <p className="text-sm text-gray-600">Total Users</p>
-              <p className="text-3xl font-bold">{stats.total_users}</p>
-            </div>
-            <div className="bg-green-50 p-6 rounded-lg">
-              <p className="text-sm text-gray-600">Total Workers</p>
-              <p className="text-3xl font-bold">{stats.total_workers}</p>
-            </div>
-            <div className="bg-purple-50 p-6 rounded-lg">
-              <p className="text-sm text-gray-600">Total Orders</p>
-              <p className="text-3xl font-bold">{stats.total_orders}</p>
-            </div>
-            <div className="bg-yellow-50 p-6 rounded-lg">
-              <p className="text-sm text-gray-600">AI Calls</p>
-              <p className="text-3xl font-bold">{stats.total_ai_calls}</p>
-            </div>
-          </div>
+      </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <button
-              onClick={() => router.push('/admin/users')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">Manage Users</h3>
-              <p className="text-gray-600">View and manage all registered users</p>
-            </button>
-
-            <button
-              onClick={() => router.push('/admin/workers')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">Manage Workers</h3>
-              <p className="text-gray-600">Verify worker profiles and trust scores</p>
-            </button>
-
-            <button
-              onClick={() => router.push('/admin/orders')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">Manage Orders</h3>
-              <p className="text-gray-600">Track and manage all service orders</p>
-            </button>
-
-            <button
-              onClick={() => router.push('/admin/disputes')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">Disputes</h3>
-              <p className="text-gray-600">Handle customer complaints and disputes</p>
-            </button>
-
-            <button
-              onClick={() => router.push('/admin/ai-logs')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">AI Logs</h3>
-              <p className="text-gray-600">View AI diagnosis and pricing logs</p>
-            </button>
-
-            <button
-              onClick={() => router.push('/admin/approvals')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">AI Approval Queue</h3>
-              <p className="text-gray-600">Approve, reject, or execute supervised AI actions</p>
-            </button>
-
-
-            <button
-              onClick={() => router.push('/admin/chat-kpis')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">Chat Funnel KPIs</h3>
-              <p className="text-gray-600">Measure AI closer conversion, drop-off, escalation and fallback</p>
-            </button>
-
-
-            <button
-              onClick={() => router.push('/admin/price-accuracy')}
-              className="p-6 bg-white border rounded-lg hover:shadow-lg transition text-left"
-            >
-              <h3 className="text-xl font-semibold mb-2">Price Accuracy</h3>
-              <p className="text-gray-600">Compare AI estimates with completed order prices</p>
-            </button>
-          </div>
-        </>
-      ) : (
-        <p>Failed to load dashboard stats.</p>
-      )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <button onClick={() => router.push('/admin/users')}
+          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
+          <span className="text-2xl">👥</span>
+          <p className="font-medium text-sm mt-1">Người dùng</p>
+        </button>
+        <button onClick={() => router.push('/admin/workers')}
+          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
+          <span className="text-2xl">🔧</span>
+          <p className="font-medium text-sm mt-1">Quản lý thợ</p>
+        </button>
+        <button onClick={() => router.push('/admin/orders')}
+          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
+          <span className="text-2xl">📋</span>
+          <p className="font-medium text-sm mt-1">Đơn hàng</p>
+        </button>
+        <button onClick={() => router.push('/admin/settings/payments')}
+          className="bg-white border rounded-xl p-4 text-left hover:shadow-md transition">
+          <span className="text-2xl">💳</span>
+          <p className="font-medium text-sm mt-1">Cấu hình Payment</p>
+        </button>
+      </div>
     </div>
-  );
+  )
+}
+
+function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
+  const colors: Record<string, string> = {
+    blue: 'bg-blue-50 border-blue-200 text-blue-700',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    purple: 'bg-purple-50 border-purple-200 text-purple-700',
+    amber: 'bg-amber-50 border-amber-200 text-amber-700',
+  }
+  return (
+    <div className={`rounded-xl border p-4 ${colors[color] || colors.blue}`}>
+      <p className="text-3xl font-bold">{value}</p>
+      <p className="text-sm opacity-80">{label}</p>
+    </div>
+  )
 }

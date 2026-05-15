@@ -1,148 +1,148 @@
-// Register Page
-// Per Step 3: Build web app
+'use client'
 
-'use client';
-
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function Register() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<'customer' | 'worker'>('customer');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const router = useRouter();
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [role, setRole] = useState<'customer' | 'worker'>('customer')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const router = useRouter()
 
   async function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
-    try {
-      // Call auth-register Edge Function
-      const response = await fetch('/api/ai/auth-register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          phone,
-          role,
-        }),
-      });
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, phone, role } },
+    })
 
-      const data = await response.json();
+    if (signUpError) { setError(signUpError.message); setLoading(false); return }
+    if (!data.user) { setError('Đăng ký thất bại'); setLoading(false); return }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
-      }
+    // Cập nhật profile với thông tin từ form
+    await supabase.from('profiles').update({
+      full_name: fullName,
+      phone,
+      role,
+    }).eq('id', data.user.id)
 
-      alert('Registration successful! Please login.');
-      router.push('/login');
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
+    // Nếu là worker, tạo worker profile
+    if (role === 'worker') {
+      await supabase.from('workers').insert({
+        id: data.user.id,
+        full_name: fullName,
+        phone,
+      })
     }
+
+    // Tạo companion greeting trong memory
+    await supabase.from('companion_memories').insert({
+      user_id: data.user.id,
+      key: 'welcome_date',
+      value: new Date().toISOString(),
+      category: 'onboarding',
+      importance: 3,
+    })
+
+    alert('🎉 Đăng ký thành công! Chào mừng bạn đến với Vifixa AI.')
+    router.push('/login')
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow">
-        <h1 className="text-3xl font-bold text-center mb-6">Register with Vifixa AI</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      <div className="max-w-md w-full mx-4">
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-4">🚀</div>
+          <h1 className="text-3xl font-bold text-gray-900">Tham gia Vifixa AI</h1>
+          <p className="text-gray-500 mt-2">AI Companion đồng hành cùng bạn</p>
+        </div>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleRegister} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Phone (Optional)</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">I want to:</label>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setRole('customer')}
-                className={`flex-1 py-2 rounded-lg border ${
-                  role === 'customer'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-800 border-gray-300'
-                }`}
-              >
-                Request Services
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('worker')}
-                className={`flex-1 py-2 rounded-lg border ${
-                  role === 'worker'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-800 border-gray-300'
-                }`}
-              >
-                Provide Services
-              </button>
+        <div className="bg-white p-8 rounded-2xl shadow-lg border">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
+              {error}
             </div>
+          )}
+
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Họ tên</label>
+              <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+                required placeholder="Nguyễn Văn A"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                required placeholder="your@email.com"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                placeholder="+84 123 456 789"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                required minLength={6} placeholder="•••••••• (ít nhất 6 ký tự)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tôi muốn</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setRole('customer')}
+                  className={`py-3 px-4 rounded-xl border-2 font-medium transition-all ${
+                    role === 'customer'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}>
+                  <span className="text-2xl block mb-1">🏠</span>
+                  Thuê dịch vụ
+                </button>
+                <button type="button" onClick={() => setRole('worker')}
+                  className={`py-3 px-4 rounded-xl border-2 font-medium transition-all ${
+                    role === 'worker'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}>
+                  <span className="text-2xl block mb-1">🔧</span>
+                  Làm dịch vụ
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all">
+              {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-gray-500">
+            Đã có tài khoản?{' '}
+            <button onClick={() => router.push('/login')} className="text-blue-600 hover:underline font-medium">
+              Đăng nhập
+            </button>
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-          >
-            {loading ? 'Registering...' : 'Register'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-gray-600">
-          Already have an account?{' '}
-          <button
-            onClick={() => router.push('/login')}
-            className="text-blue-600 hover:underline"
-          >
-            Login
-          </button>
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Bằng cách đăng ký, bạn đồng ý với{' '}
+          <button onClick={() => router.push('/terms')} className="underline">Điều khoản dịch vụ</button>
         </p>
       </div>
     </div>
-  );
+  )
 }

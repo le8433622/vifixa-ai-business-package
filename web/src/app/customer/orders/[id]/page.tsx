@@ -128,6 +128,41 @@ export default function CustomerOrderDetailsPage() {
     }
   }, [order]);
 
+  async function payWithVNPay(orderId: string, amount: number) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/payment-create`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          amount,
+          gateway: 'vnpay',
+          return_url: `${window.location.origin}/api/payments/vnpay/return`,
+          description: `Thanh toán đơn hàng ${orderId.slice(0, 8)}`,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url
+      } else if (data.qr_code) {
+        toast('Quét mã QR để thanh toán', 'info')
+      } else {
+        toast('Không thể tạo thanh toán', 'error')
+      }
+    } catch {
+      toast('Lỗi kết nối thanh toán', 'error')
+    }
+  }
+
   async function cancelOrder() {
     if (!confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
     setCancelling(true);
@@ -425,6 +460,17 @@ export default function CustomerOrderDetailsPage() {
                 >
                   {cancelling ? 'Đang hủy...' : 'Hủy đơn hàng'}
                 </button>
+              )}
+
+              {order.status === 'completed' && order.payment_status === 'unpaid' && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Thanh toán</p>
+                  <button onClick={() => payWithVNPay(order.id, order.final_price || order.estimated_price)}
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium">
+                    💳 Thanh toán với VNPay
+                  </button>
+                  <p className="text-xs text-gray-400 text-center">Chấp nhận thẻ ATM, QR, Internet Banking</p>
+                </div>
               )}
               {showReviewButton && (
                 <Link href={`/customer/review/${order.id}`} className="block">

@@ -1,151 +1,135 @@
-// Worker Dashboard Page
-// Per 05_PRODUCT_SOLUTION.md - Worker flow
-// Per Step 3: Build worker flows
+'use client'
 
-'use client';
-
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
-
-interface Job {
-  id: string;
-  category: string;
-  description: string;
-  status: string;
-  estimated_price: number;
-  customer_id: string;
-  created_at: string;
-}
-
-interface Earnings {
-  total_earnings: number;
-  completed_jobs: number;
-  avg_earnings: number;
-  trust_score: number;
-}
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import CompanionChat from '@/components/companion/CompanionChat'
 
 export default function WorkerDashboard() {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [earnings, setEarnings] = useState<Earnings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const router = useRouter()
+  const [profile, setProfile] = useState<any>(null)
+  const [worker, setWorker] = useState<any>(null)
+  const [jobs, setJobs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    loadData()
+  }, [])
 
-  async function fetchData() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/');
-        return;
-      }
+  async function loadData() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
 
-      // Fetch jobs
-      const jobsResponse = await fetch('/api/ai/worker-jobs?action=jobs', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-      const jobsData = await jobsResponse.json();
-      setJobs(jobsData.jobs || []);
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+    setProfile(profile)
 
-      // Fetch earnings
-      const earningsResponse = await fetch('/api/ai/worker-jobs?action=earnings', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-      const earningsData = await earningsResponse.json();
-      setEarnings(earningsData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
+    const { data: worker } = await supabase
+      .from('workers')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+    setWorker(worker)
+
+    const { data: jobs } = await supabase
+      .from('orders')
+      .select('id, category, description, status, estimated_price, location_lat, location_lng, created_at')
+      .eq('worker_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    setJobs(jobs || [])
+    setLoading(false)
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
+
+  const activeJobs = jobs.filter(j => ['pending', 'matched', 'in_progress'].includes(j.status))
+  const earnings = jobs.filter(j => j.status === 'completed').reduce((s, j: any) => s + (j.estimated_price || 0), 0)
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Worker Dashboard</h1>
-
-      {earnings && (
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Total Earnings</p>
-            <p className="text-2xl font-bold">${earnings.total_earnings}</p>
+    <div className="flex h-screen">
+      {/* Main chat — AI Co-pilot */}
+      <div className="flex-1 flex flex-col">
+        <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">
+            {profile?.full_name?.[0] || '🔧'}
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Completed Jobs</p>
-            <p className="text-2xl font-bold">{earnings.completed_jobs}</p>
+          <div className="flex-1">
+            <p className="font-medium text-sm">{profile?.full_name || 'Thợ'}</p>
+            <p className="text-xs text-gray-500">
+              AI Co-pilot • Uy tín: {worker?.trust_score || 0}%
+            </p>
           </div>
-          <div className="bg-purple-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Avg per Job</p>
-            <p className="text-2xl font-bold">${earnings.avg_earnings}</p>
-          </div>
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">Trust Score</p>
-            <p className="text-2xl font-bold">{earnings.trust_score}</p>
-          </div>
+          <button onClick={() => router.push('/worker/jobs')} className="text-sm text-emerald-600 hover:underline">
+            📋 Việc {activeJobs.length > 0 && `(${activeJobs.length})`}
+          </button>
         </div>
-      )}
-
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => router.push('/worker/jobs')}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-        >
-          View All Jobs
-        </button>
-        <button
-          onClick={() => router.push('/worker/profile')}
-          className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300"
-        >
-          Edit Profile
-        </button>
-        <button
-          onClick={() => router.push('/worker/earnings')}
-          className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
-        >
-          Earnings Details
-        </button>
+        <CompanionChat persona="worker" placeholder="Hỏi AI Co-pilot..." />
       </div>
 
-      <h2 className="text-2xl font-semibold mb-4">Recent Jobs</h2>
-
-      {loading ? (
-        <p>Loading...</p>
-      ) : jobs.length === 0 ? (
-        <p className="text-gray-600">No jobs assigned yet.</p>
-      ) : (
-        <div className="space-y-4">
-          {jobs.slice(0, 5).map((job) => (
-            <div key={job.id} className="border rounded-lg p-4 hover:shadow-lg transition">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-semibold">{job.category}</h3>
-                  <p className="text-gray-600 mt-2">{job.description}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-sm ${
-                  job.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {job.status}
-                </span>
-              </div>
-              <button
-                onClick={() => router.push(`/worker/jobs/${job.id}`)}
-                className="mt-3 text-blue-600 hover:underline"
-              >
-                View Details
-              </button>
-            </div>
-          ))}
+      {/* Sidebar */}
+      <div className="hidden lg:block w-80 bg-gray-50 border-l p-4 overflow-y-auto space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-xl p-4 border text-center">
+            <p className="text-2xl font-bold text-emerald-600">{activeJobs.length}</p>
+            <p className="text-xs text-gray-500">Việc đang làm</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 border text-center">
+            <p className="text-2xl font-bold text-blue-600">{earnings.toLocaleString()}₫</p>
+            <p className="text-xs text-gray-500">Tổng thu nhập</p>
+          </div>
         </div>
-      )}
+
+        {activeJobs.length > 0 && (
+          <div>
+            <h3 className="text-sm font-bold mb-3">🔧 Việc cần xử lý</h3>
+            {activeJobs.map((j: any) => (
+              <button
+                key={j.id}
+                onClick={() => router.push(`/worker/jobs/${j.id}`)}
+                className="w-full bg-white rounded-xl p-3 border mb-2 text-left hover:shadow-sm transition"
+              >
+                <div className="flex justify-between items-start">
+                  <p className="text-sm font-medium truncate">{j.category}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    j.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                    j.status === 'matched' ? 'bg-blue-100 text-blue-700' :
+                    'bg-purple-100 text-purple-700'
+                  }`}>{j.status}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 truncate">{j.description}</p>
+                <p className="text-xs text-gray-400 mt-1">📍 {j.location_lat?.toFixed(4)}, {j.location_lng?.toFixed(4)}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {worker?.trust_score > 0 && (
+          <div className="bg-white rounded-xl p-4 border">
+            <p className="text-xs text-gray-500 mb-1">Điểm uy tín</p>
+            <div className="w-full h-2 bg-gray-100 rounded-full">
+              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${(worker?.trust_score || 0)}%` }} />
+            </div>
+            <p className="text-right text-xs text-gray-500 mt-1">{worker?.trust_score || 0}/100</p>
+          </div>
+        )}
+
+        <button
+          onClick={() => router.push('/worker/jobs')}
+          className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition"
+        >
+          🔧 Tìm việc gần đây
+        </button>
+      </div>
     </div>
-  );
+  )
 }

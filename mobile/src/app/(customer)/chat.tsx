@@ -57,8 +57,9 @@ export default function CustomerChatScreen() {
 
   async function loadOrCreateSession(userId: string) {
     try {
+      // Try to get active session from companion_sessions
       const { data: sessions, error } = await supabase
-        .from('chat_sessions')
+        .from('companion_sessions')
         .select('*')
         .eq('user_id', userId)
         .eq('status', 'active')
@@ -81,7 +82,7 @@ export default function CustomerChatScreen() {
   async function loadMessages(sessionId: string) {
     try {
       const { data: msgs, error } = await supabase
-        .from('chat_messages')
+        .from('companion_messages')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true })
@@ -137,16 +138,19 @@ export default function CustomerChatScreen() {
         return
       }
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/companion/chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          session_id: session?.id || null,
           message: userMessage,
-          context: contextOverride,
+          context: {
+            user_id: authSession.user.id,
+            persona: 'customer', // We know this is a customer chat page
+            session_id: session?.id || null
+          }
         }),
       })
 
@@ -178,23 +182,8 @@ export default function CustomerChatScreen() {
       }
 
       // If session complete
-      if (data.session_complete) {
-        Alert.alert(
-          'Thành công!',
-          'Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.',
-          [{
-            text: 'Xem đơn hàng',
-            onPress: () => {
-              if (data.order_id) {
-                router.push(`/(customer)/orders/${data.order_id}` as any)
-              } else {
-                router.push('/(customer)' as any)
-              }
-            }
-          }]
-        )
-      }
-
+      // Note: The companion chat doesn't return session_complete or order_id in the same way
+      // We'll rely on the actions to navigate
     } catch (error: any) {
       console.error('Send message error:', error)
       Alert.alert('Lỗi', error.message)
@@ -221,7 +210,7 @@ export default function CustomerChatScreen() {
           },
         })
       } catch (error: any) {
-        Alert.alert('Không lấy được vị trí', error.message || 'Vui lòng nhập địa chỉ/khu vực trong ô chat.')
+        Alert.alert('Không được vị trí', error.message || 'Vui lòng nhập địa chỉ/khu vực trong ô chat.')
       }
       return
     }
@@ -233,6 +222,23 @@ export default function CustomerChatScreen() {
 
     if (action.type === 'confirmation_card') {
       await sendMessage(action.value || 'Tôi xác nhận tạo đơn dịch vụ')
+      return
+    }
+
+    if (action.type === 'view_dashboard') {
+      router.push('/(customer)')
+      return
+    }
+
+    if (action.type === 'view_alerts') {
+      // This would need to be created
+      Alert.alert('Thông báo', 'Tính năng cảnh báo đang phát triển')
+      return
+    }
+
+    if (action.type === 'view_stats') {
+      // This would need to be created
+      Alert.alert('Thống kê', 'Tính năng thống kê đang phát triển')
       return
     }
 
@@ -295,6 +301,28 @@ export default function CustomerChatScreen() {
   }
 
   function renderAction(action: any, idx: number) {
+    if (action.type === 'diagnose') {
+      return (
+        <TouchableOpacity key={idx} style={styles.actionBadge} onPress={() => {
+          // For diagnose action, we'll just send a message indicating the user should upload an image
+          sendMessage('Tôi đã chụp ảnh để chẩn đoán')
+        }} disabled={isLoading}>
+          <Text style={styles.actionText}>🔍 {action.label || action.type}</Text>
+        </TouchableOpacity>
+      )
+    }
+
+    if (action.type === 'view_history') {
+      return (
+        <TouchableOpacity key={idx} style={styles.actionBadge} onPress={() => {
+          // For view history, navigate to customer devices or order history
+          router.push('/(customer)/devices')
+        }} disabled={isLoading}>
+          <Text style={styles.actionText}>📋 {action.label || action.type}</Text>
+        </TouchableOpacity>
+      )
+    }
+
     if (action.type === 'quote_card') {
       const quote = action.data || {}
       return (
@@ -329,6 +357,7 @@ export default function CustomerChatScreen() {
       )
     }
 
+    // Default fallback for other action types
     return (
       <TouchableOpacity key={idx} style={styles.actionBadge} onPress={() => handleAction(action)} disabled={isLoading}>
         <Text style={styles.actionText}>⚡ {action.label || action.type}</Text>

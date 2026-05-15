@@ -52,9 +52,9 @@ export default function CustomerChatPage() {
 
   async function loadOrCreateSession(userId: string) {
     try {
-      // Try to get active session from companion_sessions
+      // Try to get active session
       const { data: sessions, error } = await supabase
-        .from('companion_sessions')
+        .from('chat_sessions')
         .select('*')
         .eq('user_id', userId)
         .eq('status', 'active')
@@ -78,7 +78,7 @@ export default function CustomerChatPage() {
   async function loadMessages(sessionId: string) {
     try {
       const { data: msgs, error } = await supabase
-        .from('companion_messages')
+        .from('chat_messages')
         .select('*')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true })
@@ -129,26 +129,23 @@ export default function CustomerChatPage() {
     setMessages(prev => [...prev, tempUserMsg])
 
     try {
-      // Call Companion Chat API
+      // Call AI Chat API
       const { data: { session: authSession } } = await supabase.auth.getSession()
       if (!authSession) {
         router.push('/login')
         return
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/companion/chat`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          session_id: session?.id || null,
           message: userMessage,
-          context: {
-            user_id: authSession.user.id,
-            persona: 'customer', // We know this is a customer chat page
-            session_id: session?.id || null
-          }
+          context: contextOverride,
         }),
       })
 
@@ -180,8 +177,17 @@ export default function CustomerChatPage() {
       }
 
       // If session complete, navigate to order or dashboard
-      // Note: The companion chat doesn't return session_complete or order_id in the same way
-      // We'll rely on the actions to navigate
+      if (data.session_complete) {
+        setTimeout(() => {
+          if (data.order_id) {
+            router.push(`/customer/orders/${data.order_id}`)
+          } else {
+            alert('Đơn dịch vụ đã được chốt thành công! Chúng tôi sẽ liên hệ sớm nhất.')
+            router.push('/customer')
+          }
+        }, 1000)
+      }
+
     } catch (error: any) {
       console.error('Send message error:', error)
       alert(`Lỗi: ${error.message}`)
@@ -225,21 +231,6 @@ export default function CustomerChatPage() {
 
     if (action.type === 'view_order' && action.value) {
       router.push(`/customer/orders/${action.value}`)
-      return
-    }
-
-    if (action.type === 'view_dashboard') {
-      router.push('/customer')
-      return
-    }
-
-    if (action.type === 'view_alerts') {
-      router.push('/admin/alerts') // This would need to be created
-      return
-    }
-
-    if (action.type === 'view_stats') {
-      router.push('/admin/stats') // This would need to be created
       return
     }
 
@@ -296,75 +287,6 @@ export default function CustomerChatPage() {
   }
 
   function renderAction(action: any, idx: number) {
-    if (action.type === 'diagnose') {
-      return (
-        <button
-          key={idx}
-          type="button"
-          onClick={() => {
-            // For diagnose action, we'll just send a message indicating the user should upload an image
-            sendMessage('Tôi đã chụp ảnh để chẩn đoán')
-          }}
-          disabled={isLoading}
-          className="block text-left text-xs bg-white/20 rounded px-2 py-1 hover:bg-white/30 disabled:opacity-50"
-        >
-          🔍 {action.label || action.type}
-        </button>
-      )
-    }
-
-    if (action.type === 'view_history') {
-      return (
-        <button
-          key={idx}
-          type="button"
-          onClick={() => {
-            // For view history, navigate to customer devices or order history
-            router.push('/customer/devices')
-          }}
-          disabled={isLoading}
-          className="block text-left text-xs bg-white/20 rounded px-2 py-1 hover:bg-white/30 disabled:opacity-50"
-        >
-          📋 {action.label || action.type}
-        </button>
-      )
-    }
-
-    if (action.type === 'find_jobs') {
-      // This is more relevant for worker persona, but we'll keep it for completeness
-      return (
-        <button
-          key={idx}
-          type="button"
-          onClick={() => {
-            // Navigate to worker dashboard or job search
-            router.push('/worker')
-          }}
-          disabled={isLoading}
-          className="block text-left text-xs bg-white/20 rounded px-2 py-1 hover:bg-white/30 disabled:opacity-50"
-        >
-          🔍 {action.label || action.type}
-        </button>
-      )
-    }
-
-    if (action.type === 'update_skills') {
-      // Worker persona action
-      return (
-        <button
-          key={idx}
-          type="button"
-          onClick={() => {
-            router.push('/worker/profile')
-          }}
-          disabled={isLoading}
-          className="block text-left text-xs bg-white/20 rounded px-2 py-1 hover:bg-white/30 disabled:opacity-50"
-        >
-          📝 {action.label || action.type}
-        </button>
-      )
-    }
-
     if (action.type === 'quote_card') {
       const quote = action.data || {}
       return (
@@ -410,7 +332,6 @@ export default function CustomerChatPage() {
       )
     }
 
-    // Default fallback for other action types
     return (
       <button
         key={idx}
@@ -546,11 +467,12 @@ export default function CustomerChatPage() {
                       </div>
                     )}
                   </div>
-                  <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
-                    {msg.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
                 </div>
+                <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
+                  {msg.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
+            </div>
           ))}
           {isLoading && (
             <div className="flex justify-start">
@@ -612,7 +534,7 @@ export default function CustomerChatPage() {
           { emoji: '❄️', label: 'Máy lạnh', query: 'Máy lạnh không mát' },
           { emoji: '💡', label: 'Điện nước', query: 'Bị mất điện một phần' },
           { emoji: '🚿', label: 'Nước rò rỉ', query: 'Nước rò rỉ ở vòi' },
-          { emoji: '📷', label: 'Camera', query: 'Lắp đặt camera an ninh' }
+          { emoji: '📷', label: 'Camera', query: 'Lắp đặt camera an ninh' },
         ].map((action) => (
           <button
             key={action.label}
