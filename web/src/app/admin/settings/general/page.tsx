@@ -70,9 +70,8 @@ export default function GeneralSettings() {
 
       // Update each modified setting
       for (const [key, val] of Object.entries(modified)) {
-        // @ts-ignore - Supabase type generation needs update
-        const { error } = await supabase
-          .from('app_settings' as any)
+        const { error } = await (supabase as any)
+          .from('app_settings')
           .update({ value: val, updated_at: new Date().toISOString() })
           .eq('key', key)
 

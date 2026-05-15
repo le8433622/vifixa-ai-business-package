@@ -23,8 +23,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     async function check() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.replace('/login'); return }
-      const { data: profile } = await supabase
+      const { data } = await supabase
         .from('profiles').select('role').eq('id', session.user.id).maybeSingle()
+      const profile = data as { role: string } | null
       if (!profile || profile.role !== 'admin') {
         router.replace(profile?.role === 'customer' ? '/customer' : '/worker')
         return

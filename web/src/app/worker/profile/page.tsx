@@ -50,8 +50,8 @@ export default function WorkerProfile() {
     setSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    await supabase.from('profiles' as any).update({ full_name: name, phone } as any).eq('id', session.user.id)
-    await supabase.from('workers').upsert({ id: session.user.id, skills, service_areas: areas, updated_at: new Date().toISOString() } as any)
+    await (supabase as any).from('profiles').update({ full_name: name, phone }).eq('id', session.user.id)
+    await (supabase as any).from('workers').upsert({ id: session.user.id, skills, service_areas: areas, updated_at: new Date().toISOString() })
     setSaving(false)
   }
 

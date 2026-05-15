@@ -44,11 +44,11 @@ export default function ServiceAreaDrawer({
     })
     map.addControl(drawControlRef.current)
 
-    map.on(L.Draw.Event.CREATED, (event: Record<string, unknown>) => {
+    map.on(L.Draw.Event.CREATED as any, (event: any) => {
       drawnItems.clearLayers()
-      const layer = event.layer
+      const layer = event.layer as L.Polygon
       drawnItems.addLayer(layer)
-      const latlngs = (layer as L.Polygon).getLatLngs()[0] as L.LatLng[]
+      const latlngs = layer.getLatLngs()[0] as L.LatLng[]
       onChange(latlngs.map((ll) => [ll.lat, ll.lng]))
     })
 

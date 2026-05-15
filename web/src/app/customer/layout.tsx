@@ -40,8 +40,9 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
         if (cancelled) return
         if (!session) { router.replace('/login'); return }
 
-        const { data: profile } = await supabase
+        const { data: profileData } = await supabase
           .from('profiles').select('role').eq('id', session.user.id).maybeSingle()
+        const profile = profileData as { role: string } | null
 
         if (cancelled) return
         if (!profile || profile.role !== 'customer') {

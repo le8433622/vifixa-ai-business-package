@@ -1,6 +1,7 @@
 import { Marker, Popup } from 'react-leaflet';
 import { useMap } from 'react-leaflet';
 import { useEffect } from 'react';
+import L from 'leaflet';
 
 interface WorkerMarkerProps {
   worker: {

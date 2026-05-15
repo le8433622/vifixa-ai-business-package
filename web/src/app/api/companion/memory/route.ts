@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Exclude expired memories (where expires_at is in the past) unless expires_at is null
     query = query
       .is('expires_at', null)
-      .or('expires_at.gt.', new Date().toISOString())
+      .or(`expires_at.gt.${new Date().toISOString()}`)
 
     // Order by creation time (newest first)
     query = query.order('created_at', { ascending: false })
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         category,
         importance,
         expires_at: expires_at || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // Default 30 days
-      }, { onConflict: ['user_id', 'key'] })
+      }, { onConflict: 'user_id,key' })
 
     if (error) {
       console.error('Error storing memory:', error)

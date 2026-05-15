@@ -47,7 +47,7 @@ export default function WorkerJobs() {
 
   async function acceptJob(orderId: string) {
     if (!sessionId) return
-    await supabase.from('orders' as any).update({ worker_id: sessionId, status: 'matched' } as any).eq('id', orderId)
+    await (supabase as any).from('orders').update({ worker_id: sessionId, status: 'matched' }).eq('id', orderId)
     load()
   }
 

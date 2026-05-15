@@ -20,9 +20,9 @@ export default function ReviewModal({ orderId, onClose, onSuccess }: ReviewModal
     if (rating === 0) { setError('Vui lòng chọn số sao'); return }
     setSubmitting(true)
     try {
-      const { error } = await supabase
-        .from('orders' as any)
-        .update({ rating, review_comment: comment } as any)
+      const { error } = await (supabase as any)
+        .from('orders')
+        .update({ rating, review_comment: comment })
         .eq('id', orderId)
       if (error) throw error
       onSuccess()

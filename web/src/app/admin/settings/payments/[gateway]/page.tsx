@@ -38,12 +38,12 @@ export default function GatewayConfig() {
         .eq('key', gatewayKey)
         .single()
 
-      if (error) throw error
+      if (error || !data) throw new Error('Gateway config not found')
 
-      setConfig(data)
-      setSandboxMode(data.sandbox)
-      setSandboxKeys(data.sandbox_keys || {})
-      setLiveKeys(data.live_keys || {})
+      setConfig(data as any)
+      setSandboxMode((data as any).sandbox)
+      setSandboxKeys((data as any).sandbox_keys || {})
+      setLiveKeys((data as any).live_keys || {})
     } catch (err: any) {
       console.error('Error fetching gateway config:', err)
       toast('Failed to load gateway config', 'error')
@@ -89,11 +89,10 @@ export default function GatewayConfig() {
         updateData.live_keys = liveKeys
       }
 
-      // @ts-ignore - Supabase type generation needs update
-      const { error } = await (supabase
+      const { error } = await (supabase as any)
         .from('gateway_configs')
         .update(updateData)
-        .eq('key', gatewayKey) as any)
+        .eq('key', gatewayKey)
 
       if (error) throw error
 
@@ -131,15 +130,15 @@ export default function GatewayConfig() {
         return
       }
 
-      // @ts-ignore - Supabase type generation needs update
-      const { error } = await (supabase
+      const { error } = await (supabase as any)
         .from('gateway_configs')
         .update({
           active: !config.active,
           updated_at: new Date().toISOString(),
           updated_by: session.user.id,
+          updated_by_name: session.user.email,
         })
-        .eq('key', gatewayKey) as any)
+        .eq('key', gatewayKey)
 
       if (error) throw error
 

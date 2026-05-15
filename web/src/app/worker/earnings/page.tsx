@@ -19,12 +19,12 @@ export default function WorkerEarnings() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const [oRes, wRes] = await Promise.all([
-      supabase.from('orders').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }),
-      supabase.from('wallets').select('*').eq('user_id', session.user.id).single().catch(() => ({ data: { balance: 0, locked: 0 } })),
-    ])
-    setOrders(oRes.data || [])
-    if (wRes.data) setWallet(wRes.data as Wallet)
+    const oRes = await supabase.from('orders').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false })
+    setOrders((oRes.data || []) as any)
+    try {
+      const r: any = await supabase.from('wallets').select('*').eq('user_id', session.user.id).single()
+      if (r.data) setWallet(r.data)
+    } catch {}  // Default wallet: balance=0, locked=0
     setLoading(false)
   }
 

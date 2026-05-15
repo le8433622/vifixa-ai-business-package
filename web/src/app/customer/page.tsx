@@ -47,24 +47,25 @@ export default function CustomerDashboard() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const [p, o, d] = await Promise.all([
+    const [profileRes, ordersRes, devicesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', session.user.id).single(),
       supabase.from('orders').select('*').eq('customer_id', session.user.id).order('created_at', { ascending: false }),
       supabase.from('device_profiles').select('*').eq('user_id', session.user.id),
     ])
-    setProfile(p.data)
-    setOrders(o.data || [])
-    setDevices(d.data || [])
+    setProfile(profileRes.data)
+    const ordersData = (ordersRes.data || []) as Order[]
+    setOrders(ordersData)
+    setDevices((devicesRes.data || []) as Device[])
 
     // Derive app state from active orders
-    const active = (o.data || []).find(o => ['pending', 'matched', 'in_progress'].includes(o.status))
-    if (active) {
-      if (active.status === 'in_progress') setAppState('tracking')
-      else if (active.status === 'matched') setAppState('quoting')
+    const activeOrder = ordersData.find(order => ['pending', 'matched', 'in_progress'].includes(order.status))
+    if (activeOrder) {
+      if (activeOrder.status === 'in_progress') setAppState('tracking')
+      else if (activeOrder.status === 'matched') setAppState('quoting')
     }
     // Check for unpaid completed orders
-    const unpaid = (o.data || []).find(o => o.status === 'completed' && o.payment_status === 'unpaid')
-    if (unpaid) setAppState('payment')
+    const unpaidOrder = ordersData.find(order => order.status === 'completed' && order.payment_status === 'unpaid')
+    if (unpaidOrder) setAppState('payment')
 
     setLoading(false)
   }

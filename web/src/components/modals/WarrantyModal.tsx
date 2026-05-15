@@ -31,7 +31,7 @@ export default function WarrantyModal({ orderId, orderCategory, completedAt, onC
         order_id: orderId, customer_id: session.user.id,
         claim_reason: reason, status: 'pending',
       })
-      await supabase.from('orders' as any).update({ status: 'disputed' } as any).eq('id', orderId)
+      await (supabase as any).from('orders').update({ status: 'disputed' }).eq('id', orderId)
       onSuccess()
     } catch (err: any) {
       setError(err.message)

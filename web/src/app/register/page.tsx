@@ -29,7 +29,7 @@ export default function Register() {
     if (!data.user) { setError('Đăng ký thất bại'); setLoading(false); return }
 
     // Cập nhật profile với thông tin từ form
-    await supabase.from('profiles').update({
+    await (supabase as any).from('profiles').update({
       full_name: fullName,
       phone,
       role,
@@ -37,7 +37,7 @@ export default function Register() {
 
     // Nếu là worker, tạo worker profile
     if (role === 'worker') {
-      await supabase.from('workers').insert({
+      await (supabase as any).from('workers').insert({
         id: data.user.id,
         full_name: fullName,
         phone,
@@ -45,7 +45,7 @@ export default function Register() {
     }
 
     // Tạo companion greeting trong memory
-    await supabase.from('companion_memories').insert({
+    await (supabase as any).from('companion_memories').insert({
       user_id: data.user.id,
       key: 'welcome_date',
       value: new Date().toISOString(),

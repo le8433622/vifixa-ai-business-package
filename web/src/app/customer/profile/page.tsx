@@ -29,13 +29,13 @@ export default function CustomerProfilePage() {
     if (!session) { router.push('/login'); return }
     setEmail(session.user.email || '')
 
-    const { data: profiles } = await supabase
-      .from('profiles' as any).select('*').eq('id', session.user.id)
-    const p = profiles?.[0]
-    if (p) {
-      setProfile(p)
-      setName(p.full_name || '')
-      setPhone(p.phone || '')
+    const { data: profiles } = await (supabase as any)
+      .from('profiles').select('*').eq('id', session.user.id)
+    const profileData = profiles?.[0] as { full_name?: string; phone?: string } | undefined
+    if (profileData) {
+      setProfile(profileData)
+      setName(profileData.full_name || '')
+      setPhone(profileData.phone || '')
     }
 
     try {
@@ -59,7 +59,7 @@ export default function CustomerProfilePage() {
     setSaving(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    await supabase.from('profiles' as any).update({ full_name: name, phone } as any).eq('id', session.user.id)
+    await (supabase as any).from('profiles').update({ full_name: name, phone }).eq('id', session.user.id)
 
     await Promise.all([
       fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-references`, {
