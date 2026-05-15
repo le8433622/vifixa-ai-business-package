@@ -631,19 +631,22 @@ Dựa vào tham khảo trên và phân tích chuyên sâu để đưa ra chẩn 
     return prompt + '\n\nTrả về JSON chẩn đoán (diagnosis, severity, recommended_skills, confidence, estimated_price_range):'
   }
 
-  private buildPricingPrompt(input: any, priceBands?: any[], multipliers?: Record<string, number>): string {
-    let prompt = `DỊCH VỤ: ${input.category}
-CHẨN ĐOÁN: ${input.diagnosis}
-KHU VỰC: ${JSON.stringify(input.location)}
-ĐỘ KHẨN CẤP: ${input.urgency}`
-    if (priceBands?.length) {
-      prompt += `\n\nBẢNG GIÁ THAM KHẢO:\n${priceBands.map((pb: any) => `- ${pb.subcategory || 'Chung'}: ${pb.min_price}-${pb.max_price} VND (chuẩn: ${pb.standard_price} VND)`).join('\n')}`
-    }
-    if (multipliers && Object.keys(multipliers).length) {
-      prompt += `\n\nHỆ SỐ TĂNG GIÁ:\n${Object.entries(multipliers).map(([k, v]) => `- ${k}: x${v}`).join('\n')}`
-    }
-    return prompt + '\n\nTrả về JSON định giá (estimated_price, price_breakdown, confidence, material_cost_estimate, labor_cost_estimate):'
-  }
+   private buildPricingPrompt(input: any, priceBands?: any[], multipliers?: Record<string, number>): string {
+     let prompt = `DỊCH VỤ: ${input.category}
+     CHẨN ĐOÁN: ${input.diagnosis}
+     KHU VỰC: ${JSON.stringify(input.location)}
+     ĐỘ KHẨN CẤP: ${input.urgency}`
+     if (input.knowledgeBase?.length) {
+       prompt += `\n\nBASE TRI THỨC:\n${input.knowledgeBase.map((kb: any) => `- ${kb.diagnosis}: ${kb.severity}`).join('\n')}`
+     }
+     if (priceBands?.length) {
+       prompt += `\n\nBẢNG GIÁ THAM KHẢO:\n${priceBands.map((pb: any) => `- ${pb.subcategory || 'Chung'}: ${pb.min_price}-${pb.max_price} VND (chuẩn: ${pb.standard_price} VND)`).join('\n')}`
+     }
+     if (multipliers && Object.keys(multipliers).length) {
+       prompt += `\n\nHỆ SỐ TĂNG GIÁ:\n${Object.entries(multipliers).map(([k, v]) => `- ${k}: x${v}`).join('\n')}`
+     }
+     return prompt + '\n\nTrả về JSON định giá (estimated_price, price_breakdown, confidence, material_cost_estimate, labor_cost_estimate):'
+   }
 
   private buildMatchingPrompt(input: any, candidateWorkers?: any[]): string {
     let prompt = `KỸ NĂNG YÊU CẦU: ${input.skills_required?.join(', ')}

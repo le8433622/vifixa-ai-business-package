@@ -1,5 +1,6 @@
 // AI Diagnose — Chẩn đoán sự cố + báo giá
 // Sử dụng AICore engine từ _shared
+// Tích hợp companion memory để cải thiện chẩn đoán
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { corsHeaders } from '../_shared/cors.ts'
@@ -27,6 +28,24 @@ Deno.serve(async (req: Request) => {
       requestId: crypto.randomUUID(),
     })
 
+    // Lấy companion memories để tăng cường context
+    const { data: memories } = await supabase
+      .from('companion_memories')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    // Chuẩn bị knowledge base từ memories
+    const knowledgeBase = memories
+      .filter(m => m.category === 'ai_learned' || m.category === 'diagnosis')
+      .map(m => ({
+        diagnosis: m.value.split(' - ')[0] || m.value,
+        severity: m.value.split(' - ')[1] || 'medium',
+        description: m.value,
+        confidence: m.importance / 5 // Chuyển importance thành confidence
+      }))
+
     // Nếu có ảnh, dùng Vision model
     if (media_urls?.length) {
       const visionResult = await aiCore.analyzeImages({
@@ -37,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
       if (!visionResult.success) {
         // Fallback về text diagnosis
-        return diagnoseText(aiCore, description, category, supabase, user)
+        return diagnoseText(aiCore, description, category, supabase, user, knowledgeBase)
       }
 
       // Lưu diagnosis vào service_requests
@@ -54,6 +73,19 @@ Deno.serve(async (req: Request) => {
         .select()
         .single()
 
+      // Lưu fact mới vào companion memory
+      await supabase
+        .from('companion_memories')
+        .upsert({
+          user_id: user.id,
+          key: 'last_diagnosis',
+          value: `${visionResult.data.diagnosis} - ${visionResult.data.severity}`,
+          category: 'ai_learned',
+          importance: 4,
+          source: 'diagnose',
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+        }, { onConflict: ['user_id', 'key'] })
+
       return jsonResponse({
         success: true,
         diagnosis: visionResult.data.diagnosis,
@@ -67,7 +99,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Text-only diagnosis
-    return await diagnoseText(aiCore, description, category, supabase, user)
+    return await diagnoseText(aiCore, description, category, supabase, user, knowledgeBase)
 
   } catch (error: any) {
     console.error('Diagnose error:', error)
@@ -83,13 +115,14 @@ async function diagnoseText(
   description: string,
   category: string | undefined,
   supabase: any,
-  user: any
+  user: any,
+  knowledgeBase: any[] = []
 ) {
-  // Bước 1: Chẩn đoán
+  // Bước 1: Chẩn đoán với knowledge base
   const diagnosis = await aiCore.diagnose({
     description,
     category: category || 'general',
-  })
+  }, knowledgeBase)
 
   if (!diagnosis.success) {
     // Fallback nếu AI lỗi
@@ -118,7 +151,8 @@ async function diagnoseText(
     diagnosis: diagnosis.data.diagnosis,
     urgency: diagnosis.data.severity,
     location: null,
-  })
+    knowledgeBase: knowledgeBase
+  }, []) // candidate price bands could be added here
 
   const priceData = price.success ? price.data : {
     estimated_price: diagnosis.data.estimated_price_range?.min || 300000,
@@ -143,6 +177,19 @@ async function diagnoseText(
     })
     .select()
     .single()
+
+  // Lưu fact mới vào companion memory
+  await supabase
+    .from('companion_memories')
+    .upsert({
+      user_id: user.id,
+      key: 'last_diagnosis',
+      value: `${diagnosis.data.diagnosis} - ${diagnosis.data.severity}`,
+      category: 'ai_learned',
+      importance: 4,
+      source: 'diagnose',
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+    }, { onConflict: ['user_id', 'key'] })
 
   return jsonResponse({
     success: true,
