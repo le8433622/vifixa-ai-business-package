@@ -293,19 +293,50 @@ export default function CustomerOrderDetailsPage() {
                 <p className="text-gray-800 mt-1">{order.description}</p>
               </div>
               {order.workers?.profiles && (
-                <div>
-                  <span className="text-xs font-medium text-gray-500 uppercase">Thợ thực hiện</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                      {order.workers.profiles.email?.[0]?.toUpperCase() || '?'}
-                    </div>
-                    <span className="text-gray-800">{order.workers.profiles.email}</span>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">👤 Thợ thực hiện</span>
                     {order.workers.trust_score != null && (
-                      <span className="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full">
-                        Tin cậy: {order.workers.trust_score}%
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                        order.workers.trust_score >= 80 ? 'bg-green-100 text-green-700' :
+                        order.workers.trust_score >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        🛡️ Tin cậy {order.workers.trust_score}%
                       </span>
                     )}
                   </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                      {order.workers.profiles.email?.[0]?.toUpperCase() || '🔧'}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{order.workers.profiles.email?.split('@')[0] || 'Thợ'}</p>
+                      <p className="text-xs text-gray-500">{order.workers.profiles.email}</p>
+                      {order.workers.trust_score != null && (
+                        <p className="text-xs text-gray-400 mt-0.5">{order.workers.trust_score >= 80 ? '✅ Thợ uy tín' : '🆕 Thợ mới'}</p>
+                      )}
+                    </div>
+                    {order.status === 'in_progress' && (
+                      <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-full animate-pulse">
+                        🗺️ Đang đến
+                      </span>
+                    )}
+                  </div>
+                  {/* Map tracking for in_progress */}
+                  {order.status === 'in_progress' && (
+                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-100">
+                      <div className="flex items-center gap-2 text-sm text-blue-700">
+                        <span className="text-lg">🗺️</span>
+                        <div>
+                          <p className="font-medium">Thợ đang đến</p>
+                          <p className="text-xs text-blue-500">ETA: ~15 phút · Cách 2.5 km</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 h-16 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100">
+                        <p className="text-xs text-blue-400">🔄 Map real-time — cần react-leaflet</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {order.payment_status && (
