@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import CompanionChat from '@/components/companion/CompanionChat'
+import CustomerCompanionChat from '@/components/companion/CustomerCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 import DynamicMapView from '@/components/map/DynamicMapView'
 
@@ -155,7 +155,7 @@ export default function CustomerDashboard() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* AI Companion — full height base layer */}
         <div className="absolute inset-0">
-          <CompanionChat persona="customer" onAction={handleAction} />
+          <CustomerCompanionChat onAction={handleAction} />
         </div>
 
         {/* ─── MAP CORE: Contextual Map ─────────────────── */}

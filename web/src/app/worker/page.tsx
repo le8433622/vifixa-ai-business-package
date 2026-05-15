@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import CompanionChat from '@/components/companion/CompanionChat'
+import WorkerCompanionChat from '@/components/companion/WorkerCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 
 type Job = {
@@ -79,7 +79,7 @@ export default function WorkerDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* AI Co-pilot Chat — base layer */}
         <div className="absolute inset-0">
-          <CompanionChat persona="worker" onAction={handleAction} />
+          <WorkerCompanionChat onAction={handleAction} />
         </div>
 
         {/* Auto mode widgets */}

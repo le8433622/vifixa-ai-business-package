@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import CompanionChat from '@/components/companion/CompanionChat'
+import AdminCompanionChat from '@/components/companion/AdminCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 import WalletDashboard from '@/components/wallet/WalletDashboard'
 
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* AI Analyst Chat */}
         <div className="absolute inset-0">
-          <CompanionChat persona="admin" onAction={handleAction} />
+          <AdminCompanionChat onAction={handleAction} />
         </div>
 
         {/* Stats overlay */}
