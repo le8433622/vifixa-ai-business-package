@@ -213,13 +213,28 @@ export default function CustomerOrderDetail() {
         </View>
       </View>
 
-      {/* AI Diagnosis */}
+      {/* AI Diagnosis + Confidence Score */}
       {order.ai_diagnosis && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chẩn đoán AI</Text>
+          <Text style={styles.sectionTitle}>🤖 Chẩn đoán AI</Text>
           <View style={styles.aiCard}>
             <Text style={styles.aiLabel}>Chẩn đoán:</Text>
             <Text style={styles.aiValue}>{order.ai_diagnosis.diagnosis}</Text>
+
+            {/* Confidence Score Bar */}
+            {order.ai_diagnosis.confidence != null && (
+              <>
+                <Text style={[styles.aiLabel, { marginTop: 8 }]}>Độ tin cậy:</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <View style={{ flex: 1, height: 10, backgroundColor: '#e5e7eb', borderRadius: 5, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.round(order.ai_diagnosis.confidence * 100)}%`, height: '100%', borderRadius: 5, backgroundColor: order.ai_diagnosis.confidence >= 0.8 ? '#059669' : order.ai_diagnosis.confidence >= 0.5 ? '#d97706' : '#dc2626' }} />
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: order.ai_diagnosis.confidence >= 0.8 ? '#059669' : order.ai_diagnosis.confidence >= 0.5 ? '#d97706' : '#dc2626' }}>
+                    {Math.round(order.ai_diagnosis.confidence * 100)}%
+                  </Text>
+                </View>
+              </>
+            )}
             
             <Text style={[styles.aiLabel, { marginTop: 8 }]}>Mức độ:</Text>
             <View style={[styles.severityBadge, 
