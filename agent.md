@@ -221,10 +221,33 @@ Step D: Log Analysis
 ```
 
 ### Log Format Thống Nhất
+
+**⚠️ BẮT BUỘC — MỌI LOG PHẢI CÓ PREFIX [VIFIXA]:**
+
 ```typescript
-// Mọi Edge Function — log 3 thông tin:
-console.log(`[VIFIXA][${fnName}] ${action} | user=${userId} | status=${status} | latency=${ms}ms`)
+// Utility function (dùng trong tất cả Edge Functions) — đã có sẵn:
+// supabase/functions/_shared/logger.ts
+
+import { logVifixa, logAuth, logApi, logAi } from '../_shared/logger.ts'
+
+// Usage:
+logVifixa('companion-chat', 'chat_request', {
+  user_id: user.id,
+  message_length: message.length,
+  mode: state.mode,
+})
+
+// Shorthands:
+logAuth(userId, 'unauthorized', role)
+logApi(fnName, 200, userId, elapsed)
+logAi('diagnosis', 1234, 500, 100)
+
+// Output: [VIFIXA][companion-chat] chat_request | user_id="xxx" | message_length=45 | mode="auto"
 ```
+
+**❌ AUTO REJECT nếu log không có prefix [VIFIXA].**
+**❌ AUTO REJECT nếu dùng `console.log` trực tiếp trong Edge Function thay vì `logVifixa()`.**
+**✅ `console.log` trong code frontend (`web/src/app/`) bị CẤM — dùng `console.error` cho error tracking.**
 
 ### Error Analysis (tự động ghi khi test fail)
 ```markdown
@@ -325,6 +348,19 @@ console.log(`[VIFIXA][${fnName}] ${action} | user=${userId} | status=${status} |
 
 ## 🛡️ BẢO MẬT (Security — Ưu tiên tuyệt đối)
 
+### 🔴 ZERO TOLERANCE POLICY (Các lỗi AUTO REJECT)
+
+| Mã | Lỗi | Prevention | Detection |
+|----|-----|------------|-----------|
+| SEC-001 | API key/secret trong frontend code | Mọi secret qua Edge Function `Deno.env.get()` | Pre-commit grep: `.env\|API_KEY\|SECRET` trong `web/src/app/` |
+| SEC-002 | Edge Function thiếu `verifyAuth()` | Copy auth template từ section dưới | Code review + test auth fail case |
+| SEC-003 | Admin routes trong customer/worker code | Kiểm tra URL trước khi hardcode | Pre-commit grep: `/admin/` trong customer/worker |
+| QUAL-001 | `@ts-nocheck` hoặc `@ts-ignore` | Fix type đúng, không tắt type check | Pre-commit grep `@ts-nocheck\|@ts-ignore` |
+| QUAL-002 | `console.log` trong frontend code | Dùng `logVifixa()` utility trong Edge Functions | Pre-commit grep `console.log` trong `web/src/app/` |
+| LOG-001 | Log không có prefix `[VIFIXA]` | Dùng `logVifixa()` utility — tự động thêm prefix | Pre-commit grep `console.log` không có `[VIFIXA]` |
+| ARCH-001 | AI logic không qua `ai-core.ts` tập trung | Mọi AI call CHỈ qua Supabase Edge Functions | Import path linting |
+| ARCH-002 | Service không qua Service Registry | Dùng `serviceRegistry.get()` cho mọi service | Code review checklist |
+
 ### Secret Management (Không bao giờ vi phạm)
 - ❌ **KHÔNG** có API key trong frontend code (.env.local, .env)
 - ❌ **KHÔNG** có service_role key trong browser
@@ -333,16 +369,32 @@ console.log(`[VIFIXA][${fnName}] ${action} | user=${userId} | status=${status} |
 - ✅ Mọi third-party key trong Supabase Secrets
 
 ### Authentication & Authorization (Kiểm tra TRƯỚC mọi action)
-```typescript
-// Bắt buộc trong mọi Edge Function:
-const user = await verifyAuth(req)
-if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
 
-// Role check:
+**⚠️ BẮT BUỘC — MỌI EDGE FUNCTION PHẢI CÓ verifyAuth() Ở DÒNG ĐẦU:**
+
+```typescript
+// Template chuẩn cho mọi Edge Function:
+import { verifyAuth, jsonResponse } from '../_shared/auth-helper.ts'
+import { logAuth } from '../_shared/logger.ts'
+
+// 1. Verify auth — DÒNG ĐẦU TIÊN sau try
+const user = await verifyAuth(req)
+if (!user) {
+  logAuth('unknown', 'unauthorized')
+  return jsonResponse({ error: 'Unauthorized' }, 401)
+}
+
+// 2. Role check — nếu cần
 const { data: profile } = await supabase
   .from('profiles').select('role').eq('id', user.id).single()
-if (profile.role !== 'customer') return jsonResponse({ error: 'Forbidden' }, 403)
+
+if (!profile || profile.role !== 'expected_role') {
+  logAuth(user.id, 'forbidden', profile?.role)
+  return jsonResponse({ error: 'Forbidden' }, 403)
+}
 ```
+
+**❌ AUTO REJECT nếu Edge Function không có `verifyAuth()` ở dòng đầu tiên.**
 
 ### RLS (Row Level Security) — Bảng nào cũng phải có
 - **profiles**: user thấy của mình, admin thấy tất cả
@@ -353,14 +405,27 @@ if (profile.role !== 'customer') return jsonResponse({ error: 'Forbidden' }, 403
 - **ai_logs**: admin-only
 
 ### Input Validation (Chống injection)
+
+**⚠️ BẮT BUỘC — MỌI EDGE FUNCTION PHẢI CÓ ZOD VALIDATION:**
+
 ```typescript
 import { z } from 'zod'
+import { logVifixa } from '../_shared/logger.ts'
+
+// 1. Định nghĩa schema ở ĐẦU function
 const RequestSchema = z.object({
   message: z.string().min(1).max(5000),
   category: z.enum(['electricity', 'plumbing', 'appliance', 'camera']),
 })
+
+// 2. Parse và validate — KHÔNG dùng JSON.parse trực tiếp
 const parsed = RequestSchema.safeParse(body)
-if (!parsed.success) return jsonResponse({ error: 'Invalid input' }, 400)
+if (!parsed.success) {
+  logVifixa('validation', 'invalid_input', {
+    errors: parsed.error.errors,
+  })
+  return jsonResponse({ error: 'Invalid input', details: parsed.error.errors }, 400)
+}
 ```
 
 ### Prompt Injection Protection
@@ -614,10 +679,12 @@ grep -rn "user.*input\|\`\$\{message\}\`" supabase/functions/ --include="*.ts" |
 ### Build Verification
 - [ ] `npm run build` — 0 errors
 - [ ] `npm run lint` — 0 warnings
-- [ ] `grep -rn "@ts-nocheck" web/src/ supabase/functions/` — 0 matches
-- [ ] `grep -rn "service_role" web/src/ mobile/src/` — 0 matches
-- [ ] `grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/` — 0 matches
-- [ ] `grep -rn "console.log" web/src/app/ supabase/functions/` — kiểm tra từng cái
+- [ ] Zero Tolerance: SEC-001 — `grep -rn "API_KEY\|SECRET" web/src/app/` — 0 matches
+- [ ] Zero Tolerance: QUAL-001 — `grep -rn "@ts-nocheck\|@ts-ignore" web/src/ supabase/functions/` — 0 matches
+- [ ] Zero Tolerance: QUAL-002 — `grep -rn "console.log" web/src/app/` — 0 matches
+- [ ] Zero Tolerance: SEC-003 — `grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/` — 0 matches
+- [ ] Zero Tolerance: LOG-001 — `grep -rn "console.log" supabase/functions/` — mỗi cái phải có `[VIFIXA]`
+- [ ] Zero Tolerance: SEC-002 — kiểm tra Edge Functions mới có `verifyAuth()`
 
 ---
 
@@ -955,6 +1022,14 @@ Thumbs.db
 ### 2026-05-15 — v1.10: Pre-commit + Turbopack + Rule #23
 
 ### 2026-05-15 — v1.11: PR Workflow + Dọn dẹp PR cũ
+
+### 2026-05-15 — v1.12: Zero Tolerance Policy + logVifixa Utility
+- 🚨 **Zero Tolerance Policy Table** — 8 error codes (SEC-001→003, QUAL-001→002, LOG-001, ARCH-001→002)
+- 🔧 **`logVifixa()` utility** — `supabase/functions/_shared/logger.ts` với structured logging + shorthands
+- 🛡️ **Auth template nâng cấp** — import path, error logging, auto-reject rule
+- 📐 **Validation template nâng cấp** — safeParse + structured error response
+- ✅ **Prevention + Detection columns** — mọi rule có cách phòng + phát hiện cụ thể
+- 🎓 **Lesson từ PR #12** — Zero Tolerance > "khuyến nghị"
 - 🔍 **Phát hiện PR #12** — từ session cũ, 21 files, conflict với codebase mới
 - 🗑️ **Đã đóng PR #12** — kèm lý do: "conflicts with restructured codebase"
 - 📋 **Rule #24** — PR workflow: branch naming, commit format, pre-merge checks
