@@ -1,11 +1,19 @@
 // Worker Job Detail - Mobile
 // Per user request: Complete worker pages (mobile)
 
-import { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native'
+import { useState, useEffect, useRef } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, TextInput, Image, Modal } from 'react-native'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+import * as ImagePicker from 'expo-image-picker'
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!
+
+const CHECKLISTS: Record<string, string[]> = {
+  air_conditioning: ['Kiểm tra gas', 'Vệ sinh lưới lọc', 'Kiểm tra block', 'Đo dòng điện'],
+  electricity: ['Ngắt nguồn điện', 'Kiểm tra CB', 'Đo điện áp', 'Kiểm tra dây'],
+  plumbing: ['Khóa van nước', 'Kiểm tra ống', 'Xác định rò rỉ', 'Vệ sinh khu vực'],
+  default: ['Kiểm tra an toàn', 'Vệ sinh khu vực', 'Kiểm tra sau sửa', 'Dọn dẹp'],
+}
 
 type Job = {
   id: string
@@ -71,60 +79,84 @@ export default function JobDetailScreen() {
     }
   }
 
-  async function updateStatus(newStatus: string) {
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [checklist, setChecklist] = useState<string[]>([])
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set())
+  const [beforePhotos, setBeforePhotos] = useState<string[]>([])
+  const [afterPhotos, setAfterPhotos] = useState<string[]>([])
+  const [finalPrice, setFinalPrice] = useState(0)
+  const [partsUsed, setPartsUsed] = useState('')
+
+  useEffect(() => {
+    if (job?.category) {
+      setChecklist(CHECKLISTS[job.category as string] || CHECKLISTS.default)
+      setFinalPrice(job.estimated_price || 0)
+    }
+  }, [job?.category, job?.estimated_price])
+
+  async function handleStart() {
     setUpdating(true)
-    try {
-      const updates: any = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      }
+    await supabase.from('orders').update({ status: 'in_progress', updated_at: new Date().toISOString() }).eq('id', id)
+    fetchJob()
+    setUpdating(false)
+  }
 
-      if (newStatus === 'completed') {
-        updates.completed_at = new Date().toISOString()
-      }
+  async function handleComplete() {
+    setUpdating(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
 
-      const { error } = await supabase
-        .from('orders')
-        .update(updates)
-        .eq('id', id)
-
-      if (error) throw error
-
-      // Call AI quality check when marking complete
-      if (newStatus === 'completed') {
-        try {
-          const { data: { session } } = await supabase.auth.getSession()
-          if (session?.access_token) {
-            const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/ai-quality`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                order_id: id,
-                worker_id: session.user.id,
-              }),
-            })
-            if (aiRes.ok) {
-              const aiData = await aiRes.json()
-              if (!aiData.passed) {
-                Alert.alert('Kiểm tra chất lương', `Điểm: ${aiData.quality_score}/100. ${aiData.recommendations?.join(' ') || ''}`)
-              }
-            }
-          }
-        } catch (aiError) {
-          console.warn('AI quality check failed:', aiError)
+    // Upload photos
+    const upload = async (photos: string[]): Promise<string[]> => {
+      const urls: string[] = []
+      for (const photo of photos) {
+        const res = await fetch(photo)
+        const blob = await res.blob()
+        const fileName = `job-${id}-${Date.now()}.jpg`
+        const { data } = await supabase.storage.from('order-evidence').upload(fileName, blob)
+        if (data) {
+          const { data: { publicUrl } } = supabase.storage.from('order-evidence').getPublicUrl(data.path)
+          urls.push(publicUrl)
         }
       }
+      return urls
+    }
+    const beforeUrls = beforePhotos.length > 0 ? await upload(beforePhotos) : []
+    const afterUrls = afterPhotos.length > 0 ? await upload(afterPhotos) : []
 
-      Alert.alert('Thành công', 'Đã cập nhật trạng thái')
-      fetchJob()
-    } catch (error: any) {
-      console.error('updateStatus error:', error)
-      Alert.alert('Lỗi', error.message)
-    } finally {
-      setUpdating(false)
+    await supabase.from('orders').update({
+      status: 'completed',
+      final_price: finalPrice,
+      before_media: beforeUrls,
+      after_media: afterUrls,
+      parts_used: partsUsed,
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', id)
+
+    // Escrow release
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/wallet-manager`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'escrow:release', orderId: id }),
+      })
+    } catch {}
+
+    setShowCompleteModal(false)
+    Alert.alert('✅', `Hoàn thành! Đã nhận ${finalPrice.toLocaleString()}₫`)
+    fetchJob()
+    setUpdating(false)
+  }
+
+  const pickImage = async (type: 'before' | 'after') => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, quality: 0.8,
+    })
+    if (!result.canceled) {
+      if (type === 'before') setBeforePhotos(prev => [...prev, result.assets[0].uri])
+      else setAfterPhotos(prev => [...prev, result.assets[0].uri])
     }
   }
 
@@ -308,7 +340,7 @@ export default function JobDetailScreen() {
               {job.status === 'in_progress' && (
                 <TouchableOpacity
                   style={[styles.button, styles.successButton]}
-                  onPress={() => updateStatus('completed')}
+                  onPress={() => setShowCompleteModal(true)}
                   disabled={updating}
                 >
                   <Text style={styles.buttonText}>Hoàn thành việc</Text>
@@ -325,6 +357,71 @@ export default function JobDetailScreen() {
           </View>
         )}
       </View>
+
+      {/* Complete Modal */}
+      <Modal visible={showCompleteModal} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' }}>
+            <ScrollView>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>✔️ Xác nhận hoàn thành</Text>
+
+              {/* Checklist */}
+              <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>📋 Checklist</Text>
+              {checklist.map(item => (
+                <TouchableOpacity key={item} onPress={() => {
+                  const next = new Set(checkedItems)
+                  next.has(item) ? next.delete(item) : next.add(item)
+                  setCheckedItems(next)
+                }} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: checkedItems.has(item) ? '#059669' : '#d1d5db', backgroundColor: checkedItems.has(item) ? '#059669' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                    {checkedItems.has(item) && <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>}
+                  </View>
+                  <Text style={{ marginLeft: 10, fontSize: 14, color: checkedItems.has(item) ? '#9ca3af' : '#374151', textDecorationLine: checkedItems.has(item) ? 'line-through' : 'none' }}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+
+              {/* Photo upload */}
+              <Text style={{ fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 }}>📷 Ảnh</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={() => pickImage('before')} style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, borderStyle: 'dashed', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>📸</Text>
+                  <Text style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>Trước</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => pickImage('after')} style={{ flex: 1, padding: 12, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, borderStyle: 'dashed', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>📸</Text>
+                  <Text style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>Sau</Text>
+                </TouchableOpacity>
+              </View>
+              {beforePhotos.length > 0 && <Text style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>📷 {beforePhotos.length} ảnh trước</Text>}
+              {afterPhotos.length > 0 && <Text style={{ fontSize: 10, color: '#6b7280' }}>📷 {afterPhotos.length} ảnh sau</Text>}
+
+              {/* Final Price */}
+              <Text style={{ fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 }}>💰 Giá cuối</Text>
+              <TextInput value={String(finalPrice)} onChangeText={v => setFinalPrice(Number(v) || 0)}
+                style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, fontSize: 16, fontWeight: 'bold' }} keyboardType="numeric" />
+
+              {/* Parts */}
+              <Text style={{ fontSize: 14, fontWeight: '600', marginTop: 12, marginBottom: 8 }}>🔧 Vật tư</Text>
+              <TextInput value={partsUsed} onChangeText={setPartsUsed}
+                placeholder="Ghi chú vật tư đã thay..."
+                style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, fontSize: 14, height: 60 }} multiline />
+
+              {/* Actions */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+                <TouchableOpacity onPress={() => setShowCompleteModal(false)} style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#f3f4f6' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>Hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleComplete} disabled={updating || checkedItems.size < checklist.length}
+                  style={{ flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#059669', opacity: (updating || checkedItems.size < checklist.length) ? 0.5 : 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: 'white' }}>
+                    {updating ? '...' : `✅ Xác nhận ${finalPrice.toLocaleString()}₫`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   )
 }
