@@ -27,6 +27,7 @@ export const AGENT_MODEL_MAP: Record<string, ModelTier> = {
   predict: 'balanced',
   care_agent: 'balanced',
   chat: 'cheap',
+  intent_classification: 'cheap',
   upsell: 'balanced',
   b2b: 'smart',
   materials: 'cheap',
@@ -272,13 +273,21 @@ export class AICore {
     })
   }
 
-  async chat(input: any): Promise<AIResponse<z.infer<typeof ChatSchema>>> {
-    return this.orchestrate('chat', ChatSchema, async (model) => {
-      const systemPrompt = this.buildSystemPrompt('chat', model)
-      const userPrompt = this.buildChatPrompt(input)
-      return { systemPrompt, userPrompt }
-    })
-  }
+   async chat(input: any): Promise<AIResponse<z.infer<typeof ChatSchema>>> {
+     return this.orchestrate('chat', ChatSchema, async (model) => {
+       const systemPrompt = this.buildSystemPrompt('chat', model)
+       const userPrompt = this.buildChatPrompt(input)
+       return { systemPrompt, userPrompt }
+     })
+   }
+
+   async classifyIntent(input: any): Promise<AIResponse<z.infer<typeof z.object({ intent: z.string() })>>> {
+     return this.orchestrateInternal('intent_classification', async (model) => {
+       const systemPrompt = this.buildSystemPrompt('intent_classification', model)
+       const userPrompt = this.buildIntentClassificationPrompt(input)
+       return { systemPrompt, userPrompt }
+     })
+   }
 
   async analyzeImages(input: { imageUrls: string[]; description?: string; category?: string }): Promise<AIResponse<z.infer<typeof VisionDiagnosisSchema>>> {
     const start = Date.now()
@@ -596,9 +605,19 @@ Mục tiêu: Tăng giá trị đơn hàng trong khi vẫn đem lại giá trị 
 Vai trò: Trợ lý hỗ trợ khách hàng thân thiện.
 Hỏi từng bước một. Khi đủ thông tin, đưa ra chẩn đoán và giá.
 Gợi ý khách hàng xác nhận chốt đơn.`,
-    }
-    return prompts[agentType] || base
-  }
+     }
+     return prompts[agentType] || base
+   }
+
+   private buildIntentClassificationPrompt(input: any): string {
+     const { message, persona, availableIntents } = input;
+     const intentsList = availableIntents?.join(', ') || 'diagnose, estimate_price, create_order, match_worker, process_payment, general_chat';
+     return `Bạn là chuyên gia phân loại ý định cho Vifixa AI Companion.
+     Nhận tin nhắn từ người dùng và phân loại vào một trong các ý định sau: ${intentsList}.
+     Tin nhắn: "${message}"
+     Personality: ${persona}
+     Trả về JSON dưới dạng: { "intent": "intent_name" }`;
+   }
 
   private buildDiagnosisPrompt(input: any, knowledgeBase?: any[]): string {
     let prompt = `LOẠI DỊCH VỤ: ${input.category}

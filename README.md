@@ -60,3 +60,4 @@ cd mobile && npx expo start
 - `docs/testing/`: Chứa các kịch bản kiểm thử (E2E, Performance, Security).
 - `agent.md`: quy trình bắt buộc cho AI Agents / opencode CLI (tuân thủ 100%).
 - `AGENTS.md`: cấu hình khởi động cho opencode CLI.
+Fri May 15 07:58:59 +07 2026

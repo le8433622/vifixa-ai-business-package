@@ -25,27 +25,7 @@ interface CompanionChatResponse {
   session_id: string;
 }
 
-// Simple intent keywords (in production, replace with AI classifier)
-const INTENT_KEYWORDS: Record<string, string[]> = {
-  diagnose: ['máy lạnh', 'điều hòa', 'tủ lạnh', 'máy giặt', 'lạnh', 'nóng', 'rò rỉ', 'sự cố', 'hỏng', 'không chạy', 'chữa'],
-  estimate_price: ['giá', 'báo giá', 'chi phí', 'etra', 'tiền'],
-  create_order: ['đặt', 'order', 'tạo đơn', 'gọi thợ', 'đặt lịch'],
-  match_worker: ['tìm thợ', 'thợ gần', 'việc làm', 'công việc', 'tìm việc'],
-  process_payment: ['thanh toán', 'trả tiền', 'pay', 'vnpay', 'stripe', 'quét mã']
-};
 
-function detectIntent(message: string, persona: 'customer' | 'worker' | 'admin'): string {
-  const lower = message.toLowerCase();
-  for (const [intent, keywords] of Object.entries(INTENT_KEYWORDS)) {
-    if (keywords.some(k => lower.includes(k))) {
-      return intent;
-    }
-  }
-  // Default intents based on persona
-  if (persona === 'customer') return 'general_chat';
-  if (persona === 'worker') return 'job_search';
-  return 'general_inquiry';
-}
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
@@ -86,13 +66,46 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Initialize AICore for NVIDIA NIM processing
-    const aiCore = createAICore(supabase, {
-      userId: user.id,
-      requestId: crypto.randomUUID(),
-    });
+     // Initialize AICore for NVIDIA NIM processing
+     const aiCore = createAICore(supabase, {
+       userId: user.id,
+       requestId: crypto.randomUUID(),
+     });
 
-    // Get or create session
+     // Classify intent using AI Core
+     let intent = 'general_chat'; // fallback
+     try {
+       const intentResult = await aiCore.classifyIntent({
+         message,
+         persona: context.persona,
+         availableIntents: ['diagnose', 'estimate_price', 'create_order', 'match_worker', 'process_payment', 'general_chat']
+       });
+       if (intentResult.success && intentResult.data) {
+         intent = intentResult.data.intent;
+       }
+     } catch (error) {
+       console.error('Intent classification failed:', error);
+       // Fallback to rule-based detection if AI fails
+       const INTENT_KEYWORDS: Record<string, string[]> = {
+         diagnose: ['máy lạnh', 'điều hòa', 'tủ lạnh', 'máy giặt', 'lạnh', 'nóng', 'rò rỉ', 'sự cố', 'hỏng', 'không chạy', 'chữa'],
+         estimate_price: ['giá', 'báo giá', 'chi phí', 'etra', 'tiền'],
+         create_order: ['đặt', 'order', 'tạo đơn', 'gọi thợ', 'đặt lịch'],
+         match_worker: ['tìm thợ', 'thợ gần', 'việc làm', 'công việc', 'tìm việc'],
+         process_payment: ['thanh toán', 'trả tiền', 'pay', 'vnpay', 'stripe', 'quét mã']
+       };
+       const lower = message.toLowerCase();
+       for (const [key, keywords] of Object.entries(INTENT_KEYWORDS)) {
+         if (keywords.some(k => lower.includes(k))) {
+           intent = key;
+           break;
+         }
+       }
+       // Default intents based on persona
+       if (intent === 'general_chat' && context.persona === 'customer') intent = 'general_chat';
+       if (intent === 'general_chat' && context.persona === 'worker') intent = 'job_search';
+     }
+
+     // Get or create session
     let sessionId = context.session_id;
     let isNewSession = false;
 
@@ -164,8 +177,7 @@ Deno.serve(async (req: Request) => {
       knowledge = { skills: skills || [] };
     }
 
-    // Detect intent
-    const intent = detectIntent(message, context.persona);
+     // Intent is already classified above using AI Core
     
     // Prepare variables for response
     let reply: string = "Xin lỗi, tôi không hiểu. Bạn có thể mô tả rõ hơn không?";
@@ -245,42 +257,146 @@ Deno.serve(async (req: Request) => {
         }
       }
     } 
-    else if (intent === 'estimate_price') {
-      // For price estimate, we need a diagnosis (could be from conversation or ask for it)
-      // For simplicity, we'll ask for description first
-      reply = 'Để tôi có thể đưa ra báo giá precisa, bạn có thể mô tả sự cố mà bạn gặp phải? (hoặc nếu bạn đã có chẩn đoán từ trước, hãy chia sẻ với tôi)';
-      actions.push({ type: 'diagnose', label: '🩺 Chẩn đoán trước' });
-    }
-    else if (intent === 'create_order') {
-      // For creating order, we need to have a service request ready
-      // We'll check if we have a recent diagnosis in memory
-      const recentDiagnosis = memories?.find(m => 
-        m.category === 'ai_learned' && m.key === 'last_diagnosis'
-      );
-      
-      if (recentDiagnosis) {
-        reply = `Dựa trên chẩn đoán trước đây: ${recentDiagnosis.value}\n\nBạn có muốn tôi tạo đơn dịch vụ dựa trên chẩn đoán này không?`;
-        actions.push({ 
-          type: 'confirmation_card', 
-          label: '✅ Xác nhận tạo đơn',
-          value: recentDiagnosis.value // Store the diagnosis details
-        });
-      } else {
-        reply = 'Để tạo đơn dịch vụ, tôi cần trước tiên chẩn đoán sự cố. Bạn có thể mô tả vấn đề bạn đang gặp?';
-        actions.push({ type: 'diagnose', label: '🩺 Chẩn đoán sự cố' });
-      }
-    }
-    else if (intent === 'match_worker') {
-      // For matching worker, we need skills and location
-      // We'll ask for more details if needed
-      reply = 'Tôi có thể giúp bạn tìm thợ phù hợp. Bạn cần làm việc loại gì? (ví dụ: điện lạnh, điện nước, v.v.)';
-      actions.push({ type: 'ask_skills', label: '🔧 Chọn kỹ năng' });
-    }
-    else if (intent === 'process_payment') {
-      // For processing payment, we need an order ID or amount
-      reply = 'Để xử lý thanh toán, tôi cần biết đơn hàng bạn muốn thanh toán là đơn nào? Bạn có thể cung cấp ID đơn hàng hoặc mô tả đơn hàng đó?';
-      // In a real implementation, we would look up recent orders
-    }
+     else if (intent === 'estimate_price') {
+       // For price estimate, we need a diagnosis (could be from conversation or ask for it)
+       // First check if we have a recent diagnosis in memory
+       const recentDiagnosis = memories?.find(m => 
+         m.category === 'ai_learned' && m.key === 'last_diagnosis'
+       );
+       
+       if (recentDiagnosis) {
+         // Use the diagnosis to estimate price
+         const priceEstimate = await aiCore.estimatePrice({
+           diagnosis: recentDiagnosis.value,
+           category: 'general' // Could extract from diagnosis or context
+         });
+         
+         if (priceEstimate.success) {
+           const data = priceEstimate.data;
+           reply = `Dựa trên chẩn đoán: ${recentDiagnosis.value}\n\nƯớc lượng chi phí: ${data.estimated_price.toLocaleString()} VND\n\nChi tiết:\n${data.price_breakdown.map(b => `- ${b.item}: ${b.cost.toLocaleString()} VND`).join('\n')}\n\nĐộ tin cậy: ${Math.round((data.confidence || 0) * 100)}%`;
+           
+           actions.push({ type: 'create_order', label: '📝 Tạo đơn dịch vụ' });
+           
+           // Store price estimate fact
+           newFacts.push({
+             key: 'last_price_estimate',
+             value: `${data.estimated_price} VND`,
+             importance: 3
+           });
+         } else {
+           reply = 'Không thể估算价格。请提供更多关于故障的详细描述。';
+           actions.push({ type: 'diagnose', label: '🩺 Chẩn đoán sự cố' });
+         }
+       } else {
+         // No diagnosis in memory, ask for description first
+         reply = 'Để tôi có thể đưa ra báo giá precisa, bạn có thể mô tả sự cố mà bạn gặp phải? (hoặc nếu bạn đã có chẩn đoán từ trước, hãy chia sẻ với tôi)';
+         actions.push({ type: 'diagnose', label: '🩺 Chẩn đoán trước' });
+       }
+     }
+     else if (intent === 'create_order') {
+       // For creating order, we need to have a service request ready
+       // We'll check if we have a recent diagnosis and price estimate in memory
+       const recentDiagnosis = memories?.find(m => 
+         m.category === 'ai_learned' && m.key === 'last_diagnosis'
+       );
+       const recentPriceEstimate = memories?.find(m => 
+         m.category === 'ai_learned' && m.key === 'last_price_estimate'
+       );
+
+       if (recentDiagnosis && recentPriceEstimate) {
+         // We have both diagnosis and price estimate, proceed to create order
+         reply = `Dựa trên chẩn đoán: ${recentDiagnosis.value}\n\nƯớc lượng chi phí: ${recentPriceEstimate.value}\n\nBạn có muốn tôi tạo đơn dịch vụ với thông tin trên không?`;
+         actions.push({ 
+           type: 'confirmation_order', 
+           label: '✅ Xác nhận tạo đơn',
+           value: { diagnosis: recentDiagnosis.value, priceEstimate: recentPriceEstimate.value }
+         });
+       } else if (recentDiagnosis) {
+         // We have diagnosis but no price estimate, ask for price estimate first
+         reply = `Dựa trên chẩn đoán: ${recentDiagnosis.value}\n\nĐể tạo đơn, tôi cần сначалаước lượng chi phí. Bạn có muốn tôi估算价格 cho chẩn đoán này không?`;
+         actions.push({ type: 'estimate_price', label: '💰 Đính giá' });
+       } else {
+         // No diagnosis, ask for description first
+         reply = 'Để tạo đơn dịch vụ, tôi cần trước tiên chẩn đoán sự cố. Bạn có thể mô tả vấn đề bạn đang gặp?';
+         actions.push({ type: 'diagnose', label: '🩺 Chẩn đoán sự cố' });
+       }
+     }
+     else if (intent === 'match_worker') {
+       // For matching worker, we need skills and location
+       // First check if we have a recent diagnosis in memory to determine required skills
+       const recentDiagnosis = memories?.find(m => 
+         m.category === 'ai_learned' && m.key === 'last_diagnosis'
+       );
+       
+       let requiredSkills: string[] = [];
+       if (recentDiagnosis) {
+         // In a real implementation, we would extract skills from diagnosis
+         // For now, we'll use a simple mapping or ask the user
+         requiredSkills = ['tự nhiên']; // placeholder
+       }
+       
+       // Get user location from context or profile
+       const userLocation = context.location || { lat: 0, lng: 0 }; // fallback
+       
+       // Use AI Core to match workers
+       const matchResult = await aiCore.matchWorker({
+         skills_required: requiredSkills,
+         location: userLocation,
+         urgency: 'medium' // could be extracted from context
+       }, []); // candidateWorkers could come from a separate query
+       
+       if (matchResult.success && matchResult.data) {
+         const data = matchResult.data;
+         reply = `Tôi đã tìm thấy thợ phù hợp:\n\nTên thợ: ${data.worker_name}\nETA: ${data.eta_minutes} phút\nĐộ tin cậy: ${Math.round((data.confidence || 0) * 100)}%\n\nLý do khuyến nghị:\n${data.match_reasons?.map(r => `- ${r}`).join('\n') || 'Không có'}`;
+         
+         // Store match fact
+         newFacts.push({
+           key: 'last_worker_match',
+           value: `${data.worker_name} - ${data.eta_minutes} phút`,
+           importance: 3
+         });
+         
+         actions.push({ type: 'process_payment', label: '💰 Thanh toán đặt cọc' });
+       } else {
+         // Fallback to asking for more details
+         reply = 'Tôi có thể giúp bạn tìm thợ phù hợp. Bạn cần làm việc loại gì? (ví dụ: điện lạnh, điện nước, v.v.)';
+         actions.push({ type: 'ask_skills', label: '🔧 Chọn kỹ năng' });
+       }
+     }
+     else if (intent === 'process_payment') {
+       // For processing payment, we need an order ID or amount
+       // First, let's see if we have any recent orders in memory or context
+       // In a real implementation, we would fetch recent orders from the database
+       
+       // Check if we have order information in context or memory
+       const recentOrder = memories?.find(m => 
+         m.category === 'order' && m.key === 'last_order'
+       );
+       
+       if (recentOrder) {
+         // We have order information, proceed with payment processing
+         reply = `Đơn hàng: ${recentOrder.value}\n\nBạn muốn thanh toán số tiền này bằng phương thức nào?`;
+         actions.push({ 
+           type: 'payment_method_selection', 
+           label: '💳 Chọn phương thức thanh toán',
+           value: recentOrder.value
+         });
+         
+         // Store payment intent fact
+         newFacts.push({
+           key: 'payment_intent',
+           value: `Processing payment for order: ${recentOrder.value}`,
+           importance: 4
+         });
+       } else {
+         // No order information, ask for details
+         reply = 'Để xử lý thanh toán, tôi cần biết đơn hàng bạn muốn thanh toán là đơn nào? Bạn có thể cung cấp ID đơn hàng hoặc mô tả đơn hàng đó?';
+         
+         // In a real implementation, we would integrate with VNPay or Stripe here
+         // For now, we'll just acknowledge and suggest next steps
+         actions.push({ type: 'general_chat', label: '💬 Hỗ trợ thêm' });
+       }
+     }
     else {
       // General chat or fallback - use AI chat function for natural conversation
       try {
