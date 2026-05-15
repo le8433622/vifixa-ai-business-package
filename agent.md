@@ -1054,6 +1054,22 @@ Thumbs.db
 ### 2026-05-15 — v1.13: Zero Tolerance Compliance Audit
 
 ### 2026-05-15 — v1.14: 🏛️ Multi-Ledger Dynamic Wallet Engine
+
+### 2026-05-15 — v1.15: 💳 Payment System — VNPay + Stripe + Deposit/Withdraw + Checkout
+- 📐 **Migration**: `20260525000001_payment_intents.sql` — payment_intents, webhook_events, atomic_payment(), seed VNPay+Stripe config
+- 💳 **Payment Checkout**: `/customer/payment` — chọn gateway (VNPay/Stripe/Wallet) → pay → callback
+- 🏦 **Deposit Modal**: Chọn số tiền + gateway → nạp vào ví giao dịch
+- 💰 **Withdraw Modal**: Chọn ví → nhập số tiền → rút (2% phí)
+- 📋 **Transaction History**: Lịch sử giao dịch phân trang
+- 🔗 **VNPay IPN**: Edge Function xử lý callback từ VNPay (HMAC-SHA512 verify)
+- 🔙 **VNPay Return**: API route nhận redirect sau thanh toán
+- 🔐 **Security**: Secret keys KHÔNG commit — GitHub Push Protection phát hiện và chặn Stripe key
+- 🧪 **33 tests pass + Web build clean**
+
+### ⚠️ Security Lesson: GitHub Secret Scan
+- Migration file chứa Stripe `sk_test_...` key → GitHub Push Protection từ chối push
+- **Fix**: Thay bằng placeholder, lưu real keys trong Supabase Secrets
+- **Rule**: KHÔNG bao giờ commit API keys/secret vào migration files
 - 🏦 **4-Wallet Architecture** — Transaction · Staking · Reward · Treasury
 - 📐 **Migration**: `20260515000003_multi_ledger_wallet.sql` — wallet_type enum, staking, escrow, VFC points, tiers
 - 🔧 **Wallet Core**: `_shared/wallet-core.ts` — atomic transactions, fee calc, dynamic pricing, staking interest, escrow logic
