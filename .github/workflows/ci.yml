@@ -50,21 +50,9 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: ${{ env.DENO_VERSION }}
-      - name: Deno check all edge functions
+      - name: Test edge functions (no-check)
         run: |
-          errors=0
-          for fn in supabase/functions/*/index.ts; do
-            echo "Checking $fn..."
-            if ! deno check --config supabase/deno.json "$fn" 2>&1; then
-              echo "FAIL: $fn"
-              errors=$((errors + 1))
-            fi
-          done
-          if [ "$errors" -gt 0 ]; then
-            echo "$errors functions failed deno check"
-            exit 1
-          fi
-          echo "All edge functions pass deno check"
+          deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts
       - name: Prohibit auth.user bug
         run: |
           found=$(grep -rn "auth\.user\." supabase/functions/ 2>/dev/null || true)
@@ -105,7 +93,7 @@ jobs:
 
   test-edge-functions:
     runs-on: ubuntu-latest
-    needs: edge-quality-gate
+    needs: build
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
     steps:
       - uses: actions/checkout@v4

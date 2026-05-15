@@ -17,6 +17,6 @@ jobs:
         run: deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts
       - name: Deploy Edge Functions
         run: |
-          supabase functions deploy --project-ref ${{ vars.SUPABASE_PROJECT_ID }}
+          supabase functions deploy --project-ref lipjakzhzosrhttsltwo
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
