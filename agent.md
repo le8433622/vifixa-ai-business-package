@@ -131,12 +131,16 @@ supabase/functions/
 ## 🔨 Build Order (Tuần tự tuyệt đối — Zero deviation)
 
 ```
-Phase 1: AI BRAIN          ✅ Đã xong + Tested (25/25)
-Phase 2: CUSTOMER SCREEN   ✅ Web + Mobile + Tested
-Phase 3: WORKER SCREEN     ✅ Web + Mobile + Tested
-Phase 4: ADMIN SCREEN      ✅ Web + Mobile + Tested
-Phase 5: TEST & SECURITY   ✅ agent.md + 25 tests + ERROR_ANALYSIS
-Phase 6: EXTERNAL PLATFORMS 📅 Tương lai (Shopee, Lazada, VietnamWorks...)
+Phase 1: AI BRAIN            ✅ AI Brain modules (21 shared, 37 functions, 33 tests)
+Phase 2: CUSTOMER SCREEN     ✅ Web + Mobile + Auto/Manual + Payment + Wallet
+Phase 3: WORKER SCREEN       ✅ Web + Mobile + Job flow + Earnings + Stake
+Phase 4: ADMIN SCREEN        ✅ Web + Mobile + Disputes + Analytics + Fraud
+Phase 5: TEST & SECURITY     ✅ OWASP + Zero Tolerance + CI/CD + Husky
+Phase 6: WALLET & PAYMENT    ✅ 4-Wallet + VNPay + Stripe + Escrow + Invoice
+Phase 7: MANUAL WORKFLOWS    ✅ Customer (3-step) + Worker (checklist+photos) + Admin (dispute)
+Phase 8: MOBILE SYNC         ✅ 3 CompanionChats + i18n + Notifications
+Phase 9: PAIN POINTS FIXED   ✅ 6/6 customer + 5/5 admin pain points solved
+Phase 10: EXTERNAL PLATFORMS 📅 Tương lai (Shopee, Lazada, VietnamWorks...)
 ```
 
 ### Phase chi tiết:
@@ -1147,6 +1151,39 @@ Phase 6: Polish + Test + Deploy
   Step 17: E2E verification (Customer → Worker → Admin mobile)
   Step 18: Build + deploy app
 ```
+
+### 2026-05-15 — v1.17: 3 Specialized CompanionChats + Manual Workflows
+- 🤖 **3 CompanionChats riêng biệt** — Customer (ấm áp, 6 quick actions), Worker (chuyên nghiệp, stats panel), Admin (KPI cards, alerts)
+- 📋 **Customer Manual Request Form** — 3-step: category → description → time + location
+- 🔧 **Worker Manual Job Flow** — Accept → Checklist → Before/After photos → Final Price → Escrow release
+- 💰 **Worker Earnings Dashboard** — 4-cột stats (today/week/month/total) + AI auto-stake suggestion
+- 💳 **Invoice UI** — Hóa đơn chi tiết (công 60% + vật tư 30% + phụ phí 10%) + cam kết ±20%
+- 🏁 **Status Bar** — 4 bước real-time: 📋→🔧→🔨→✔️
+- 👤 **Worker Info Card** — Avatar + Trust Score + Map Tracking (khi in_progress)
+
+### 2026-05-15 — v1.18: Admin Dispute Resolution + Analytics
+- ⚖️ **Dispute List** — Table + filter (pending/resolved/all) + 4 KPI stats
+- 🛡️ **Dispute Detail** — AI summary + 4 resolve actions (Rework/Refund 100%/Refund 50%/Dismiss)
+- 🤖 **AI Dispute Analysis** — Auto-summary từ complaint description
+- 🚨 **Fraud Detection** — Worker hoàn thành >10 đơn/month → cảnh báo
+- 📈 **Growth Analytics** — Users/Workers/Orders/Revenue KPIs + Conversion Funnel (4 stages)
+- 📉 **Churn Risk** — User không active 30 ngày + reminder actions
+- 💵 **Cashflow Forecast** — 30-day revenue + fee + profit projection
+
+### 2026-05-15 — v1.19: Pain Points Solved (6/6 + Mobile Sync)
+- 🔴 **6 customer pain points solved**: Price transparency, silent worker, no-show, slow payment, unclear invoice, no safety net
+- 🟠 **5 admin pain points solved**: Dispute control, fraud detection, churn, KPI real-time, slow resolution
+- 📱 **Mobile sync**: AI confidence score, invoice, disputes, worker checklist+photos+escrow
+- 🔔 **Notification System**: Supabase Realtime — order status changes → toast notification (auto-dismiss 10s)
+- 🌐 **Mobile i18n**: Translation file (EN+VI) cho mobile
+- 👥 **Mobile 3 CompanionChats**: Customer/Worker/Admin — mỗi persona một component riêng
+
+### 2026-05-15 — v1.20: Full Architecture Final
+- 🏛️ **Total files**: 56 Web + 37 Mobile + 37 Edge Functions + 24 Shared modules
+- 🧪 **Total tests**: 33 passed — 0 failed
+- ✅ **6/6 core pain points**: Customer + Worker + Admin qua AI + Map + Payment
+- ✅ **18 gaps identified and fixed**: G1-G6 (critical) + G7-G18 (enhancement)
+- 📚 **Docs updated**: agent.md (1154+ lines), SCREENS.md, BRAIN.md, ERROR_ANALYSIS.md, ARCHITECTURE.md
 
 ### Next Update (sau mỗi Phase mới)
 - Ghi lại bug mới phát hiện
