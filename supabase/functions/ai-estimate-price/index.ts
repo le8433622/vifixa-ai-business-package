@@ -1,5 +1,6 @@
 // AI Price Estimation Edge Function
 // Per 11_AI_OPERATING_MODEL.md - Pricing Agent
+// Tích hợp companion memory để cải thiện định giá
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
@@ -32,6 +33,14 @@ Deno.serve(async (req) => {
 
     const requestId = crypto.randomUUID();
 
+    // Fetch companion memories to enhance pricing context
+    const { data: memories } = await supabase
+      .from('companion_memories')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
     // Fetch real price standards for this category & location
     const { data: priceBands } = await supabase
       .from('price_standards')
@@ -47,6 +56,8 @@ Deno.serve(async (req) => {
       const priceEstimate = await ai.estimatePrice(
         { category, diagnosis, location, urgency },
         priceBands,
+        // We could also pass memories as knowledge base here if the AI provider supported it
+        // For now, we'll rely on the improved prompt in the AI core
       );
 
       await supabase.from('ai_logs').insert({
@@ -61,6 +72,21 @@ Deno.serve(async (req) => {
     }
 
     const priceEstimate = await ai.estimatePrice({ category, diagnosis, location, urgency });
+
+    // Lưu fact mới vào companion memory nếu có kết quả tốt
+    if (priceEstimate.success && priceEstimate.data && priceEstimate.data.confidence > 0.7) {
+      await supabase
+        .from('companion_memories')
+        .upsert({
+          user_id: user.id,
+          key: 'last_price_estimate',
+          value: `${priceEstimate.data.estimated_price} VND`,
+          category: 'ai_learned',
+          importance: 3,
+          source: 'estimate_price',
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+        }, { onConflict: ['user_id', 'key'] });
+    }
 
     await supabase.from('ai_logs').insert({
       user_id: user.id,

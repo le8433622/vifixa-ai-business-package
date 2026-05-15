@@ -1,5 +1,6 @@
 // AI Worker Matching Edge Function
 // Per 11_AI_OPERATING_MODEL.md - Matching Agent
+// Tích hợp companion memory để cải thiện việc ghép thợ
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
@@ -32,6 +33,14 @@ Deno.serve(async (req) => {
 
     const requestId = crypto.randomUUID();
 
+    // Fetch companion memories to enhance matching context
+    const { data: memories } = await supabase
+      .from('companion_memories')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
     // Fetch real verified workers from database
     const { data: workers, error: workersError } = await supabase
       .from('workers')
@@ -43,10 +52,21 @@ Deno.serve(async (req) => {
       console.error(`[${requestId}] Failed to fetch workers:`, workersError);
     }
 
+    // Enhance skills_required with worker preferences from memory
+    let enhancedSkillsRequired = [...skills_required];
+    const preferredSkills = memories
+      .filter(m => m.category === 'worker_preference' && m.key === 'preferred_skills')
+      .map(m => m.value);
+    
+    if (preferredSkills.length > 0) {
+      // Add preferred skills to the requirements
+      enhancedSkillsRequired = [...new Set([...skills_required, ...preferredSkills])];
+    }
+
     const ai = createAIProvider(requestId);
     const matchingResult = await ai.matchWorker({
       order_id,
-      skills_required,
+      skills_required: enhancedSkillsRequired,
       location,
       urgency,
     }, workers || []);
@@ -70,6 +90,21 @@ Deno.serve(async (req) => {
           worker_name: (matchedInDb.profiles?.[0] as any)?.full_name || matchingResult.worker_name,
         };
       }
+    }
+
+    // Lưu fact mới vào companion memory
+    if (validatedResult.matched_worker_id) {
+      await supabase
+        .from('companion_memories')
+        .upsert({
+          user_id: user.id,
+          key: 'last_matched_worker',
+          value: validatedResult.worker_name,
+          category: 'ai_learned',
+          importance: 3,
+          source: 'matching',
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+        }, { onConflict: ['user_id', 'key'] });
     }
 
     await supabase.from('ai_logs').insert({
