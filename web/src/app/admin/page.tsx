@@ -119,8 +119,9 @@ export default function AdminDashboard() {
                   { icon: '👥', name: 'Users', count: stats.users, href: '/admin/users' },
                   { icon: '📋', name: 'Orders', count: stats.orders, href: '/admin/orders' },
                   { icon: '💳', name: 'Payments', count: null, href: '/admin/payments' },
+                  { icon: '⚖️', name: 'Disputes', count: stats.disputes, href: '/admin/disputes' },
+                  { icon: '📈', name: 'Analytics', count: null, href: '/admin/analytics' },
                   { icon: '🔌', name: 'Integrations', href: '/admin/integrations' },
-                  { icon: '🚨', name: 'Disputes', count: stats.disputes, href: '/admin/orders' },
                   { icon: '⚙️', name: 'Settings', href: '/admin/settings' },
                 ].map(item => (
                   <button key={item.name} onClick={() => router.push(item.href)}
