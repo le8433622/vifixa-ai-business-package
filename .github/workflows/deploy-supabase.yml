@@ -15,6 +15,11 @@ jobs:
           version: latest
       - name: Run Tests
         run: deno test --no-check --allow-read --allow-env --no-lock supabase/functions/_shared/*.test.ts
+      - name: Link Supabase Project
+        run: |
+          supabase link --project-ref lipjakzhzosrhttsltwo
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       - name: Deploy Edge Functions
         run: |
           supabase functions deploy --project-ref lipjakzhzosrhttsltwo
