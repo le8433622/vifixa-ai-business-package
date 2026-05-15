@@ -1,63 +1,45 @@
-// VNPay Return — User redirected here after payment
-// Xử lý kết quả thanh toán từ VNPay
+// 💳 VNPay Return Handler
+// Sau khi khách thanh toán xong, VNPay redirect về đây
 
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { NextResponse } from 'next/server'
+import { createHmac } from 'node:crypto'
+import { createClient } from '@supabase/supabase-js'
 
-function sortObject(obj: Record<string, string>): Record<string, string> {
-  const sorted: Record<string, string> = {}
-  Object.keys(obj).sort().forEach(key => { sorted[key] = obj[key] })
-  return sorted
-}
-
-export async function GET(request: NextRequest) {
-  const params = Object.fromEntries(request.nextUrl.searchParams.entries())
-  const vnp_SecureHash = params['vnp_SecureHash']
-  const vnp_ResponseCode = params['vnp_ResponseCode']
-  const vnp_TxnRef = params['vnp_TxnRef'] || ''
-  const vnp_TransactionNo = params['vnp_TransactionNo'] || ''
-  const vnp_Amount = parseInt(params['vnp_Amount'] || '0') / 100
-
-  // Verify HMAC (trong môi trường thực tế)
-  // Bỏ qua ở sandbox
-
+export async function GET(req: Request) {
   try {
-    const supabase = createServerClient()
+    const url = new URL(req.url)
+    const params = Object.fromEntries(url.searchParams)
+    const vnp_SecureHash = params.vnp_SecureHash
+    const orderId = params.vnp_TxnRef
+    const responseCode = params.vnp_ResponseCode
 
-    // Cập nhật transaction
-    if (vnp_ResponseCode === '00') {
-      await supabase
-        .from('transactions')
-        .update({ status: 'succeeded', succeeded_at: new Date().toISOString(), metadata: params })
-        .eq('gateway_txn_id', vnp_TxnRef)
-
-      // Cập nhật order
-      const { data: txn } = await supabase
-        .from('transactions')
-        .select('order_id')
-        .eq('gateway_txn_id', vnp_TxnRef)
-        .single()
-
-      if (txn) {
-        await supabase
-          .from('orders')
-          .update({ payment_status: 'paid' })
-          .eq('id', (txn as any).order_id)
+    // Verify signature
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: config } = await supabase
+      .from('gateway_configs').select('sandbox_keys').eq('key', 'vnpay').single()
+    
+    const hashSecret = (config as any)?.sandbox_keys?.hash_secret
+    if (hashSecret) {
+      const signData = Object.keys(params)
+        .filter(k => k !== 'vnp_SecureHash' && k !== 'vnp_SecureHashType')
+        .sort()
+        .map(k => `${k}=${params[k]}`)
+        .join('&')
+      const computedHash = createHmac('sha512', hashSecret).update(signData).digest('hex')
+      if (computedHash !== vnp_SecureHash) {
+        return NextResponse.redirect(new URL('/customer/orders?payment=fail', req.url))
       }
-
-      // Redirect to success page
-      const orderId = vnp_TxnRef.replace('order_', '').split('_')[0]
-      return NextResponse.redirect(
-        new URL(`/customer/orders/${orderId}?payment=success`, request.url)
-      )
     }
 
-    // Payment failed
-    return NextResponse.redirect(
-      new URL(`/customer/orders?payment=failed`, request.url)
-    )
-  } catch (error) {
-    console.error('VNPay return error:', error)
-    return NextResponse.redirect(new URL('/customer/orders?payment=error', request.url))
+    // Redirect based on result
+    if (responseCode === '00') {
+      return NextResponse.redirect(new URL(`/customer/orders/${orderId}?payment=success`, req.url))
+    }
+    return NextResponse.redirect(new URL(`/customer/orders/${orderId}?payment=fail`, req.url))
+  } catch {
+    return NextResponse.redirect(new URL('/customer/orders?payment=error', req.url))
   }
 }

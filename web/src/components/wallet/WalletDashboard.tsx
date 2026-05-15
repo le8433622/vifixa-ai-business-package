@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import dynamic from 'next/dynamic'
+import DepositModal from './DepositModal'
+import WithdrawModal from './WithdrawModal'
+import TransactionHistory from './TransactionHistory'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -16,6 +18,8 @@ export default function WalletDashboard({ userId, role }: { userId: string; role
   const [data, setData] = useState<WalletData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showStakeModal, setShowStakeModal] = useState(false)
+  const [showDepositModal, setShowDepositModal] = useState(false)
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false)
   const [stakeAmount, setStakeAmount] = useState(100000)
   const [stakeDays, setStakeDays] = useState(90)
   const [projectedRate, setProjectedRate] = useState(5)
@@ -76,6 +80,21 @@ export default function WalletDashboard({ userId, role }: { userId: string; role
         <WalletCard name="Treasury" balance={wallets.treasury} icon="🏛️" color="from-purple-500 to-purple-600" />
       </div>
 
+      {/* Actions: Deposit + Withdraw */}
+      <div className="flex gap-2">
+        <button onClick={() => setShowDepositModal(true)}
+          className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm">
+          💳 Nạp tiền
+        </button>
+        <button onClick={() => setShowWithdrawModal(true)}
+          className="flex-1 py-3 border border-emerald-300 text-emerald-700 rounded-xl text-sm font-medium hover:bg-emerald-50 transition">
+          💰 Rút tiền
+        </button>
+      </div>
+
+      {showDepositModal && <DepositModal onClose={() => setShowDepositModal(false)} onSuccess={loadWallet} />}
+      {showWithdrawModal && <WithdrawModal onClose={() => setShowWithdrawModal(false)} onSuccess={loadWallet} />}
+
       {/* Staking Section */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
         <div className="flex items-center justify-between mb-3">
@@ -113,6 +132,9 @@ export default function WalletDashboard({ userId, role }: { userId: string; role
         <p className="text-2xl font-bold text-amber-400">{vfc.balance.toLocaleString()} VFC</p>
         <p className="text-xs text-gray-500 mt-1">Hệ số thưởng: x{vfc.multiplier} · Dùng để giảm giá dịch vụ</p>
       </div>
+
+      {/* Transaction History */}
+      <TransactionHistory />
 
       {/* Stake Modal */}
       {showStakeModal && (
