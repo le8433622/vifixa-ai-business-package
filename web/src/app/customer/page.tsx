@@ -298,10 +298,7 @@ export default function CustomerDashboard() {
                   { icon: '🚪', name: 'Cửa/Khóa', id: 'door' },
                   { icon: '🏠', name: 'Khác', id: 'other' },
                 ].map(cat => (
-                  <button key={cat.id} onClick={() => {
-                    setMode('auto')
-                    // Will send to AI chat via CompanionChat
-                  }}
+                  <button key={cat.id} onClick={() => router.push('/customer/service-request')}
                     className="flex flex-col items-center p-2.5 bg-gray-50 rounded-xl hover:bg-blue-50 transition">
                     <span className="text-2xl mb-1">{cat.icon}</span>
                     <span className="text-[10px] font-medium text-gray-600">{cat.name}</span>
