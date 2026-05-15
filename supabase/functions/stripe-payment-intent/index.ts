@@ -1,117 +1,70 @@
-// Stripe Payment Intent Edge Function
-// Per 09_REVENUE_MODEL.md - Fixed+variable pricing model
-// Per 15_CODEX_BUSINESS_CONTEXT.md - Payments & Payouts
+// 💳 Stripe Payment Intent — Tạo + confirm payment
+// Tích hợp với payment-process gateway abstraction
 
-import { corsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { logVifixa } from '../_shared/logger.ts'
 
-interface PaymentIntentRequest {
-  order_id: string;
-  amount: number; // in cents
-  customer_email: string;
-  payment_type: 'fixed' | 'variable' | 'subscription';
-}
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+Deno.serve(async (req: Request) => {
+  const opt = handleOptions(req)
+  if (opt) return opt
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req)
+    if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
+    const { order_id, amount, currency = 'vnd', payment_type = 'fixed' } = await req.json()
+    if (!order_id || !amount) return jsonResponse({ error: 'order_id and amount required' }, 400)
 
-    // Verify user
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': serviceRoleKey,
-      },
-    });
-
-    if (!userResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userData = await userResponse.json();
-
-    const { order_id, amount, customer_email, payment_type }: PaymentIntentRequest = await req.json();
-
-    if (!order_id || !amount || !customer_email) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: order_id, amount, customer_email' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
+    if (!stripeKey) return jsonResponse({ error: 'Stripe not configured' }, 500)
 
     // Create Stripe Payment Intent
-    const paymentIntentResponse = await fetch('https://api.stripe.com/v1/payment_intents', {
+    const stripeAmount = currency === 'vnd' ? amount : amount * 100 // cents
+    const res = await fetch('https://api.stripe.com/v1/payment_intents', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${stripeSecretKey}`,
+        Authorization: `Bearer ${stripeKey}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        amount: amount.toString(),
-        currency: 'usd',
-        customer_email,
+        amount: String(stripeAmount),
+        currency: currency === 'vnd' ? 'vnd' : 'usd',
         'metadata[order_id]': order_id,
+        'metadata[user_id]': user.id,
         'metadata[payment_type]': payment_type,
         'automatic_payment_methods[enabled]': 'true',
       }),
-    });
+    })
 
-    if (!paymentIntentResponse.ok) {
-      const stripeError = await paymentIntentResponse.json();
-      return new Response(
-        JSON.stringify({ error: 'Failed to create payment intent', details: stripeError }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error?.message || 'Stripe error')
 
-    const paymentIntent = await paymentIntentResponse.json();
+    // Store payment intent in our DB
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
 
-    // Update order with payment intent ID
-    await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${order_id}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        stripe_payment_intent_id: paymentIntent.id,
-        payment_status: 'pending',
-      }),
-    });
+    await supabase.from('payment_intents').insert({
+      order_id,
+      user_id: user.id,
+      gateway: 'stripe',
+      amount,
+      currency: currency.toUpperCase(),
+      status: 'pending',
+      gateway_txn_id: data.id,
+      gateway_response: { client_secret: data.client_secret },
+    })
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        client_secret: paymentIntent.client_secret,
-        payment_intent_id: paymentIntent.id,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error: unknown) {
-    console.error('Payment Intent error:', error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    logVifixa('stripe', 'payment_intent_created', { order_id, amount, stripeId: data.id })
+    return jsonResponse({
+      client_secret: data.client_secret,
+      payment_intent_id: data.id,
+      amount,
+    })
+  } catch (err: any) {
+    logVifixa('stripe', 'error', { error: err.message })
+    return jsonResponse({ error: err.message }, 500)
   }
-});
+})

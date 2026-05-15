@@ -118,6 +118,7 @@ export default function AdminDashboard() {
                   { icon: '📊', name: 'Dashboard', href: '/admin' },
                   { icon: '👥', name: 'Users', count: stats.users, href: '/admin/users' },
                   { icon: '📋', name: 'Orders', count: stats.orders, href: '/admin/orders' },
+                  { icon: '💳', name: 'Payments', count: null, href: '/admin/payments' },
                   { icon: '🔌', name: 'Integrations', href: '/admin/integrations' },
                   { icon: '🚨', name: 'Disputes', count: stats.disputes, href: '/admin/orders' },
                   { icon: '⚙️', name: 'Settings', href: '/admin/settings' },

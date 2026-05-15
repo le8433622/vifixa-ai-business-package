@@ -29,10 +29,27 @@ export default function WorkerJobDetail() {
 
   async function updateStatus(status: string) {
     setUpdating(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    
     await supabase
       .from('orders')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', jobId)
+
+    // Auto-release escrow when job completed
+    if (status === 'completed') {
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/wallet-manager`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'escrow:release', orderId: jobId }),
+      })
+      const data = await res.json()
+      if (data.status === 'released') {
+        alert('✅ Hoàn thành! Tiền đã được giải ngân.')
+      }
+    }
+
     await loadJob()
     setUpdating(false)
   }
