@@ -366,6 +366,25 @@ export default function CustomerOrderDetailsPage() {
                     <p className="text-gray-800 mt-1">{order.ai_diagnosis.diagnosis}</p>
                   </div>
                 )}
+
+                {/* Confidence Score */}
+                {order.ai_diagnosis.confidence != null && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase">Độ tin cậy</span>
+                    <div className="flex items-center gap-3 mt-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2.5">
+                        <div className="h-2.5 rounded-full transition-all" style={{
+                          width: `${Math.round(order.ai_diagnosis.confidence * 100)}%`,
+                          backgroundColor: order.ai_diagnosis.confidence >= 0.8 ? '#059669' : order.ai_diagnosis.confidence >= 0.5 ? '#d97706' : '#dc2626'
+                        }} />
+                      </div>
+                      <span className="text-sm font-bold" style={{
+                        color: order.ai_diagnosis.confidence >= 0.8 ? '#059669' : order.ai_diagnosis.confidence >= 0.5 ? '#d97706' : '#dc2626'
+                      }}>{Math.round(order.ai_diagnosis.confidence * 100)}%</span>
+                    </div>
+                  </div>
+                )}
+
                 {order.ai_diagnosis.severity && (
                   <div>
                     <span className="text-xs font-medium text-gray-500 uppercase">Mức độ nghiêm trọng</span>

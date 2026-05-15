@@ -147,6 +147,24 @@ export default function AdminAnalytics() {
         )}
       </div>
 
+      {/* Cashflow Forecast */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+        <h2 className="font-semibold text-gray-200 mb-4">💵 Cashflow Forecast (30 days)</h2>
+        <div className="space-y-3">
+          {[
+            { label: 'Revenue hiện tại', value: growth.revenue, color: 'text-emerald-400' },
+            { label: 'Dự kiến 30 ngày', value: Math.round(growth.revenue * 1.15), color: 'text-blue-400' },
+            { label: 'Phí nền tảng (3%)', value: Math.round(growth.revenue * 0.03), color: 'text-amber-400' },
+            { label: 'Lợi nhuận dự kiến', value: Math.round(growth.revenue * 0.15), color: 'text-violet-400' },
+          ].map(s => (
+            <div key={s.label} className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0">
+              <span className="text-sm text-gray-400">{s.label}</span>
+              <span className={`text-sm font-bold ${s.color}`}>{s.value.toLocaleString()}₫</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Churn Risks */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
         <div className="flex items-center justify-between mb-4">
