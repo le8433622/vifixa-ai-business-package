@@ -816,6 +816,13 @@ echo "✅ Self-check pass → commit allowed"
 23. **Pre-commit hook kiểm tra 6 mục** — E2E workflow + @ts-nocheck + Admin routes + console.log trong API + Deno tests + Web build (CI)
     - console.log trong `web/src/app/api/` = ⚠️ cảnh báo (server-side logging là được phép, cần xem xét từng cái)
     - Web build check chạy trong CI (không trong pre-commit vì chậm)
+24. **PR Workflow — Quy trình Pull Request**
+    - Mỗi coding session tạo 1 branch mới: `feat/tên-ngắn-gọn`
+    - Commit message theo chuẩn: `type: message` (fix:, feat:, docs:, refactor:)
+    - Trước khi tạo PR: chạy `./scripts/test-all.sh` — 0 failed
+    - Trước khi merge: rebase lên main + resolve conflicts
+    - PR cũ từ session trước → đóng và note lý do (không để tồn đọng)
+    - Review bắt buộc: tự kiểm tra file conflicts với codebase hiện tại
 
 ### Lưu ý Husky
 - Sau `npx husky init`, pre-commit hook BỊ GHI ĐÈ — phải restore lại từ `.husky/pre-commit` (bản custom)
@@ -946,6 +953,12 @@ Thumbs.db
 ### 2026-05-15 — v1.9: Build Cleanup & TypeScript Fixes
 
 ### 2026-05-15 — v1.10: Pre-commit + Turbopack + Rule #23
+
+### 2026-05-15 — v1.11: PR Workflow + Dọn dẹp PR cũ
+- 🔍 **Phát hiện PR #12** — từ session cũ, 21 files, conflict với codebase mới
+- 🗑️ **Đã đóng PR #12** — kèm lý do: "conflicts with restructured codebase"
+- 📋 **Rule #24** — PR workflow: branch naming, commit format, pre-merge checks
+- 🧹 **Bài học**: Không để PR tồn đọng từ session trước — kiểm tra và dọn dẹp ngay
 - 🔧 **Turbopack root config** — thêm `turbopack.root` vào next.config.ts, hết warning
 - 🛡️ **Pre-commit hook** — thêm check `console.log` trong API routes
 - 🤖 **GitHub Actions** — thêm `setup-node` + check console.log trong API
