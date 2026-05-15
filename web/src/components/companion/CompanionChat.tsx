@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import CompanionHeader from './CompanionHeader'
+import CompanionAvatar from './CompanionAvatar'
+import CompanionMessage from './CompanionMessage'
+import CompanionActions from './CompanionActions'
 
 interface Message {
   id: string
@@ -20,9 +24,10 @@ interface CompanionChatProps {
   persona: 'customer' | 'worker' | 'admin'
   onAction?: (action: Action) => void
   placeholder?: string
+  onPersonaChange?: (newPersona: 'customer' | 'worker' | 'admin') => void
 }
 
-export default function CompanionChat({ persona, onAction, placeholder }: CompanionChatProps) {
+export default function CompanionChat({ persona, onAction, placeholder, onPersonaChange }: CompanionChatProps) {
   const [messages, setMessages] = useState<Message[]>([{
     id: 'welcome',
     role: 'assistant',
@@ -116,40 +121,21 @@ export default function CompanionChat({ persona, onAction, placeholder }: Compan
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-full bg-gray-50">
+      {/* Header */}
+      <CompanionHeader 
+        persona={persona} 
+        onPersonaChange={onPersonaChange} 
+      />
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] p-3 rounded-2xl ${
-              msg.role === 'user'
-                ? 'bg-blue-600 text-white rounded-br-md'
-                : 'bg-white border rounded-bl-md shadow-sm'
-            }`}>
-              {msg.role === 'assistant' && (
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">{persona === 'customer' ? '🤖' : persona === 'worker' ? '🔧' : '🛡️'}</span>
-                </div>
-              )}
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              {msg.actions?.map((a, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleAction(a)}
-                  className={`mt-2 w-full py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    a.type === 'diagnose' || a.type === 'estimate_price'
-                      ? 'bg-blue-500 text-white hover:bg-blue-600'
-                      : a.type === 'match_worker' || a.type === 'process_payment'
-                      ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-                      : a.type === 'view_orders'
-                      ? 'bg-purple-500 text-white hover:bg-purple-600'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
+            <CompanionMessage 
+              message={msg} 
+              persona={persona} 
+            />
           </div>
         ))}
         <div ref={messagesEndRef} />
