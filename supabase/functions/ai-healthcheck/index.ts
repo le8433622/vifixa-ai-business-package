@@ -1,6 +1,8 @@
 // 🏥 AI Healthcheck — Kiểm tra uptime + trạng thái toàn bộ hệ thống
 // Dùng cho: uptime monitoring (Better Uptime, Pingdom, etc), status page
+// ⚠️ PER AGENT.MD: Public endpoint không yêu cầu auth cho monitoring
 
+import { handleOptions, jsonResponse, logVifixa } from '../_shared/auth-helper.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 interface HealthStatus {
@@ -24,7 +26,13 @@ interface HealthStatus {
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
+  const opt = handleOptions()
+  if (opt) return opt
+
   const start = Date.now()
+  logVifixa('ai-healthcheck', 'health_check_started', { path: new URL(req.url).pathname })
+  
   const status: HealthStatus = {
     status: 'healthy',
     uptime: Math.round((Date.now() - parseInt(Deno.env.get('START_TIME') || `${Date.now()}`)) / 1000),
@@ -42,11 +50,13 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
     const { data: dbCheck, error: dbError } = await supabase.from('ai_logs').select('id', { count: 'exact', head: true }).limit(1)
     status.checks.database = { status: dbError ? 'error' : 'healthy', latency_ms: Date.now() - dbStart }
+    logVifixa('ai-healthcheck', 'db_check', { status: status.checks.database.status, latency_ms: status.checks.database.latency_ms })
 
     // 2. AI Core check
     const apiKey = Deno.env.get('NVIDIA_API_KEY') || ''
     const model = Deno.env.get('NVIDIA_MODEL') || 'meta/llama-3.1-8b-instruct'
     status.checks.ai_core = { status: apiKey ? 'healthy' : 'missing_key', model }
+    logVifixa('ai-healthcheck', 'ai_core_check', { status: status.checks.ai_core.status, model })
 
     // 3. Edge functions count
     status.checks.edge_functions = { status: 'healthy', total: 35, healthy: 35 }
@@ -62,6 +72,7 @@ Deno.serve(async (req) => {
     } catch {
       status.checks.nvidia_api = { status: 'timeout', latency_ms: 5000 }
     }
+    logVifixa('ai-healthcheck', 'nvidia_check', { status: status.checks.nvidia_api.status, latency_ms: status.checks.nvidia_api.latency_ms })
 
     // 5. Recent errors
     const today = new Date().toISOString().split('T')[0]
@@ -71,6 +82,7 @@ Deno.serve(async (req) => {
       .not('output->>error', 'is', null)
       .gte('created_at', `${today}T00:00:00Z`)
     status.checks.recent_errors = { status: errorCount && errorCount > 10 ? 'warning' : 'healthy', count: errorCount || 0 }
+    logVifixa('ai-healthcheck', 'error_check', { status: status.checks.recent_errors.status, count: status.checks.recent_errors.count })
 
     // 6. Today's metrics
     const { data: costData } = await supabase
@@ -85,10 +97,12 @@ Deno.serve(async (req) => {
       avg_latency: logs.length > 0 ? Math.round(logs.reduce((s: number, r: any) => s + (r.latency_ms || 0), 0) / logs.length) : 0,
       cache_hit_rate: logs.length > 0 ? Number((logs.filter((r: any) => r.cache_hit).length / logs.length * 100).toFixed(1)) : 0,
     }
+    logVifixa('ai-healthcheck', 'metrics_calculated', { calls_today: status.metrics.calls_today, cost_today: status.metrics.cost_today })
 
     // Overall status
     const unhealthy = Object.values(status.checks).filter(c => c.status === 'error' || c.status === 'timeout').length
     status.status = unhealthy === 0 ? 'healthy' : unhealthy > 1 ? 'down' : 'degraded'
+    logVifixa('ai-healthcheck', 'health_check_completed', { overall_status: status.status })
 
     const responseTime = Date.now() - start
     return new Response(JSON.stringify(status, null, 2), {
@@ -98,6 +112,7 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     status.status = 'down'
     status.checks.recent_errors = { status: 'error', count: 1, last_error: error.message }
+    logVifixa('ai-healthcheck', 'health_check_failed', { error: error.message })
     return new Response(JSON.stringify({ ...status, error: error.message }), {
       status: 503,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },

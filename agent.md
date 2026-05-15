@@ -221,10 +221,31 @@ Step D: Log Analysis
 ```
 
 ### Log Format Thống Nhất
+
+**⚠️ BẮT BUỘC — MỌI LOG PHẢI CÓ PREFIX [VIFIXA]:**
+
 ```typescript
-// Mọi Edge Function — log 3 thông tin:
-console.log(`[VIFIXA][${fnName}] ${action} | user=${userId} | status=${status} | latency=${ms}ms`)
+// Utility function (dùng trong tất cả Edge Functions)
+function logVifixa(module: string, action: string, data: Record<string, unknown>) {
+  const parts = [`[VIFIXA][${module}]`, action]
+  const meta = Object.entries(data)
+    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+    .join(' | ')
+  console.log(parts.join(' ') + ' | ' + meta)
+}
+
+// Usage example:
+logVifixa('companion-chat', 'chat_request', {
+  user_id: user.id,
+  message_length: message.length,
+  mode: state.mode
+})
+
+// Output: [VIFIXA][companion-chat] chat_request | user_id="xxx" | message_length=45 | mode="auto"
 ```
+
+**❌ AUTO REJECT nếu log không có prefix [VIFIXA].**
+**❌ AUTO REJECT nếu dùng `console.log` trực tiếp không qua utility.**
 
 ### Error Analysis (tự động ghi khi test fail)
 ```markdown
@@ -325,6 +346,20 @@ console.log(`[VIFIXA][${fnName}] ${action} | user=${userId} | status=${status} |
 
 ## 🛡️ BẢO MẬT (Security — Ưu tiên tuyệt đối)
 
+### 🔴 ZERO TOLERANCE POLICY (Không bao giờ vi phạm)
+
+**Các lỗi nghiêm trọng — AUTO REJECT nếu phát hiện:**
+
+| Mã | Lỗi | Prevention | Detection |
+|----|-----|------------|-----------|
+| SEC-001 | API key/secret trong frontend code | ❌ KHÔNG bao giờ import .env vào client<br>✅ Mọi secret qua Edge Function + `Deno.env.get()` | Pre-commit hook scan `/\.env|API_KEY|SECRET/` trong `/app,/components` |
+| SEC-002 | Edge Function thiếu `verifyAuth()` | ✅ Copy-paste auth template từ `agent.md`<br>✅ Auth check ở dòng đầu tiên của mọi function | ESLint rule `require-auth-check` |
+| QUAL-001 | Type `any` trong shared modules | ❌ KHÔNG dùng `any`<br>✅ Dùng Zod schema hoặc interface cụ thể | TypeScript strict mode + `no-explicit-any` rule |
+| QUAL-002 | Thiếu Zod validation cho input | ✅ Mọi API endpoint có schema validation<br>✅ Validate ở boundary (Edge Function entry) | ESLint rule `require-zod-validation` |
+| LOG-001 | Log không có prefix [VIFIXA] | ✅ Template log chuẩn hóa<br>✅ Dùng utility `logVifixa()` | Pre-commit hook scan `console.log` không có prefix |
+| ARCH-001 | AI logic không qua ai-core tập trung | ✅ Mọi AI call qua `ai-core.ts`<br>❌ KHÔNG gọi trực tiếp NVIDIA API từ component | Import path linting rule |
+| ARCH-002 | Component không tích hợp service registry | ✅ Dùng `serviceRegistry.getActions()`<br>✅ Plugin pattern cho mọi service | Code review checklist |
+
 ### Secret Management (Không bao giờ vi phạm)
 - ❌ **KHÔNG** có API key trong frontend code (.env.local, .env)
 - ❌ **KHÔNG** có service_role key trong browser
@@ -333,16 +368,34 @@ console.log(`[VIFIXA][${fnName}] ${action} | user=${userId} | status=${status} |
 - ✅ Mọi third-party key trong Supabase Secrets
 
 ### Authentication & Authorization (Kiểm tra TRƯỚC mọi action)
-```typescript
-// Bắt buộc trong mọi Edge Function:
-const user = await verifyAuth(req)
-if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
 
-// Role check:
+**⚠️ BẮT BUỘC — MỌI EDGE FUNCTION PHẢI CÓ:**
+
+```typescript
+// 1. Import verifyAuth
+import { verifyAuth } from 'https://deno.land/x/supabase_edge_auth/mod.ts'
+
+// 2. Check auth ở DÒNG ĐẦU TIÊN của function
+const user = await verifyAuth(req)
+if (!user) {
+  console.log('[VIFIXA][auth] unauthorized | path=' + new URL(req.url).pathname)
+  return jsonResponse({ error: 'Unauthorized' }, 401)
+}
+
+// 3. Role check (nếu cần)
 const { data: profile } = await supabase
-  .from('profiles').select('role').eq('id', user.id).single()
-if (profile.role !== 'customer') return jsonResponse({ error: 'Forbidden' }, 403)
+  .from('profiles')
+  .select('role')
+  .eq('id', user.id)
+  .single()
+
+if (!profile || profile.role !== 'expected_role') {
+  console.log('[VIFIXA][auth] forbidden | user=' + user.id + ' | role=' + profile?.role)
+  return jsonResponse({ error: 'Forbidden' }, 403)
+}
 ```
+
+**❌ AUTO REJECT nếu Edge Function không có `verifyAuth()` ở dòng đầu tiên.**
 
 ### RLS (Row Level Security) — Bảng nào cũng phải có
 - **profiles**: user thấy của mình, admin thấy tất cả
@@ -353,15 +406,32 @@ if (profile.role !== 'customer') return jsonResponse({ error: 'Forbidden' }, 403
 - **ai_logs**: admin-only
 
 ### Input Validation (Chống injection)
+
+**⚠️ BẮT BUỘC — MỌI EDGE FUNCTION PHẢI CÓ ZOD VALIDATION:**
+
 ```typescript
 import { z } from 'zod'
+
+// 1. Định nghĩa schema ở ĐẦU function
 const RequestSchema = z.object({
   message: z.string().min(1).max(5000),
   category: z.enum(['electricity', 'plumbing', 'appliance', 'camera']),
+  // Thêm các field khác tùy endpoint
 })
+
+// 2. Parse và validate input
 const parsed = RequestSchema.safeParse(body)
-if (!parsed.success) return jsonResponse({ error: 'Invalid input' }, 400)
+if (!parsed.success) {
+  console.log('[VIFIXA][validation] invalid_input | errors=' + JSON.stringify(parsed.error.errors))
+  return jsonResponse({ error: 'Invalid input', details: parsed.error.errors }, 400)
+}
+
+// 3. Sử dụng parsed.data (đã được type-safe)
+const { message, category } = parsed.data
 ```
+
+**❌ AUTO REJECT nếu Edge Function không có Zod validation.**
+**❌ AUTO REJECT nếu dùng type `any` trong shared modules.**
 
 ### Prompt Injection Protection
 - `sanitizeSystemPrompt()` block các cụm: "ignore instructions", "you are now", "system prompt"

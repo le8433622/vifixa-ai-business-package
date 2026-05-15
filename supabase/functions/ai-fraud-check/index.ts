@@ -2,7 +2,7 @@
 // Per 12_OPERATIONS_AND_TRUST.md - Anti-fraud detection
 // Per Step 7: Trust & Quality - Task 5
 
-import { corsHeaders } from '../_shared/cors.ts';
+import { verifyAuth, checkRole, jsonResponse, handleOptions, logVifixa } from '../_shared/auth-helper.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface FraudCheckRequest {
@@ -19,59 +19,40 @@ interface FraudAlert {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  // Handle CORS preflight
+  const opt = handleOptions();
+  if (opt) return opt;
+
+  // ⚠️ BẮT BUỘC: Verify auth ở dòng đầu tiên
+  const user = await verifyAuth(req);
+  if (!user) {
+    logVifixa('ai-fraud-check', 'unauthorized', { path: new URL(req.url).pathname });
+    return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
-  try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+  // ⚠️ BẮT BUỘC: Check admin role
+  const isAdmin = await checkRole(user.id, 'admin');
+  if (!isAdmin) {
+    logVifixa('ai-fraud-check', 'forbidden', { user_id: user.id, required_role: 'admin' });
+    return jsonResponse({ error: 'Forbidden: Admin access required' }, 403);
+  }
 
+  logVifixa('ai-fraud-check', 'request_start', { user_id: user.id });
+
+  try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify admin role
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': serviceRoleKey,
-      },
-    });
-
-    if (!userResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let body: FraudCheckRequest;
+    try {
+      body = await req.json();
+    } catch {
+      logVifixa('ai-fraud-check', 'invalid_body', { user_id: user.id });
+      return jsonResponse({ error: 'Invalid request body' }, 400);
     }
 
-    const userData = await userResponse.json();
-
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${userData.id}&select=role`,
-      {
-        headers: {
-          'Authorization': `Bearer ${serviceRoleKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const profile = await profileResponse.json();
-
-    if (!profile[0] || profile[0].role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized: Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { order_id, user_id, check_type }: FraudCheckRequest = await req.json();
+    const { order_id, user_id, check_type } = body;
 
     const alerts: FraudAlert[] = [];
 

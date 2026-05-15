@@ -1,0 +1,151 @@
+# Agent Compliance Audit Report
+Generated: 2026-05-15T14:32:32.721Z
+
+## Summary
+- Total Issues: 140
+- Errors: 55
+- Warnings: 85
+
+## Errors
+- [QUAL-001] /workspace/supabase/functions/_shared/service-registry.ts: Found 5 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/payment-gateway.ts: Found 4 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/ai-rag.ts: Found 17 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/ai-audit.ts: Found 3 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/gateways/momo.ts: Found 2 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/gateways/vnpay.ts: Found 1 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/gateways/mock.ts: Found 1 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/gateways/zalopay.ts: Found 2 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/gateways/stripe.ts: Found 1 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/reasoning-engine.ts: Found 3 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/ai-provider.ts: Found 19 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/ai-types.ts: Found 1 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/ai-core.ts: Found 47 usage(s) of 'any' type
+- [QUAL-001] /workspace/supabase/functions/_shared/learning-engine.ts: Found 2 usage(s) of 'any' type
+- [SEC-002] /workspace/supabase/functions/ai-diagnosis/test.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-fraud-check/test.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-fraud-check/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/auth-login/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/auth-register/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/upload-complete/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/worker-jobs/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/stripe-connect/test.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/stripe-connect/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-healthcheck/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/notify/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/event-service.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/types.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/slot-extractor.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/golden-cases.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/test.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/action-builder.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/state-machine.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/audit-service.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/autonomy-service.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/pricing-fallback.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/ai-service.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/order-service.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-chat/reply-builder.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-warranty/test.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-warranty/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/v4-core/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/admin-dashboard/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/stripe-payment-intent/index.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/ai-quality/test.ts: Edge Function missing verifyAuth check
+- [SEC-002] /workspace/supabase/functions/stripe-webhook/index.ts: Edge Function missing verifyAuth check
+- [SEC-001] /workspace/web/src/lib/supabase.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/lib/server-supabase.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/trust/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/worker/verify/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/health/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/ai/[...path]/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/admin/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/admin/workers/verify/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/webhooks/route.ts: Service role key found in frontend code
+- [SEC-001] /workspace/web/src/app/api/locations/divisions/route.ts: Service role key found in frontend code
+
+## Warnings
+- [VAL-001] /workspace/supabase/functions/ai-coach/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-coach/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/customer-requests/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/_shared/service-registry.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/_shared/gateways/momo.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/_shared/gateways/vnpay.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/_shared/gateways/mock.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/_shared/gateways/zalopay.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/_shared/gateways/stripe.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/_shared/ai-provider.ts: Console log without [VIFIXA] prefix
+- [LOG-001] /workspace/supabase/functions/ai-diagnosis/test.ts: Console log without [VIFIXA] prefix
+- [ARCH-003] /workspace/supabase/functions/ai-diagnosis/test.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/wallet-manager/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/ai-matching/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-matching/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/feature-flag/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/ai-fraud-check/test.ts: Console log without [VIFIXA] prefix
+- [ARCH-003] /workspace/supabase/functions/ai-fraud-check/test.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/ai-fraud-check/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-fraud-check/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/ai-dispute/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-dispute/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/osm-geocode/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/user-preferences/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/v4-navigator/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/auth-login/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/auth-register/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/v4-humanizer/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/upload-complete/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/companion/memory/index.ts: JSON parsing without Zod validation
+- [ARCH-002] /workspace/supabase/functions/companion/memory/index.ts: Missing service registry integration
+- [VAL-001] /workspace/supabase/functions/companion/chat/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/smart-suggestions/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/worker-jobs/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/v4-orchestrator/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/stripe-connect/test.ts: Console log without [VIFIXA] prefix
+- [VAL-001] /workspace/supabase/functions/stripe-connect/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/ai-diagnose/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/ai-estimate-price/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-estimate-price/index.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-healthcheck/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/subscription-manage/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/notify/index.ts: Console log without [VIFIXA] prefix
+- [VAL-001] /workspace/supabase/functions/notify/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-care-agent/index.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/event-service.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/types.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/slot-extractor.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/golden-cases.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/test.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/action-builder.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/state-machine.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/ai-chat/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-chat/index.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/audit-service.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/autonomy-service.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/pricing-fallback.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/ai-service.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/order-service.ts: AI function not using centralized ai-core
+- [ARCH-003] /workspace/supabase/functions/ai-chat/reply-builder.ts: AI function not using centralized ai-core
+- [LOG-001] /workspace/supabase/functions/behavioral-analytics/index.ts: Console log without [VIFIXA] prefix
+- [VAL-001] /workspace/supabase/functions/behavioral-analytics/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/ai-warranty/test.ts: Console log without [VIFIXA] prefix
+- [ARCH-003] /workspace/supabase/functions/ai-warranty/test.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/ai-warranty/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-warranty/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/stripe-checkout/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/ai-predict/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-predict/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/admin-dashboard/index.ts: JSON parsing without Zod validation
+- [VAL-001] /workspace/supabase/functions/stripe-payment-intent/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/ai-quality/test.ts: Console log without [VIFIXA] prefix
+- [ARCH-003] /workspace/supabase/functions/ai-quality/test.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/ai-quality/index.ts: JSON parsing without Zod validation
+- [ARCH-003] /workspace/supabase/functions/ai-quality/index.ts: AI function not using centralized ai-core
+- [VAL-001] /workspace/supabase/functions/v4-monetizer/index.ts: JSON parsing without Zod validation
+- [LOG-001] /workspace/supabase/functions/stripe-webhook/index.ts: Console log without [VIFIXA] prefix
+- [VAL-001] /workspace/supabase/functions/payment-process/index.ts: JSON parsing without Zod validation
+- [ARCH-002] /workspace/web/src/components/companion/CompanionMessage.tsx: Missing service registry integration
+- [ARCH-002] /workspace/web/src/components/companion/CompanionChat.tsx: Missing service registry integration
+- [ARCH-002] /workspace/web/src/components/companion/CompanionHeader.tsx: Missing service registry integration
+- [ARCH-002] /workspace/web/src/components/companion/CompanionAvatar.tsx: Missing service registry integration
+- [ARCH-002] /workspace/web/src/components/companion/CompanionActions.tsx: Missing service registry integration
+- [ARCH-002] /workspace/web/src/app/api/companion/memory/route.ts: Missing service registry integration
+- [ARCH-002] /workspace/mobile/src/components/companion/CompanionChat.tsx: Missing service registry integration

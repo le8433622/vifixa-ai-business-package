@@ -3,26 +3,78 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 export interface AuthUser {
   id: string;
   email?: string;
+  role?: string;
 }
 
-export async function verifyAuth(req: Request): Promise<AuthUser> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new AuthError('Missing or invalid authorization header', 'UNAUTHORIZED');
+/**
+ * verifyAuth - Xác thực user từ Authorization header
+ * 
+ * ⚠️ BẮT BUỘC dùng ở DÒNG ĐẦU TIÊN của mọi Edge Function
+ * 
+ * @example
+ * const user = await verifyAuth(req)
+ * if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
+ */
+export async function verifyAuth(req: Request): Promise<AuthUser | null> {
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[VIFIXA][auth] missing_header | path=' + new URL(req.url).pathname);
+      return null;
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      console.log('[VIFIXA][auth] invalid_token | error=' + (authError?.message || 'unknown'));
+      return null;
+    }
+
+    return { id: user.id, email: user.email };
+  } catch (error) {
+    console.log('[VIFIXA][auth] exception | error=' + (error as Error).message);
+    return null;
   }
+}
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+/**
+ * checkRole - Kiểm tra role của user
+ * 
+ * ⚠️ BẮT BUỘC dùng sau verifyAuth cho các endpoint yêu cầu role cụ thể
+ * 
+ * @example
+ * const hasRole = await checkRole(user.id, 'worker')
+ * if (!hasRole) return jsonResponse({ error: 'Forbidden' }, 403)
+ */
+export async function checkRole(userId: string, requiredRole: string): Promise<boolean> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
 
-  if (authError || !user) {
-    throw new AuthError(authError?.message || 'Invalid or expired token', 'UNAUTHORIZED_INVALID_TOKEN');
+    if (error || !profile) {
+      console.log('[VIFIXA][role] profile_not_found | user=' + userId);
+      return false;
+    }
+
+    const hasRole = profile.role === requiredRole;
+    console.log('[VIFIXA][role] check | user=' + userId + ' | role=' + profile.role + ' | required=' + requiredRole + ' | allowed=' + hasRole);
+    return hasRole;
+  } catch (error) {
+    console.log('[VIFIXA][role] exception | user=' + userId + ' | error=' + (error as Error).message);
+    return false;
   }
-
-  return { id: user.id, email: user.email };
 }
 
 export class AuthError extends Error {
