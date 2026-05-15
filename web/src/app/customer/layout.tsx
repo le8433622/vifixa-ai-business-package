@@ -5,6 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ToastProvider } from '@/components/Toast'
 import Link from 'next/link'
+import { LanguageProvider } from '@/components/common/LanguageToggle'
+import LanguageToggle from '@/components/common/LanguageToggle'
 
 function getRoleHomePath(role: string | null | undefined) {
   if (role === 'admin') return '/admin'
@@ -71,7 +73,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
 
   if (checkingAuth) {
     return (
-      <ToastProvider>
+      <LanguageProvider><ToastProvider>
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           {authError ? (
             <div className="text-center">
@@ -87,12 +89,12 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
             </div>
           )}
         </div>
-      </ToastProvider>
+      </ToastProvider></LanguageProvider>
     )
   }
 
   return (
-    <ToastProvider>
+    <LanguageProvider><ToastProvider>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Top Nav */}
         <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -111,7 +113,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500 hidden md:block">{userEmail}</span>
-                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Đăng xuất</button>
+                <LanguageToggle /><button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Đăng xuất</button>
                 <button className="md:hidden p-1.5 rounded text-gray-600 hover:bg-gray-100" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>
@@ -137,6 +139,6 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-    </ToastProvider>
+    </ToastProvider></LanguageProvider>
   )
 }

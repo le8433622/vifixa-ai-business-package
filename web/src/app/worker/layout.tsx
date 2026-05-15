@@ -4,6 +4,8 @@ import { ReactNode, useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { LanguageProvider } from '@/components/common/LanguageToggle'
+import LanguageToggle from '@/components/common/LanguageToggle'
 
 const NAV_ITEMS = [
   { href: '/worker', label: '🏠 Home', short: 'Home' },

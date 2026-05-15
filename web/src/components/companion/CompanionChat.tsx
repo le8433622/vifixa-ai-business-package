@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useLanguage } from '@/components/common/LanguageToggle'
 
 interface Message {
   id: string
@@ -19,14 +20,17 @@ interface Action {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
-const QUICK_ACTIONS = [
-  { emoji: '❄️', label: 'Máy lạnh', query: 'Máy lạnh nhà tôi không mát, giúp tôi kiểm tra' },
-  { emoji: '💡', label: 'Điện', query: 'Nhà tôi bị mất điện, cần thợ gấp' },
-  { emoji: '🚿', label: 'Nước', query: 'Vòi nước bị rò rỉ, giúp tôi sửa' },
-  { emoji: '📷', label: 'Camera', query: 'Tôi muốn lắp camera an ninh' },
-  { emoji: '💰', label: 'Báo giá', query: 'Báo giá cho tôi dịch vụ sửa máy lạnh' },
-  { emoji: '📋', label: 'Đơn hàng', query: 'Xem đơn hàng của tôi' },
-]
+function useQuickActions() {
+  const { t } = useLanguage()
+  return [
+    { emoji: '❄️', label: t('ai.quick.ac'), query: 'Máy lạnh nhà tôi không mát, giúp tôi kiểm tra' },
+    { emoji: '💡', label: t('ai.quick.electric'), query: 'Nhà tôi bị mất điện, cần thợ gấp' },
+    { emoji: '🚿', label: t('ai.quick.plumbing'), query: 'Vòi nước bị rò rỉ, giúp tôi sửa' },
+    { emoji: '📷', label: t('ai.quick.camera'), query: 'Tôi muốn lắp camera an ninh' },
+    { emoji: '💰', label: 'Báo giá', query: 'Báo giá cho tôi dịch vụ sửa máy lạnh' },
+    { emoji: '📋', label: 'Đơn hàng', query: 'Xem đơn hàng của tôi' },
+  ]
+}
 
 export default function CompanionChat({ persona = 'customer', onAction }: {
   persona?: 'customer' | 'worker' | 'admin'
@@ -36,12 +40,14 @@ export default function CompanionChat({ persona = 'customer', onAction }: {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [isListening, setIsListening] = useState(false)
   const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
+  const quickActions = useQuickActions()
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -334,7 +340,7 @@ export default function CompanionChat({ persona = 'customer', onAction }: {
       {messages.length <= 1 && (
         <div className="px-3 pt-0 pb-3 bg-white border-t border-gray-50">
           <div className="grid grid-cols-3 gap-1.5">
-            {QUICK_ACTIONS.map(q => (
+            {quickActions.map(q => (
               <button key={q.label} onClick={() => sendMessage(q.query)}
                 className="flex items-center gap-1.5 px-2 py-2.5 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 border border-transparent rounded-xl transition text-xs font-medium text-gray-600 hover:text-blue-700">
                 <span className="text-base">{q.emoji}</span>
