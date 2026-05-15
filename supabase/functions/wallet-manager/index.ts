@@ -1,248 +1,326 @@
-// Wallet Manager Edge Function
-// Handles: get balance, request withdrawal, approve/complete payout
+// 🏛️ Vifixa Wallet Manager — Atomic Transaction Engine
+// Handles: nạp/rút, chuyển tiền, escrow, auto-split, staking
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { corsHeaders } from '../_shared/cors.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { logVifixa } from '../_shared/logger.ts'
+import {
+  type WalletType, type TransferRequest, type SplitRequest,
+  calculateSplit, calculateFee, calculateDynamicPrice,
+  calculateStakingInterest, dynamicInterestRate, calculateTier,
+  VFC_TO_VND_RATE, DEFAULT_FEE_RATE, canReleaseEscrow,
+} from '../_shared/wallet-core.ts'
 
 Deno.serve(async (req: Request) => {
-  const optionsResp = handleOptions(req)
-  if (optionsResp) return optionsResp
+  const opt = handleOptions(req)
+  if (opt) return opt
 
-  // Verify auth
-  let user: any
-  try {
-    user = await verifyAuth(req)
-  } catch {
-    return jsonResponse({ error: 'Unauthorized' }, 401)
-  }
+  if (req.method === 'OPTIONS') return opt
+  const user = await verifyAuth(req)
+  if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  const url = new URL(req.url)
-  const action = url.searchParams.get('action')
+  const { action, ...params } = await req.json().catch(() => ({ action: 'balance' }))
+  logVifixa('wallet-manager', action, { userId: user.id })
 
   try {
-    // GET /?action=balance → Get wallet balance
-    if (req.method === 'GET' && action === 'balance') {
-      return await handleGetBalance(supabase, user.id)
+    switch (action) {
+      case 'balance': return await getBalance(supabase, user.id)
+      case 'transfer': return await transfer(supabase, user.id, params)
+      case 'deposit': return await deposit(supabase, user.id, params)
+      case 'withdraw': return await withdraw(supabase, user.id, params)
+      case 'escrow:hold': return await escrowHold(supabase, user.id, params)
+      case 'escrow:release': return await escrowRelease(supabase, params.orderId)
+      case 'escrow:refund': return await escrowRefund(supabase, params.orderId)
+      case 'stake:create': return await stakeCreate(supabase, user.id, params)
+      case 'stake:claim': return await stakeClaim(supabase, user.id, params)
+      case 'stake:calculate': return await stakeCalculate(supabase, user.id, params)
+      case 'split': return await autoSplit(supabase, user.id, params)
+      case 'history': return await getHistory(supabase, user.id, params)
+      case 'pricing': return await getPricing(supabase, params)
+      case 'vfc:balance': return await getVfcBalance(supabase, user.id)
+      default: return jsonResponse({ error: 'Unknown action' }, 400)
     }
-
-    // GET /?action=ledger → Get ledger entries
-    if (req.method === 'GET' && action === 'ledger') {
-      return await handleGetLedger(req, supabase, user.id)
-    }
-
-    // POST / → Request withdrawal (worker)
-    if (req.method === 'POST') {
-      return await handleRequestPayout(req, supabase, user.id)
-    }
-
-    // PUT /?action=approve&id=xxx → Approve payout (admin)
-    if (req.method === 'PUT' && action === 'approve') {
-      const payoutId = url.searchParams.get('id')
-      return await handleApprovePayout(supabase, user.id, payoutId)
-    }
-
-    return jsonResponse({ error: 'Method not allowed' }, 405)
-  } catch (error: any) {
-    console.error('Wallet manager error:', error)
-    return jsonResponse({ error: error.message || 'Internal server error' }, 500)
+  } catch (err: any) {
+    logVifixa('wallet-manager', 'error', { userId: user.id, error: err.message })
+    return jsonResponse({ error: err.message }, 500)
   }
 })
 
-async function handleGetBalance(supabase: any, userId: string): Promise<Response> {
-  const { data, error } = await supabase
+// ─── BALANCE ───────────────────────────────────────────────
+
+async function getBalance(supabase: any, userId: string) {
+  const { data } = await supabase
     .from('wallets')
-    .select('*')
+    .select('balance, locked, wallet_type')
+    .eq('user_id', userId)
+  
+  const balances: Record<string, number> = { txn: 0, stake: 0, reward: 0, treasury: 0 }
+  for (const w of data || []) {
+    balances[w.wallet_type] = Number(w.balance)
+  }
+
+  const { data: vfc } = await supabase
+    .from('vfc_points')
+    .select('balance, tier, multiplier')
     .eq('user_id', userId)
     .single()
 
-  if (error && error.code !== 'PGRST116') throw error
-
-  // Return default if not exists
-  if (!data) {
-    return jsonResponse({
-      balance: 0,
-      locked_amount: 0,
-      currency: 'VND',
-    })
-  }
-
-  return jsonResponse(data)
+  return jsonResponse({
+    wallets: balances,
+    total: Object.values(balances).reduce((a, b) => a + b, 0),
+    vfc: vfc || { balance: 0, tier: 'bronze', multiplier: 1.0 },
+  })
 }
 
-async function handleGetLedger(req: Request, supabase: any, userId: string): Promise<Response> {
-  // Get wallet_id first
-  const { data: wallet } = await supabase
-    .from('wallets')
-    .select('id')
-    .eq('user_id', userId)
-    .single()
+// ─── TRANSFER ──────────────────────────────────────────────
 
-  if (!wallet) {
-    return jsonResponse({ entries: [] })
+async function transfer(supabase: any, userId: string, params: any) {
+  const { toUserId, amount, walletType = 'txn', description } = params as TransferRequest
+  
+  if (!toUserId || !amount || amount <= 0) {
+    return jsonResponse({ error: 'Invalid transfer params' }, 400)
   }
 
-  const url = new URL(req.url)
-  const limit = parseInt(url.searchParams.get('limit') || '50')
-
-  const { data, error } = await supabase
-    .from('ledger_entries')
-    .select('*')
-    .eq('wallet_id', wallet.id)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+  // Atomic double-entry transaction
+  const { data: txn, error } = await supabase.rpc('atomic_transfer', {
+    p_from_user: userId,
+    p_to_user: toUserId,
+    p_amount: amount,
+    p_wallet_type: walletType,
+    p_description: description || 'Chuyển tiền',
+  })
 
   if (error) throw error
-
-  return jsonResponse({ entries: data || [] })
+  logVifixa('wallet', 'transfer_success', { userId, toUserId, amount, walletType })
+  return jsonResponse({ transaction: txn })
 }
 
-async function handleRequestPayout(req: Request, supabase: any, userId: string): Promise<Response> {
-  const body = await req.json()
-  const { amount, bank_account } = body
+// ─── AUTO-SPLIT ────────────────────────────────────────────
 
-  if (!amount || amount <= 0) {
-    return jsonResponse({ error: 'Invalid amount' }, 400)
+async function autoSplit(supabase: any, userId: string, params: any) {
+  const { orderId, workerId, totalAmount } = params as SplitRequest & { orderId: string }
+
+  const split = calculateSplit({ totalAmount, customerId: userId, workerId, orderId })
+  
+  // Execute atomic multi-wallet split
+  const { data, error } = await supabase.rpc('auto_split_payment', {
+    p_order_id: orderId,
+    p_customer_id: userId,
+    p_worker_id: workerId,
+    p_amount: totalAmount,
+    p_worker_payout: split.workerPayout,
+    p_platform_fee: split.platformFee,
+    p_reward_points: split.rewardPoints,
+    p_treasury_amount: split.treasuryAmount,
+  })
+
+  if (error) throw error
+  logVifixa('wallet', 'auto_split', { orderId, workerPayout: split.workerPayout, fee: split.platformFee })
+  return jsonResponse({ split, transaction: data })
+}
+
+// ─── ESCROW ────────────────────────────────────────────────
+
+async function escrowHold(supabase: any, userId: string, params: any) {
+  const { orderId, workerId, amount } = params
+  const fee = calculateFee(amount)
+  const workerPayout = amount - fee
+
+  const { error } = await supabase.from('escrow').insert({
+    order_id: orderId,
+    customer_id: userId,
+    worker_id: workerId,
+    amount,
+    platform_fee: fee,
+    worker_payout: workerPayout,
+    status: 'pending',
+  })
+
+  if (error) throw error
+  return jsonResponse({ status: 'pending', amount, fee, workerPayout })
+}
+
+async function escrowRelease(supabase: any, orderId: string) {
+  // Get escrow + verify conditions
+  const { data: escrow } = await supabase
+    .from('escrow').select('*').eq('order_id', orderId).single()
+  
+  if (!escrow || escrow.status !== 'pending') {
+    return jsonResponse({ error: 'Escrow not found or already processed' }, 400)
   }
 
-  // Get wallet
-  const { data: wallet, error: walletError } = await supabase
-    .from('wallets')
+  const check = canReleaseEscrow('completed', true, true)
+  if (!check.allowed) return jsonResponse({ error: check.reason }, 400)
+
+  // Release via RPC (atomic)
+  const { data, error } = await supabase.rpc('release_escrow', {
+    p_order_id: orderId,
+    p_worker_payout: escrow.worker_payout,
+    p_platform_fee: escrow.platform_fee,
+  })
+
+  if (error) throw error
+  logVifixa('wallet', 'escrow_released', { orderId, amount: escrow.amount })
+  return jsonResponse({ status: 'released', transaction: data })
+}
+
+async function escrowRefund(supabase: any, orderId: string) {
+  const { data, error } = await supabase.rpc('refund_escrow', {
+    p_order_id: orderId,
+  })
+  if (error) throw error
+  return jsonResponse({ status: 'refunded', transaction: data })
+}
+
+// ─── STAKING ───────────────────────────────────────────────
+
+async function stakeCreate(supabase: any, userId: string, params: any) {
+  const { amount, days = 90 } = params
+  if (!amount || amount < 10000) return jsonResponse({ error: 'Minimum stake: 10,000₫' }, 400)
+
+  // Get total system staked for dynamic rate
+  const { data: systemStaked } = await supabase
+    .from('wallets').select('balance').eq('wallet_type', 'stake')
+  const totalStaked = (systemStaked || []).reduce((s: number, w: any) => s + Number(w.balance), 0)
+  
+  const rate = dynamicInterestRate(totalStaked, 0.7, days)
+
+  const { error } = await supabase.from('staking').insert({
+    user_id: userId,
+    amount,
+    interest_rate: rate * 100, // Convert to percentage
+    end_date: new Date(Date.now() + days * 86400000).toISOString(),
+    status: 'active',
+  })
+
+  // Move funds from txn wallet to stake wallet
+  await supabase.rpc('move_to_stake', {
+    p_user_id: userId,
+    p_amount: amount,
+  })
+
+  if (error) throw error
+  logVifixa('wallet', 'stake_created', { userId, amount, rate, days })
+  return jsonResponse({ status: 'active', amount, rate: rate * 100, maturityDate: new Date(Date.now() + days * 86400000).toISOString() })
+}
+
+async function stakeClaim(supabase: any, userId: string, params: any) {
+  const { stakeId } = params
+  const { data: stake } = await supabase
+    .from('staking').select('*').eq('id', stakeId).eq('user_id', userId).single()
+  
+  if (!stake || stake.status !== 'active') {
+    return jsonResponse({ error: 'Stake not found or not matured' }, 400)
+  }
+
+  const daysStaked = Math.floor((Date.now() - new Date(stake.start_date).getTime()) / 86400000)
+  const interest = calculateStakingInterest(stake.amount, stake.interest_rate / 100, daysStaked)
+
+  await supabase.rpc('claim_stake', {
+    p_stake_id: stakeId,
+    p_interest: interest,
+  })
+
+  logVifixa('wallet', 'stake_claimed', { userId, stakeId, interest })
+  return jsonResponse({ status: 'matured', principal: stake.amount, interest })
+}
+
+async function stakeCalculate(supabase: any, userId: string, params: any) {
+  const { amount, days = 90 } = params
+  const { data: systemStaked } = await supabase
+    .from('wallets').select('balance').eq('wallet_type', 'stake')
+  const totalStaked = (systemStaked || []).reduce((s: number, w: any) => s + Number(w.balance), 0)
+  
+  const rate = dynamicInterestRate(totalStaked, 0.7, days)
+  const interest = calculateStakingInterest(amount || 100000, rate, days)
+
+  return jsonResponse({ projectedRate: rate * 100, projectedInterest: interest, days })
+}
+
+// ─── DEPOSIT / WITHDRAW ────────────────────────────────────
+
+async function deposit(supabase: any, userId: string, params: any) {
+  const { amount, gateway = 'mock' } = params
+  if (!amount || amount <= 0) return jsonResponse({ error: 'Invalid amount' }, 400)
+
+  const { data, error } = await supabase.rpc('deposit_to_wallet', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_gateway: gateway,
+  })
+
+  if (error) throw error
+  return jsonResponse({ transaction: data })
+}
+
+async function withdraw(supabase: any, userId: string, params: any) {
+  const { amount, walletType = 'txn' } = params
+  if (!amount || amount <= 0) return jsonResponse({ error: 'Invalid amount' }, 400)
+
+  const fee = calculateFee(amount, 0.02) // 2% gateway fee
+  const netAmount = amount - fee
+
+  const { data, error } = await supabase.rpc('withdraw_from_wallet', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_fee: fee,
+    p_wallet_type: walletType,
+  })
+
+  if (error) throw error
+  return jsonResponse({ transaction: data, fee, netAmount })
+}
+
+// ─── HISTORY ───────────────────────────────────────────────
+
+async function getHistory(supabase: any, userId: string, params: any) {
+  const { walletType, limit = 20, offset = 0 } = params
+  let query = supabase
+    .from('transactions')
+    .select('*')
+    .or(`customer_id.eq.${userId},worker_id.eq.${userId}`)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (walletType) query = query.eq('wallet_type', walletType)
+
+  const { data } = await query
+  return jsonResponse({ transactions: data || [], total: (data || []).length })
+}
+
+// ─── PRICING ───────────────────────────────────────────────
+
+async function getPricing(supabase: any, params: any) {
+  // Validate input
+  if (!params.basePrice) return jsonResponse({ error: 'basePrice required' }, 400)
+  
+  const pricing = calculateDynamicPrice({
+    basePrice: params.basePrice,
+    demandMultiplier: params.demandMultiplier || 1.0,
+    distanceKm: params.distanceKm || 0,
+    workerTrustScore: params.workerTrustScore || 0.7,
+    customerTier: params.customerTier || 'bronze',
+    timeOfDay: new Date().getHours(),
+    isWeekend: [0, 6].includes(new Date().getDay()),
+    customerStakeBalance: params.customerStakeBalance || 0,
+  })
+
+  return jsonResponse(pricing)
+}
+
+// ─── VFC BALANCE ───────────────────────────────────────────
+
+async function getVfcBalance(supabase: any, userId: string) {
+  const { data } = await supabase
+    .from('vfc_points')
     .select('*')
     .eq('user_id', userId)
     .single()
 
-  if (walletError || !wallet) {
-    return jsonResponse({ error: 'Wallet not found' }, 404)
-  }
-
-  // Check sufficient balance
-  const available = wallet.balance - wallet.locked_amount
-  if (available < amount) {
-    return jsonResponse({ error: 'Insufficient balance' }, 400)
-  }
-
-  // Get platform fee from app_settings
-  const { data: feeSetting } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'payout_fee')
-    .single()
-
-  const fee = parseInt(feeSetting?.value || '5000')
-
-  // Lock amount in wallet
-  const { error: updateError } = await supabase
-    .from('wallets')
-    .update({ locked_amount: wallet.locked_amount + amount })
-    .eq('id', wallet.id)
-
-  if (updateError) throw updateError
-
-  // Create payout record
-  const { data: payout, error: payoutError } = await supabase
-    .from('payouts')
-    .insert({
-      wallet_id: wallet.id,
-      user_id: userId,
-      amount,
-      fee,
-      bank_account,
-      status: 'pending',
-    })
-    .select()
-    .single()
-
-  if (payoutError) throw payoutError
-
-  return jsonResponse({ success: true, payout })
-}
-
-async function handleApprovePayout(supabase: any, adminId: string, payoutId: string | null): Promise<Response> {
-  // Verify admin
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', adminId)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    return jsonResponse({ error: 'Forbidden' }, 403)
-  }
-
-  if (!payoutId) {
-    return jsonResponse({ error: 'Missing payout id' }, 400)
-  }
-
-  // Get payout
-  const { data: payout, error: payoutError } = await supabase
-    .from('payouts')
-    .select('*, wallets(*)')
-    .eq('id', payoutId)
-    .single()
-
-  if (payoutError || !payout) {
-    return jsonResponse({ error: 'Payout not found' }, 404)
-  }
-
-  // Update payout status
-  const { error: updateError } = await supabase
-    .from('payouts')
-    .update({
-      status: 'completed',
-      admin_id: adminId,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', payoutId)
-
-  if (updateError) throw updateError
-
-  // Update wallet: subtract amount + fee, unlock
-  const wallet = payout.wallets
-  const newBalance = wallet.balance - payout.amount - payout.fee
-  const newLocked = wallet.locked_amount - payout.amount
-
-  await supabase
-    .from('wallets')
-    .update({
-      balance: Math.max(0, newBalance),
-      locked_amount: Math.max(0, newLocked),
-    })
-    .eq('id', wallet.id)
-
-  // Create ledger entry for payout
-  const transactionId = `payout_${Date.now()}`
-  await supabase
-    .from('ledger_entries')
-    .insert([
-      {
-        transaction_id: transactionId,
-        wallet_id: wallet.id,
-        account: 'wallet.withdrawal',
-        direction: 'debit',
-        amount: payout.amount,
-        currency: wallet.currency,
-        reference_type: 'payout',
-        reference_id: payoutId,
-        description: 'Withdrawal to bank account',
-      },
-      {
-        transaction_id: transactionId,
-        wallet_id: wallet.id,
-        account: 'fee.payout',
-        direction: 'debit',
-        amount: payout.fee,
-        currency: wallet.currency,
-        reference_type: 'fee',
-        reference_id: payoutId,
-        description: 'Payout fee',
-      },
-    ])
-
-  return jsonResponse({ success: true })
+  return jsonResponse(data || { balance: 0, tier: 'bronze', multiplier: 1.0 })
 }

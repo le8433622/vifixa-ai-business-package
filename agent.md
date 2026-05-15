@@ -1052,6 +1052,16 @@ Thumbs.db
 - 🔗 **Self-check là GATE** — không pass → không mark complete
 
 ### 2026-05-15 — v1.13: Zero Tolerance Compliance Audit
+
+### 2026-05-15 — v1.14: 🏛️ Multi-Ledger Dynamic Wallet Engine
+- 🏦 **4-Wallet Architecture** — Transaction · Staking · Reward · Treasury
+- 📐 **Migration**: `20260515000003_multi_ledger_wallet.sql` — wallet_type enum, staking, escrow, VFC points, tiers
+- 🔧 **Wallet Core**: `_shared/wallet-core.ts` — atomic transactions, fee calc, dynamic pricing, staking interest, escrow logic
+- ⚡ **Wallet Manager**: `functions/wallet-manager/index.ts` — balance, transfer, escrow hold/release/refund, stake create/claim, auto-split, pricing
+- 🧪 **8 Tests**: fee calculation, staking interest, dynamic rates, tiers, auto split, escrow, money math — all pass
+- 💰 **Monetization**: Transaction fee (3%), float interest (2-8%/year dynamic), gateway fee (2%), VFC points, Treasury
+- 🎯 **Dynamic Pricing**: Base × demand × distance − stake discount − tier discount
+- 🤖 **AI Integration**: dynamicInterestRate(), calculateDynamicPrice(), canReleaseEscrow()
 - ✅ **SEC-001 (API keys)**: 0 violations — CLEAN
 - ⚠️ **SEC-002 (verifyAuth)**: 4 functions patched (TODO), 18 total need audit
 - ✅ **SEC-003 (admin routes)**: 0 violations — CLEAN

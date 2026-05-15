@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import WalletDashboard from '@/components/wallet/WalletDashboard'
 
 export default function CustomerProfilePage() {
   const router = useRouter()
@@ -193,6 +194,9 @@ export default function CustomerProfilePage() {
           </button>
         )}
       </div>
+
+      {/* Wallet */}
+      <WalletDashboard userId={profile?.id || ''} role="customer" />
 
       {/* Stats */}
       <div className="bg-white rounded-xl border p-6">

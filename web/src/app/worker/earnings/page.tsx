@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import WalletDashboard from '@/components/wallet/WalletDashboard'
 
 type Order = { id: string; category: string; estimated_price: number; final_price?: number; status: string; created_at: string; completed_at?: string }
 type Wallet = { balance: number; locked: number }
@@ -12,12 +13,14 @@ export default function WorkerEarnings() {
   const [orders, setOrders] = useState<Order[]>([])
   const [wallet, setWallet] = useState<Wallet>({ balance: 0, locked: 0 })
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState('')
 
   useEffect(() => { load() }, [])
 
   async function load() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
+    setUserId(session.user.id)
 
     const oRes = await supabase.from('orders').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false })
     setOrders((oRes.data || []) as any)
@@ -32,38 +35,14 @@ export default function WorkerEarnings() {
   const inProgress = orders.filter(o => o.status === 'in_progress')
   const totalEarned = completed.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
   const pendingAmount = inProgress.reduce((s, o) => s + (o.estimated_price || 0), 0)
-  const todayEarned = completed.filter(o => o.completed_at && new Date(o.completed_at).toDateString() === new Date().toDateString())
-    .reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
-  const weekEarned = completed.filter(o => o.completed_at && (Date.now() - new Date(o.completed_at).getTime()) < 7 * 24 * 60 * 60 * 1000)
-    .reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
-
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-5">
       <h1 className="text-2xl font-bold">💰 Thu nhập</h1>
 
-      {/* Wallet */}
-      <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white">
-        <p className="text-sm opacity-80 mb-1">Số dư ví</p>
-        <p className="text-3xl font-bold">{wallet.balance.toLocaleString()}₫</p>
-        {wallet.locked > 0 && <p className="text-xs opacity-70 mt-1">Đang khóa: {wallet.locked.toLocaleString()}₫</p>}
-      </div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: 'Hôm nay', value: todayEarned, color: 'text-emerald-600' },
-          { label: 'Tuần này', value: weekEarned, color: 'text-blue-600' },
-          { label: 'Tổng', value: totalEarned, color: 'text-amber-600' },
-          { label: 'Đang xử lý', value: pendingAmount, color: 'text-purple-600' },
-        ].map(stat => (
-          <div key={stat.label} className="bg-white rounded-xl border p-3 text-center">
-            <p className={`text-lg font-bold ${stat.color}`}>{stat.value.toLocaleString()}₫</p>
-            <p className="text-[10px] text-gray-500 mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      {/* Multi-Wallet Dashboard */}
+      <WalletDashboard userId={userId} role="worker" />
 
       {/* Recent payouts */}
       <div>

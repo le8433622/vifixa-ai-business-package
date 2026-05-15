@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import CompanionChat from '@/components/companion/CompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
+import WalletDashboard from '@/components/wallet/WalletDashboard'
 
 type AppState = 'idle' | 'analysing' | 'alert' | 'oversight'
 
@@ -97,6 +98,15 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+
+        {/* Treasury section */}
+        {mode === 'auto' && appState === 'idle' && (
+          <div className="absolute bottom-20 left-3 right-3 pointer-events-none max-w-lg mx-auto">
+            <div className="pointer-events-auto">
+              <WalletDashboard userId="admin" role="admin" />
+            </div>
+          </div>
+        )}
 
         {/* Manual mode menu */}
         {mode === 'manual' && (
