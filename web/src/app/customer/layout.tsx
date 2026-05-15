@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/Toast'
 import Link from 'next/link'
 import { LanguageProvider } from '@/components/common/LanguageToggle'
 import LanguageToggle from '@/components/common/LanguageToggle'
+import { NotificationProvider } from '@/components/NotificationProvider'
 
 function getRoleHomePath(role: string | null | undefined) {
   if (role === 'admin') return '/admin'
@@ -94,7 +95,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <LanguageProvider><ToastProvider>
+    <LanguageProvider><ToastProvider><NotificationProvider>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Top Nav */}
         <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -139,6 +140,6 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-    </ToastProvider></LanguageProvider>
+    </NotificationProvider></ToastProvider></LanguageProvider>
   )
 }
