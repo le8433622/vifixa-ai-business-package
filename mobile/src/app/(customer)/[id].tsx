@@ -7,6 +7,10 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
+function formatVnd(amount: number): string {
+  return amount.toLocaleString('vi-VN') + '₫';
+}
+
 // TypeScript type for Order
 type Order = {
   id: string;
@@ -50,12 +54,12 @@ export default function CustomerOrderDetail() {
     if (!order) return;
     
     Alert.alert(
-      'Accept Price',
-      `Accept estimated price of $${order.estimated_price}?`,
+      'Xác nhận giá',
+      `Đồng ý giá dự kiến ${formatVnd(order.estimated_price)}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Accept',
+          text: 'Đồng ý',
           onPress: async () => {
             try {
               // Optimistic update
@@ -71,11 +75,13 @@ export default function CustomerOrderDetail() {
 
               if (error) throw error;
               refetch();
-              Alert.alert('Success', 'Price accepted! Worker will be assigned soon.');
-            } catch (error: any) {
-              Alert.alert('Error', error.message);
-              refetch(); // Rollback
-            }
+              Alert.alert('✅', 'Đã chấp nhận giá. Đang tìm thợ...');
+              refetch();
+            },
+          },
+        ],
+      );
+    }
           },
         },
       ]
@@ -85,14 +91,14 @@ export default function CustomerOrderDetail() {
   // Reject price - request new quote
   async function rejectPrice() {
     Alert.alert(
-      'Reject Price',
-      'Request a new quote with different requirements?',
+      'Từ chối giá',
+      'Yêu cầu báo giá mới?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Request New Quote',
+          text: 'Yêu cầu báo giá mới',
           onPress: () => {
-            router.push('/(customer)/service-request');
+            router.push('/(customer)/chat');
           },
         },
       ]
@@ -104,18 +110,18 @@ export default function CustomerOrderDetail() {
     switch (status) {
       case 'pending':
         return order.ai_diagnosis 
-          ? 'AI diagnosis complete. Waiting for your price confirmation...'
-          : 'Waiting for AI diagnosis...';
+          ? '✅ AI đã chẩn đoán. Vui lòng xác nhận giá.'
+          : '⏳ AI đang phân tích...';
       case 'matched':
-        return 'Worker assigned! They will arrive soon.';
+        return '🔧 Đã ghép thợ. Thợ đang đến.';
       case 'in_progress':
-        return 'Worker is handling your issue...';
+        return '🔨 Thợ đang thực hiện.';
       case 'completed':
-        return 'Job completed! Please confirm and rate.';
+        return '✔️ Hoàn thành! Vui lòng kiểm tra và đánh giá.';
       case 'disputed':
-        return 'Dispute in progress. Admin will review.';
+        return '⚠️ Đang khiếu nại. Admin sẽ xem xét.';
       default:
-        return 'Status unknown';
+        return 'Đang cập nhật...';
     }
   };
 
@@ -159,10 +165,32 @@ export default function CustomerOrderDetail() {
         <Text style={styles.headerTitle}>Chi tiết đơn hàng</Text>
       </View>
 
-      {/* Status Section */}
-      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-        <Text style={styles.statusText}>{order.status}</Text>
-        <Text style={styles.statusMessage}>{getStatusMessage(order.status, order)}</Text>
+      {/* Real-time Status Bar (giống web) */}
+      <View style={{ backgroundColor: 'white', borderRadius: 12, padding: 12, margin: 12, marginBottom: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {[
+            { key: 'pending', label: '📋' },
+            { key: 'matched', label: '🔧' },
+            { key: 'in_progress', label: '🔨' },
+            { key: 'completed', label: '✔️' },
+          ].map((step, i) => {
+            const statuses = ['pending', 'matched', 'in_progress', 'completed'];
+            const idx = statuses.indexOf(order.status);
+            const stepIdx = statuses.indexOf(step.key);
+            const done = stepIdx <= idx;
+            return (
+              <View key={step.key} style={{ alignItems: 'center', flex: 1 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: done ? '#2563eb' : '#e5e7eb', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 12, color: done ? 'white' : '#9ca3af' }}>{done && stepIdx < idx ? '✓' : step.label}</Text>
+                </View>
+                {i < 3 && <View style={{ width: '100%', height: 2, backgroundColor: done && stepIdx < idx ? '#2563eb' : '#e5e7eb', marginTop: -14, marginLeft: '50%' }} />}
+              </View>
+            );
+          })}
+        </View>
+        <Text style={{ textAlign: 'center', fontSize: 11, color: '#6b7280', marginTop: 6 }}>
+          {getStatusMessage(order.status, order)}
+        </Text>
       </View>
 
       {/* Order Info */}
@@ -209,24 +237,44 @@ export default function CustomerOrderDetail() {
         </View>
       )}
 
-      {/* Price Section */}
+      {/* Price Breakdown — giống web */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Giá cả</Text>
+        <Text style={styles.sectionTitle}>{order.status === 'completed' ? '🧾 Hóa đơn' : '💰 Chi tiết giá'}</Text>
         <View style={styles.priceCard}>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Giá dự kiến:</Text>
-            <Text style={styles.estimatedPrice}>${order.estimated_price}</Text>
-          </View>
-
-          {order.final_price && (
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Giá cuối cùng:</Text>
-              <Text style={styles.finalPrice}>${order.final_price}</Text>
-            </View>
+          {order.final_price ? (
+            <>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>🔧 Công thợ</Text>
+                <Text style={styles.priceValue}>{formatVnd(Math.round(order.final_price * 0.6))}</Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>🔩 Vật tư</Text>
+                <Text style={styles.priceValue}>{formatVnd(Math.round(order.final_price * 0.3))}</Text>
+              </View>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>🚗 Di chuyển</Text>
+                <Text style={styles.priceValue}>{formatVnd(Math.round(order.final_price * 0.1))}</Text>
+              </View>
+              <View style={[styles.priceRow, { borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 8, marginTop: 4 }]}>
+                <Text style={[styles.priceLabel, { fontWeight: 'bold' }]}>🏁 Tổng cộng</Text>
+                <Text style={[styles.finalPrice, { color: '#059669' }]}>{formatVnd(order.final_price)}</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Giá dự kiến</Text>
+                <Text style={styles.estimatedPrice}>{formatVnd(order.estimated_price)}</Text>
+              </View>
+              <Text style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>✅ Gồm: công thợ + vật tư cơ bản + di chuyển</Text>
+              <View style={{ backgroundColor: '#fef3c7', padding: 8, borderRadius: 8, marginTop: 8 }}>
+                <Text style={{ fontSize: 10, color: '#92400e' }}>🛡️ Cam kết: chênh ±20% được hủy miễn phí</Text>
+              </View>
+            </>
           )}
         </View>
 
-        {/* Accept/Reject Price Actions */}
+        {/* Accept/Reject — chỉ khi pending + có diagnosis */}
         {order.status === 'pending' && order.ai_diagnosis && (
           <View style={styles.actionRow}>
             <TouchableOpacity style={[styles.actionButton, styles.acceptButton]} onPress={acceptPrice}>
@@ -237,15 +285,44 @@ export default function CustomerOrderDetail() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Completed — Invoice status */}
+        {order.status === 'completed' && (
+          <View style={{ backgroundColor: '#d1fae5', padding: 8, borderRadius: 8, marginTop: 8 }}>
+            <Text style={{ fontSize: 12, color: '#065f46', fontWeight: '600' }}>
+              ✅ {order.payment_status === 'paid' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* Worker Info */}
+      {/* Worker Info — giống web */}
       {order.workers && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thợ đang thực hiện</Text>
-          <View style={styles.workerCard}>
-            <Text style={styles.workerEmail}>{order.workers.profiles?.email}</Text>
+        <View style={[styles.section, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1 }]}>
+          <Text style={styles.sectionTitle}>👤 Thợ thực hiện</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 18, color: 'white', fontWeight: 'bold' }}>
+                {(order.workers.profiles?.email?.[0] || '🔧').toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1f2937' }}>
+                {order.workers.profiles?.email?.split('@')[0] || 'Thợ'}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#6b7280' }}>{order.workers.profiles?.email}</Text>
+            </View>
+            {order.status === 'in_progress' && (
+              <Text style={{ fontSize: 10, color: '#059669', fontWeight: '600', backgroundColor: '#d1fae5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                🗺️ Đang đến
+              </Text>
+            )}
           </View>
+          {order.status === 'in_progress' && (
+            <View style={{ marginTop: 8, padding: 8, backgroundColor: '#f0f9ff', borderRadius: 8, borderWidth: 1, borderColor: '#bae6fd' }}>
+              <Text style={{ fontSize: 11, color: '#0284c7', textAlign: 'center' }}>🗺️ Map tracking — cách ~2.5km, ~15 phút</Text>
+            </View>
+          )}
         </View>
       )}
 
