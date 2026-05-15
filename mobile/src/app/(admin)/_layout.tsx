@@ -21,6 +21,10 @@ export default function AdminLayout() {
         title: 'Orders',
         tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} />,
       }} />
+      <Tabs.Screen name="disputes" options={{
+        title: 'Disputes',
+        tabBarIcon: ({ color, size }) => <Ionicons name="scale" size={size} color={color} />,
+      }} />
       <Tabs.Screen name="integrations" options={{
         title: 'Integrations',
         tabBarIcon: ({ color, size }) => <Ionicons name="puzzle" size={size} color={color} />,
