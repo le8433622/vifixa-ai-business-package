@@ -15,6 +15,8 @@ export default function WorkerEarnings() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState('')
   const [statFilter, setStatFilter] = useState<'today' | 'week' | 'month' | 'all'>('today')
+  const [stakeSuggestion, setStakeSuggestion] = useState<{ amount: number; reason: string } | null>(null)
+  const [showStakeModal, setShowStakeModal] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -23,15 +25,40 @@ export default function WorkerEarnings() {
     if (!session) { router.push('/login'); return }
     setUserId(session.user.id)
 
-    const { data } = await supabase.from('orders').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false })
-    setOrders((data || []) as Order[])
+    const [oRes, sRes] = await Promise.all([
+      supabase.from('orders').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }),
+      supabase.from('wallets').select('balance,wallet_type').eq('user_id', session.user.id),
+    ])
+    setOrders((oRes.data || []) as Order[])
+
+    // AI auto-stake suggestion — nếu txn balance > 500k
+    const wallets = (sRes.data || []) as any[]
+    const txnBalance = wallets.find((w: any) => w.wallet_type === 'txn')?.balance || 0
+    if (txnBalance > 500000) {
+      setStakeSuggestion({
+        amount: Math.floor(txnBalance * 0.5 / 10000) * 10000, // 50% of balance, round to 10k
+        reason: `Số dư ví giao dịch ${txnBalance.toLocaleString()}₫ — nên đầu tư ${Math.floor(txnBalance * 0.5 / 10000) * 10000}₫ để sinh lời ${(5 + Math.random() * 3).toFixed(1)}%/năm`,
+      })
+    }
     setLoading(false)
   }
 
-  const completed = orders.filter(o => o.status === 'completed')
-  const inProgress = orders.filter(o => o.status === 'in_progress')
-  const totalEarned = completed.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
+  async function handleAutoStake() {
+    if (!stakeSuggestion) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await fetch(`${SUPABASE_URL}/functions/v1/wallet-manager`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'stake:create', amount: stakeSuggestion.amount, days: 90 }),
+    })
+    setShowStakeModal(false)
+    setStakeSuggestion(null)
+    load()
+  }
 
+  const completed = orders.filter(o => o.status === 'completed')
+  const totalEarned = completed.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
   const now = Date.now()
   const filtered = completed.filter(o => {
     const d = new Date(o.completed_at || o.created_at).getTime()
@@ -40,6 +67,7 @@ export default function WorkerEarnings() {
     if (statFilter === 'month') return d >= now - 30 * 86400000
     return true
   })
+  const filteredTotal = filtered.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>
 
@@ -51,52 +79,113 @@ export default function WorkerEarnings() {
           <h1 className="text-2xl font-bold text-gray-900">💰 Thu nhập</h1>
           <p className="text-sm text-gray-500">Tổng tất cả: <strong className="text-emerald-600">{totalEarned.toLocaleString()}₫</strong></p>
         </div>
+        {stakeSuggestion && (
+          <button onClick={() => setShowStakeModal(true)}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm animate-pulse">
+            🤖 AI đề xuất Stake
+          </button>
+        )}
       </div>
 
-      {/* Wallet Dashboard (4 wallets) */}
+      {/* Wallet 4-ví */}
       <WalletDashboard userId={userId} role="worker" />
 
-      {/* Stats */}
-      <div className="flex gap-2">
-        {(['today', 'week', 'month', 'all'] as const).map(f => (
-          <button key={f} onClick={() => setStatFilter(f)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-              statFilter === f ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}>
-            {f === 'today' ? 'Hôm nay' : f === 'week' ? 'Tuần này' : f === 'month' ? 'Tháng này' : 'Tất cả'}
-          </button>
+      {/* Earnings Summary */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'Hôm nay', value: completed.filter(o => new Date(o.completed_at || o.created_at).getTime() >= now - 86400000).reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0), color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Tuần này', value: completed.filter(o => new Date(o.completed_at || o.created_at).getTime() >= now - 7 * 86400000).reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0), color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Tháng này', value: completed.filter(o => new Date(o.completed_at || o.created_at).getTime() >= now - 30 * 86400000).reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0), color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Tổng thu nhập', value: totalEarned, color: 'text-violet-600', bg: 'bg-violet-50' },
+        ].map(s => (
+          <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center border`}>
+            <div className={`text-2xl font-bold ${s.color}`}>{s.value.toLocaleString()}₫</div>
+            <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+          </div>
         ))}
       </div>
 
-      {/* Earnings timeline */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Lịch sử thu nhập</h2>
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl border">
-            <p className="text-4xl mb-3">💰</p>
-            <p className="text-gray-500">Chưa có thu nhập trong kỳ này</p>
+      {/* Filter Tabs + Lịch sử */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Lịch sử thu nhập</h2>
+          <div className="flex gap-1">
+            {(['today', 'week', 'month', 'all'] as const).map(f => (
+              <button key={f} onClick={() => setStatFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${statFilter === f ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                {f === 'today' ? 'Hôm nay' : f === 'week' ? 'Tuần' : f === 'month' ? 'Tháng' : 'Tất cả'}
+              </button>
+            ))}
           </div>
-        ) : (
-          filtered.slice(0, 20).map(o => (
-            <div key={o.id} className="bg-white rounded-xl border p-4 flex items-center justify-between hover:shadow-md transition cursor-pointer"
-              onClick={() => router.push(`/worker/jobs/${o.id}`)}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <span className="text-lg">✅</span>
+        </div>
+
+        <div className="space-y-2">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border">
+              <p className="text-4xl mb-3">💰</p>
+              <p className="text-gray-500">Chưa có thu nhập trong kỳ này</p>
+              <p className="text-xs text-gray-400 mt-2">Tổng thu nhập: <strong>{filteredTotal.toLocaleString()}₫</strong></p>
+            </div>
+          ) : (
+            filtered.slice(0, 20).map(o => (
+              <div key={o.id} className="bg-white rounded-xl border p-4 flex items-center justify-between hover:shadow-md transition cursor-pointer"
+                onClick={() => router.push(`/worker/jobs/${o.id}`)}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <span className="text-lg">✅</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 capitalize">{o.category}</p>
+                    <p className="text-xs text-gray-500">{new Date(o.completed_at || o.created_at).toLocaleDateString('vi-VN')}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900 capitalize">{o.category}</p>
-                  <p className="text-xs text-gray-500">{new Date(o.completed_at || o.created_at).toLocaleDateString('vi-VN')}</p>
+                <div className="text-right">
+                  <p className="font-bold text-emerald-600">+{(o.final_price || o.estimated_price || 0).toLocaleString()}₫</p>
+                  <p className="text-xs text-emerald-500 font-medium">Đã nhận</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-emerald-600">+{(o.final_price || o.estimated_price || 0).toLocaleString()}₫</p>
-                <p className="text-xs text-gray-400">Đã thanh toán</p>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* AI Auto-Stake Modal (#6 safety net) */}
+      {showStakeModal && stakeSuggestion && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowStakeModal(false)}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-3xl">🤖</span>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">AI Đề xuất đầu tư</h2>
+                <p className="text-xs text-gray-500">Tự động sinh lời cho tiền nhàn rỗi</p>
               </div>
             </div>
-          ))
-        )}
-      </div>
+
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-4 border border-emerald-200">
+              <p className="text-sm text-emerald-800">{stakeSuggestion.reason}</p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-sm text-gray-600">Số tiền đề xuất</span>
+                <span className="text-xl font-bold text-emerald-600">{stakeSuggestion.amount.toLocaleString()}₫</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 rounded-lg mb-4 text-xs text-amber-700 flex items-start gap-2">
+              <span>🛡️</span>
+              <span>Tiền stake được khóa trong 90 ngày và hưởng lãi suất ~5-8%/năm. Có thể rút trước hạn nhưng không được hưởng lãi.</span>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowStakeModal(false)} className="flex-1 py-2.5 border rounded-xl hover:bg-gray-50 text-sm font-medium">
+              Để sau
+              </button>
+              <button onClick={handleAutoStake}
+                className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-sm font-bold shadow-sm">
+                ✅ Đồng ý stake {stakeSuggestion.amount.toLocaleString()}₫
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
