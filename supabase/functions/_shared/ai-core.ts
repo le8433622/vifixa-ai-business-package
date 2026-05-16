@@ -126,6 +126,10 @@ export const UpsellSchema = z.object({
   reason: z.string(),
 })
 
+export const IntentSchema = z.object({
+  intent: z.string(),
+})
+
 export const ChatSchema = z.object({
   reply: z.string(),
   actions: z.array(z.object({ type: z.string(), data: z.any().optional() })).optional(),
@@ -299,7 +303,7 @@ export class AICore {
      })
    }
 
-   async classifyIntent(input: any): Promise<AIResponse<z.infer<typeof z.object({ intent: z.string() })>>> {
+    async classifyIntent(input: any): Promise<AIResponse<z.infer<typeof IntentSchema>>> {
      return this.orchestrateInternal('intent_classification', async (model) => {
        const systemPrompt = this.buildSystemPrompt('intent_classification', model)
        const userPrompt = this.buildIntentClassificationPrompt(input)

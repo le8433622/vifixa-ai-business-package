@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import twilio from 'twilio';
 
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID!;
+  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN!;
+  const twilioMessagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID!;
 
   try {
     const body = await request.json();
@@ -37,14 +42,24 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    // TODO: Integrate real SMS provider (Twilio, etc.)
-    // For now, log OTP for development
-    console.log(`[OTP] User ${user_id} phone ${phone}: code=${otp}`);
+    // Format phone: add +84 prefix for Vietnam
+    const normalizedPhone = phone.startsWith('0')
+      ? '+84' + phone.slice(1)
+      : phone.startsWith('+84')
+        ? phone
+        : '+84' + phone;
+
+    // Send SMS via Twilio
+    const twilioClient = twilio(twilioAccountSid, twilioAuthToken);
+    await twilioClient.messages.create({
+      messagingServiceSid: twilioMessagingServiceSid,
+      to: normalizedPhone,
+      body: `VIFIXA: Ma OTP cua ban la ${otp}. Hieu luc trong 5 phut.`
+    });
 
     return NextResponse.json({
       success: true,
       message: 'OTP sent successfully',
-      // Only include code in development mode
       ...(process.env.NODE_ENV === 'development' ? { debug_code: otp } : {}),
     });
   } catch (error: any) {
