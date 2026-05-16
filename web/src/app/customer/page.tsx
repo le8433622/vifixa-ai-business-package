@@ -151,29 +151,13 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      {/* ─── MAIN: Flow Layout (KHÔNG absolute) ───────── */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        {/* AI Companion — flex-1, không absolute */}
-        <div className="flex-1 min-h-0">
-          <CustomerCompanionChat onAction={handleAction} />
-        </div>
-
-        {/* ─── MAP: Contextual Map (khi quoting) ─────── */}
-        {appState === 'quoting' && userLocation && (
-          <div className="border-t bg-white p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-gray-600">🗺️ Thợ gần bạn</span>
-              <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-            </div>
-            <div className="h-40 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100">
-              <p className="text-xs text-blue-400">📍 Map placeholder — thợ gần bạn</p>
-            </div>
-          </div>
-        )}
-
-        {/* ─── AUTO MODE: Chỉ hiển thị khi có dữ liệu ── */}
+      {/* ─── MAIN: Widgets TRÊN, Chat DƯỚI ──────────── */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* === THÔNG TIN + MENU (trên cùng) === */}
+        
+        {/* Auto mode: Active orders + Devices */}
         {mode === 'auto' && appState === 'chat' && (activeOrders.length > 0 || needsCareDevices.length > 0) && (
-          <div className="border-t bg-white p-3 space-y-2">
+          <div className="shrink-0 bg-white border-b p-3 space-y-2">
             {activeOrders.length > 0 && (
               <button onClick={() => router.push(`/customer/orders/${activeOrders[0].id}`)}
                 className="w-full bg-blue-50 rounded-xl p-3 flex items-center gap-3 hover:bg-blue-100 transition">
@@ -199,17 +183,12 @@ export default function CustomerDashboard() {
           </div>
         )}
 
-        {/* ─── MANUAL MODE: Menu ──────────────────────── */}
+        {/* Manual mode: Menu dịch vụ */}
         {mode === 'manual' && (
-          <div className="border-t bg-white p-4">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">📋 Menu dịch vụ</p>
+          <div className="shrink-0 bg-white border-b p-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">📋 Menu dịch vụ</p>
             <div className="grid grid-cols-4 gap-2 mb-3">
-              {[
-                { icon: '❄️', name: 'Máy lạnh' }, { icon: '💡', name: 'Điện' },
-                { icon: '🚿', name: 'Nước' }, { icon: '📷', name: 'Camera' },
-                { icon: '🔧', name: 'Đồ gia dụng' }, { icon: '🔌', name: 'Điện tử' },
-                { icon: '🚪', name: 'Cửa/Khóa' }, { icon: '🏠', name: 'Khác' },
-              ].map(cat => (
+              {[{ icon: '❄️', name: 'Máy lạnh' }, { icon: '💡', name: 'Điện' }, { icon: '🚿', name: 'Nước' }, { icon: '📷', name: 'Camera' }, { icon: '🔧', name: 'Đồ gia dụng' }, { icon: '🔌', name: 'Điện tử' }, { icon: '🚪', name: 'Cửa/Khóa' }, { icon: '🏠', name: 'Khác' }].map(cat => (
                 <button key={cat.name} onClick={() => router.push('/customer/service-request')}
                   className="flex flex-col items-center p-2.5 bg-gray-50 rounded-xl hover:bg-blue-50 transition">
                   <span className="text-2xl mb-1">{cat.icon}</span>
@@ -218,15 +197,9 @@ export default function CustomerDashboard() {
               ))}
             </div>
             <div className="flex gap-2 mb-3">
-              <button onClick={() => router.push('/customer/orders')} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
-                📋 Đơn hàng
-              </button>
-              <button onClick={() => router.push('/customer/devices')} className="flex-1 py-2.5 border border-blue-200 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-50">
-                🔧 Thiết bị
-              </button>
-              <button onClick={() => router.push('/customer/profile')} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50">
-                👤 Tài khoản
-              </button>
+              <button onClick={() => router.push('/customer/orders')} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">📋 Đơn hàng</button>
+              <button onClick={() => router.push('/customer/devices')} className="flex-1 py-2.5 border border-blue-200 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-50">🔧 Thiết bị</button>
+              <button onClick={() => router.push('/customer/profile')} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50">👤 Tài khoản</button>
             </div>
             <div className="flex justify-between text-[10px] text-gray-400 pt-2 border-t">
               <span>{orders.length} đơn</span>
@@ -236,27 +209,36 @@ export default function CustomerDashboard() {
           </div>
         )}
 
-        {/* ─── PAYMENT: Inline Payment ────────────────── */}
+        {/* === AI CHAT (dưới cùng, flex-1) === */}
+        <div className="flex-1 min-h-0">
+          <CustomerCompanionChat onAction={handleAction} />
+        </div>
+
+        {/* Payment inline */}
         {appState === 'payment' && unpaidOrder && (
-          <div className="border-t bg-amber-50 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-sm">💳 Thanh toán</h3>
-            </div>
+          <div className="shrink-0 bg-amber-50 border-t p-4">
             <div className="flex items-center justify-between mb-3 p-3 bg-white rounded-xl">
               <span className="text-sm text-gray-700">{unpaidOrder.category}</span>
-              <span className="text-lg font-bold text-amber-700">
-                {(unpaidOrder.final_price || unpaidOrder.estimated_price || 0).toLocaleString()}₫
-              </span>
+              <span className="text-lg font-bold text-amber-700">{(unpaidOrder.final_price || unpaidOrder.estimated_price || 0).toLocaleString()}₫</span>
             </div>
             <div className="flex gap-2">
               <button onClick={() => payWithVNPay(unpaidOrder.id, unpaidOrder.final_price || unpaidOrder.estimated_price || 0)}
-                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
-                💳 VNPay
-              </button>
+                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">💳 VNPay</button>
               <button onClick={() => router.push(`/customer/payment?order_id=${unpaidOrder.id}&amount=${unpaidOrder.final_price || unpaidOrder.estimated_price || 0}`)}
-                className="flex-1 py-2.5 border border-blue-300 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-50">
-                💳 Stripe
-              </button>
+                className="flex-1 py-2.5 border border-blue-300 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-50">💳 Stripe</button>
+            </div>
+          </div>
+        )}
+
+        {/* Map quoting */}
+        {appState === 'quoting' && userLocation && (
+          <div className="shrink-0 bg-white border-t p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-gray-600">🗺️ Thợ gần bạn</span>
+              <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+            </div>
+            <div className="h-40 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100">
+              <p className="text-xs text-blue-400">📍 Map placeholder — thợ gần bạn</p>
             </div>
           </div>
         )}

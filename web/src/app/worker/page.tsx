@@ -75,19 +75,16 @@ export default function WorkerDashboard() {
         <ModeToggle mode={mode} onChange={setMode} />
       </div>
 
-      {/* Main — Flow Layout (KHÔNG absolute) */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        {/* AI Co-pilot Chat — flex-1, không absolute */}
-        <div className="flex-1 min-h-0">
-          <WorkerCompanionChat onAction={handleAction} />
-        </div>
-
-        {/* Auto mode — Chỉ hiển thị khi có dữ liệu */}
+      {/* Main — Widgets TRÊN, Chat DƯỚI */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* === STATS + MENU (trên cùng) === */}
+        
+        {/* Auto: Jobs + Stats */}
         {mode === 'auto' && appState !== 'on_job' && (
-          <div className="border-t bg-white">
+          <div className="shrink-0 bg-white border-b">
             {pendingJobs.length > 0 && (
               <button onClick={() => router.push('/worker/jobs')}
-                className="w-full bg-emerald-50 p-3 flex items-center justify-between hover:bg-emerald-100 transition border-b">
+                className="w-full bg-emerald-50 p-3 flex items-center justify-between hover:bg-emerald-100 transition">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📋</span>
                   <div>
@@ -98,48 +95,31 @@ export default function WorkerDashboard() {
                 <span className="text-emerald-600 text-sm font-medium">Xem →</span>
               </button>
             )}
-            {/* Stats chỉ hiện khi có dữ liệu */}
             {(todayEarned > 0 || myJobs.length > 0 || completedJobs.length > 0) && (
               <div className="flex gap-2 p-3">
-                {todayEarned > 0 && (
-                  <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-lg font-bold text-emerald-600">{todayEarned.toLocaleString()}₫</p>
-                    <p className="text-[10px] text-gray-500">Hôm nay</p>
-                  </div>
-                )}
-                {myJobs.length > 0 && (
-                  <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-lg font-bold text-blue-600">{myJobs.length}</p>
-                    <p className="text-[10px] text-gray-500">Việc của tôi</p>
-                  </div>
-                )}
-                {completedJobs.length > 0 && (
-                  <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
-                    <p className="text-lg font-bold text-amber-600">{completedJobs.length}</p>
-                    <p className="text-[10px] text-gray-500">Hoàn thành</p>
-                  </div>
-                )}
+                {todayEarned > 0 && <StatBox label="Hôm nay" value={`${todayEarned.toLocaleString()}₫`} color="text-emerald-600" />}
+                {myJobs.length > 0 && <StatBox label="Việc của tôi" value={String(myJobs.length)} color="text-blue-600" />}
+                {completedJobs.length > 0 && <StatBox label="Hoàn thành" value={String(completedJobs.length)} color="text-amber-600" />}
               </div>
             )}
           </div>
         )}
 
-        {/* On-job mode */}
+        {/* On-job */}
         {appState === 'on_job' && activeJob && (
-          <div className="border-t bg-white p-4 text-center">
-            <p className="text-4xl mb-2">🔧</p>
-            <p className="text-lg font-bold mb-1">Đang thực hiện: {activeJob.category}</p>
-            <p className="text-sm text-gray-500 mb-3">{activeJob.description?.slice(0, 60)}...</p>
+          <div className="shrink-0 bg-emerald-50 border-b p-3 flex items-center justify-between">
+            <div>
+              <p className="font-bold text-sm">🔧 {activeJob.category}</p>
+              <p className="text-xs text-gray-500">{activeJob.description?.slice(0, 60)}</p>
+            </div>
             <button onClick={() => router.push(`/worker/jobs/${activeJob.id}`)}
-              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700">
-              📋 Mở chi tiết
-            </button>
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">📋 Chi tiết</button>
           </div>
         )}
 
-        {/* Manual mode menu */}
+        {/* Manual: Menu */}
         {mode === 'manual' && (
-          <div className="border-t bg-white p-4">
+          <div className="shrink-0 bg-white border-b p-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">📋 Menu</p>
             <div className="grid grid-cols-3 gap-2 mb-3">
               {[
@@ -165,7 +145,21 @@ export default function WorkerDashboard() {
             </div>
           </div>
         )}
+
+        {/* === AI CHAT (dưới cùng) === */}
+        <div className="flex-1 min-h-0">
+          <WorkerCompanionChat onAction={handleAction} />
+        </div>
       </div>
+    </div>
+  )
+}
+
+function StatBox({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+      <p className={`text-lg font-bold ${color}`}>{value}</p>
+      <p className="text-[10px] text-gray-500">{label}</p>
     </div>
   )
 }
