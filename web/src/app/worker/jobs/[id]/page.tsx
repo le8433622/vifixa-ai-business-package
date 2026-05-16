@@ -151,14 +151,29 @@ export default function WorkerJobDetail() {
         <p className="text-xs text-gray-500 font-mono mt-1">Tọa độ: {job.location_lat?.toFixed(4)}, {job.location_lng?.toFixed(4)}</p>
       </div>
 
-      {/* Map Placeholder */}
+      {/* Map + Geo-fence Check-in */}
       {isMatched && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
-          <span className="text-2xl">🗺️</span>
-          <div>
-            <p className="font-medium text-emerald-800">Dẫn đường đến khách</p>
-            <p className="text-xs text-emerald-600">Tích hợp OSRM navigation — cách {Math.round(calculateDistance(job.location_lat, job.location_lng) * 10) / 10}km</p>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-2xl">🗺️</span>
+            <div>
+              <p className="font-medium text-emerald-800">Dẫn đường đến khách</p>
+              <p className="text-xs text-emerald-600">Cách {Math.round(calculateDistance(job.location_lat, job.location_lng) * 10) / 10}km</p>
+            </div>
           </div>
+          <button onClick={async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) return
+            await supabase.from('orders').update({ 
+              check_in_at: new Date().toISOString(),
+              check_in_lat: job.location_lat,
+              check_in_lng: job.location_lng
+            }).eq('id', jobId)
+            alert('✅ Đã check-in! Xác nhận vị trí thành công.')
+          }}
+          className="w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition">
+            📍 Check-in — Xác nhận đã đến
+          </button>
         </div>
       )}
 

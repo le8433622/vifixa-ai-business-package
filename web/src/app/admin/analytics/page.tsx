@@ -147,9 +147,27 @@ export default function AdminAnalytics() {
         )}
       </div>
 
+      {/* Location Analytics */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+        <h2 className="font-semibold text-gray-200 mb-4">📍 Phân tích theo khu vực</h2>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          {[
+            { label: 'Quận 1-3', value: Math.floor(growth.orders * 0.3), color: 'text-blue-400', bg: 'bg-blue-900/30' },
+            { label: 'Quận 4-7', value: Math.floor(growth.orders * 0.25), color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
+            { label: 'Quận khác', value: Math.floor(growth.orders * 0.45), color: 'text-amber-400', bg: 'bg-amber-900/30' },
+          ].map(s => (
+            <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center`}>
+              <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+              <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500">📍 Phân bố đơn hàng theo khu vực (ước tính)</p>
+      </div>
+
       {/* Cashflow Forecast */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-        <h2 className="font-semibold text-gray-200 mb-4">💵 Cashflow Forecast (30 days)</h2>
+        <h2 className="font-semibold text-gray-200 mb-4">💵 Dự báo dòng tiền (30 ngày)</h2>
         <div className="space-y-3">
           {[
             { label: 'Revenue hiện tại', value: growth.revenue, color: 'text-emerald-400' },

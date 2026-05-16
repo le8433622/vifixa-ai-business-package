@@ -900,6 +900,14 @@ echo "✅ Self-check pass → commit allowed"
 - Hook mặc định chỉ chạy `npm test` — không đủ cho Vifixa (cần E2E + Security + Deno tests)
 ```
 
+### 🌐 Language Standardization Rules
+- **UI text PHẢI là Tiếng Việt** — mọi label, button, message, notification, menu item
+- **English CHỈ được dùng** trong: code comments, technical documentation, variable names, API responses
+- **Nav labels** phải VI: "Home" → "Trang chủ", "Orders" → "Đơn hàng", "Users" → "Người dùng"
+- **KPI labels** phải VI: "Revenue" → "Doanh thu", "Disputes" → "Khiếu nại", "Analytics" → "Phân tích"
+- **Nếu phát hiện EN trong UI → fix ngay** — pre-commit hook sẽ check nhưng không block
+- **Lý do:** Người dùng cuối là người Việt — EN làm giảm trust và UX
+
 ### Cấu trúc gitignore chuẩn
 ```gitignore
 # Bảo vệ secrets
@@ -940,7 +948,7 @@ Thumbs.db
 6. **Mỗi external platform = 1 plugin** trong service-registry.ts — không hardcode
 7. **Customer + Worker workflow LUÔN đồng bộ** — kiểm tra consistency trước khi code
 8. **AI calls CHỈ qua Supabase Edge Functions** — không gọi trực tiếp từ frontend
-9. **3 màn hình = 1 CompanionChat** (khác persona) — không viết chat riêng cho từng role
+9. **3 CompanionChat RIÊNG BIỆT** — Customer (ấm áp, quick actions dịch vụ), Worker (chuyên nghiệp, stats panel), Admin (KPI cards, alerts) — không dùng chung 1 component
 10. **Auto + Manual mode TRÊN CẢ 3 màn hình** — không thiếu cái nào
 11. **Không secrets trong frontend** — không mock data trong production
 12. **Mỗi dòng code phục vụ con người** — kiếm tiền là hệ quả tự nhiên
@@ -1179,11 +1187,59 @@ Phase 6: Polish + Test + Deploy
 - 👥 **Mobile 3 CompanionChats**: Customer/Worker/Admin — mỗi persona một component riêng
 
 ### 2026-05-15 — v1.20: Full Architecture Final
+
+### 2026-05-15 — v1.21: Language Standardization + Gap Analysis
+- 🌐 **Language rules added** — UI text PHẢI là Tiếng Việt, EN chỉ trong code comments
+- 🔍 **Gap Analysis** — 30 features checked across AI (10/10 ✅) + Map (6/8 ⚠️) + Payment (12/12 ✅)
+- 🗺️ **2 Map gaps found**: Geo-fence Check-in + Location Analytics
+- 📋 **Rule #9 updated** — 3 CompanionChat RIÊNG BIỆT (không dùng chung)
+- 🩹 **18 EN→VI fixes** — admin page, analytics, mobile admin
+- 🧪 **33 tests pass + build clean**
 - 🏛️ **Total files**: 56 Web + 37 Mobile + 37 Edge Functions + 24 Shared modules
 - 🧪 **Total tests**: 33 passed — 0 failed
 - ✅ **6/6 core pain points**: Customer + Worker + Admin qua AI + Map + Payment
 - ✅ **18 gaps identified and fixed**: G1-G6 (critical) + G7-G18 (enhancement)
 - 📚 **Docs updated**: agent.md (1154+ lines), SCREENS.md, BRAIN.md, ERROR_ANALYSIS.md, ARCHITECTURE.md
+
+### Gap Analysis: 3 Cores vs 3 Personas
+
+| Core | Persona | Feature | Status | Gap? |
+|------|---------|---------|--------|------|
+| **🤖 AI** | Customer | Diagnosis + Confidence | ✅ | — |
+| | | Price Breakdown | ✅ | — |
+| | | Companion Chat (riêng) | ✅ | — |
+| | Worker | Coach + Checklist | ✅ | — |
+| | | Companion Chat (riêng) | ✅ | — |
+| | | Earnings Prediction + Stake | ✅ | — |
+| | Admin | Dispute Summary | ✅ | — |
+| | | Companion Chat (riêng) | ✅ | — |
+| | | Fraud Detection | ✅ | — |
+| | | Churn Prediction | ✅ | — |
+| **🗺️ Map** | Customer | Location Picker | ✅ | — |
+| | | Worker Tracking | ✅ | — |
+| | | ETA Display | ✅ | — |
+| | Worker | Navigation OSRM | ✅ | — |
+| | | Distance to Customer | ✅ | — |
+| | | **Geo-fence Check-in** | ❌ | **GAP** |
+| | Admin | Worker Heatmap | ✅ | — |
+| | | **Location Analytics** | ❌ | **GAP** |
+| **💳 Payment** | Customer | Price Breakdown | ✅ | — |
+| | | Multi-Gateway | ✅ | — |
+| | | Wallet 4-ví | ✅ | — |
+| | | Deposit/Withdraw | ✅ | — |
+| | | Invoice | ✅ | — |
+| | Worker | Escrow Release | ✅ | — |
+| | | Payout Notification | ✅ | — |
+| | | Earnings Dashboard | ✅ | — |
+| | | AI Auto-Stake | ✅ | — |
+| | Admin | Cashflow Forecast | ✅ | — |
+| | | Revenue Analytics | ✅ | — |
+| | | Fraud Detection | ✅ | — |
+
+**Kết luận: AI (10/10 ✅) + Payment (12/12 ✅) = HOÀN THIỆN**
+**Map (6/8 ⚠️) — 2 gaps cần fix:**
+1. **Geo-fence Check-in** — Worker check-in khi đến nhà khách → trigger escrow release
+2. **Location Analytics** — Admin xem dispute/order theo khu vực địa lý
 
 ### Next Update (sau mỗi Phase mới)
 - Ghi lại bug mới phát hiện
