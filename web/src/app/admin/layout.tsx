@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { LanguageProvider } from '@/components/common/LanguageToggle'
 import LanguageToggle from '@/components/common/LanguageToggle'
+import { NotificationsProvider } from '@/components/notifications/NotificationsContext'
+import NotificationBell from '@/components/notifications/NotificationBell'
+import { NotificationProvider } from '@/components/NotificationProvider'
 
 const NAV_ITEMS = [
   { href: '/admin', label: '🏠 Dashboard' },
@@ -50,6 +53,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   )
 
   return (
+    <NotificationsProvider>
+    <NotificationProvider>
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <nav className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
@@ -64,6 +69,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               ))}
             </div>
             <div className="flex items-center gap-3">
+              <NotificationBell />
               <span className="text-xs text-gray-500 hidden md:block">{email}</span>
               <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
                 className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-700">Đăng xuất</button>
@@ -86,5 +92,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </nav>
       <main className="flex-1">{children}</main>
     </div>
+    </NotificationProvider>
+    </NotificationsProvider>
   )
 }

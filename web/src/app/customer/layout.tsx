@@ -8,6 +8,8 @@ import Link from 'next/link'
 import { LanguageProvider } from '@/components/common/LanguageToggle'
 import LanguageToggle from '@/components/common/LanguageToggle'
 import { NotificationProvider } from '@/components/NotificationProvider'
+import { NotificationsProvider } from '@/components/notifications/NotificationsContext'
+import NotificationBell from '@/components/notifications/NotificationBell'
 
 function getRoleHomePath(role: string | null | undefined) {
   if (role === 'admin') return '/admin'
@@ -96,6 +98,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
 
   return (
     <LanguageProvider><ToastProvider><NotificationProvider>
+      <NotificationsProvider>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Top Nav */}
         <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -113,6 +116,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
                 ))}
               </div>
               <div className="flex items-center gap-3">
+                <NotificationBell />
                 <span className="text-xs text-gray-500 hidden md:block">{userEmail}</span>
                 <LanguageToggle /><button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Đăng xuất</button>
                 <button className="md:hidden p-1.5 rounded text-gray-600 hover:bg-gray-100" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -140,6 +144,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      </NotificationsProvider>
     </NotificationProvider></ToastProvider></LanguageProvider>
   )
 }
