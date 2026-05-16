@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { haversineDistance } from '@/lib/haversine'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -152,30 +153,7 @@ export default function WorkerJobDetail() {
       </div>
 
       {/* Map + Geo-fence Check-in */}
-      {isMatched && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">🗺️</span>
-            <div>
-              <p className="font-medium text-emerald-800">Dẫn đường đến khách</p>
-              <p className="text-xs text-emerald-600">Cách {Math.round(calculateDistance(job.location_lat, job.location_lng) * 10) / 10}km</p>
-            </div>
-          </div>
-          <button onClick={async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session) return
-            await supabase.from('orders').update({ 
-              check_in_at: new Date().toISOString(),
-              check_in_lat: job.location_lat,
-              check_in_lng: job.location_lng
-            }).eq('id', jobId)
-            alert('✅ Đã check-in! Xác nhận vị trí thành công.')
-          }}
-          className="w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition">
-            📍 Check-in — Xác nhận đã đến
-          </button>
-        </div>
-      )}
+      {isMatched && <GeoFenceCheckIn job={job} jobId={jobId} />}
 
       {/* In Progress — Checklist + Photos */}
       {isInProgress && (
@@ -318,7 +296,106 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`px-3 py-1 rounded-full text-sm font-medium ${colors[status] || 'bg-gray-100'}`}>{labels[status] || status}</span>
 }
 
-function calculateDistance(lat1?: number, lng1?: number): number {
-  if (!lat1 || !lng1) return 0
-  return Math.sqrt(Math.pow(lat1 - 10.8231, 2) + Math.pow(lng1 - 106.6297, 2)) * 111
+function GeoFenceCheckIn({ job, jobId }: { job: any; jobId: string }) {
+  const [workerLat, setWorkerLat] = useState<number | null>(null)
+  const [workerLng, setWorkerLng] = useState<number | null>(null)
+  const [distance, setDistance] = useState<number | null>(null)
+  const [withinRadius, setWithinRadius] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [checkedIn, setCheckedIn] = useState(false)
+  const [error, setError] = useState('')
+  const radiusKm = job.check_in_radius_km || 0.5
+
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+        setWorkerLat(lat)
+        setWorkerLng(lng)
+        if (job.location_lat && job.location_lng) {
+          const dist = haversineDistance(lat, lng, job.location_lat, job.location_lng)
+          setDistance(dist)
+          setWithinRadius(dist <= radiusKm)
+        }
+      },
+      () => setError('Không thể lấy vị trí của bạn')
+    )
+  }, [job.location_lat, job.location_lng, radiusKm])
+
+  async function handleCheckIn() {
+    if (!workerLat || !workerLng || !withinRadius) return
+    setChecking(true)
+    setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const supabaseAny = supabase as any
+      const validateResult: any = await supabaseAny.rpc('validate_check_in', {
+        order_uuid: jobId,
+        worker_lat: workerLat,
+        worker_lng: workerLng,
+      })
+      if (validateResult.error) throw new Error(validateResult.error.message)
+
+      if (!validateResult.data?.valid) {
+        const distKm = validateResult.data?.distance_km || distance || radiusKm + 1
+        setError(`Bạn chưa đến gần địa điểm khách hàng (còn ${Math.round((distKm - radiusKm) * 1000)}m)`);
+        return
+      }
+
+      await supabaseAny.rpc('record_check_in', {
+        order_uuid: jobId,
+        worker_lat: workerLat,
+        worker_lng: workerLng,
+        distance_km: distance || 0,
+        within_radius: true,
+      })
+
+      setCheckedIn(true)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  if (checkedIn) {
+    return (
+      <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">✅</span>
+          <div>
+            <p className="font-medium text-emerald-800">Đã check-in thành công</p>
+            <p className="text-xs text-emerald-600">Vị trí của bạn đã được xác nhận</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-2xl">🗺️</span>
+        <div>
+          <p className="font-medium text-emerald-800">Dẫn đường đến khách</p>
+          {distance !== null ? (
+            <p className={`text-xs ${withinRadius ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {withinRadius ? '✅ Trong phạm vi check-in' : `📍 Cách ${(distance * 1000).toFixed(0)}m (cần trong bán kính ${(radiusKm * 1000).toFixed(0)}m)`}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">Đang lấy vị trí...</p>
+          )}
+        </div>
+      </div>
+      {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+      <button onClick={handleCheckIn} disabled={checking || !withinRadius || !workerLat}
+        className="w-full py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50">
+        {checking ? 'Đang xác thực...' : '📍 Check-in — Xác nhận đã đến'}
+      </button>
+    </div>
+  )
 }

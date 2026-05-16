@@ -1,4 +1,3 @@
-// @ts-nocheck — TODO: remove when tsconfig path aliases are resolved
 // Customer Order Details Page
 // Per 05_PRODUCT_SOLUTION.md - Customer flow
 // Per Step 7: Trust & Quality - Review, warranty, complaint
@@ -14,6 +13,8 @@ import Link from 'next/link'
 import ReviewModal from '@/components/modals/ReviewModal'
 import ComplaintModal from '@/components/modals/ComplaintModal'
 import WarrantyModal from '@/components/modals/WarrantyModal'
+import VerificationBadge from '@/components/trust/VerificationBadge'
+import WorkerTracker from '@/components/map/WorkerTracker'
 
 interface OrderDetails {
   id: string;
@@ -31,6 +32,7 @@ interface OrderDetails {
   before_media?: any[];
   after_media?: any[];
   media_urls?: any[];
+  parts_used?: string;
   workers?: {
     user_id: string;
     trust_score?: number;
@@ -100,11 +102,7 @@ export default function CustomerOrderDetailsPage() {
         throw new Error('Order not found');
       }
 
-      const fullData = orderData;
-
-      if (fullData) return fullData as OrderDetails;
-      if (joinError) console.warn('[order-details] Join failed, using simple data');
-      return simpleData as OrderDetails;
+      return orderData as OrderDetails;
     },
     enabled: Boolean(orderId),
   });
@@ -159,7 +157,7 @@ export default function CustomerOrderDetailsPage() {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() } as any)
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', orderId);
 
       if (error) throw error;
@@ -312,9 +310,11 @@ export default function CustomerOrderDetailsPage() {
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">{order.workers.profiles.email?.split('@')[0] || 'Thợ'}</p>
                       <p className="text-xs text-gray-500">{order.workers.profiles.email}</p>
-                      {order.workers.trust_score != null && (
-                        <p className="text-xs text-gray-400 mt-0.5">{order.workers.trust_score >= 80 ? '✅ Thợ uy tín' : '🆕 Thợ mới'}</p>
-                      )}
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {order.workers.trust_score != null && order.workers.trust_score >= 80 && (
+                          <VerificationBadge type="identity" level="gold" size="sm" />
+                        )}
+                      </div>
                     </div>
                     {order.status === 'in_progress' && (
                       <span className="text-xs text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded-full animate-pulse">
@@ -322,19 +322,14 @@ export default function CustomerOrderDetailsPage() {
                       </span>
                     )}
                   </div>
-                  {/* Map tracking for in_progress */}
-                  {order.status === 'in_progress' && (
-                    <div className="mt-3 p-3 bg-white rounded-lg border border-blue-100">
-                      <div className="flex items-center gap-2 text-sm text-blue-700">
-                        <span className="text-lg">🗺️</span>
-                        <div>
-                          <p className="font-medium">Thợ đang đến</p>
-                          <p className="text-xs text-blue-500">ETA: ~15 phút · Cách 2.5 km</p>
-                        </div>
-                      </div>
-                      <div className="mt-2 h-16 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100">
-                        <p className="text-xs text-blue-400">🔄 Map real-time — cần react-leaflet</p>
-                      </div>
+                  {/* Real-time tracking for in_progress */}
+                  {order.status === 'in_progress' && order.workers && (
+                    <div className="mt-3">
+                      <WorkerTracker
+                        orderId={order.id}
+                        workerId={order.workers.user_id}
+                        customerLocation={undefined}
+                      />
                     </div>
                   )}
                 </div>

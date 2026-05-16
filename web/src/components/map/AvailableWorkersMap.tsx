@@ -1,321 +1,197 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { haversineDistance } from '@/lib/haversine'
 import DynamicMapView from './DynamicMapView'
-
-// Haversine formula to calculate distance between two points in kilometers
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import WorkerMapPopup from './WorkerMapPopup'
+import BookWorkerModal from './BookWorkerModal'
 
 interface Worker {
-  id: string;
-  full_name: string;
-  phone: string;
-  skills: string[];
-  rating: number;
-  completed_jobs: number;
-  location_lat: number;
-  location_lng: number;
-  is_verified: boolean;
+  id: string
+  full_name: string
+  phone: string
+  avatar_url?: string
+  skills: string[]
+  trust_score: number
+  is_verified: boolean
+  is_online: boolean
+  rating_avg: number
+  order_count: number
+  location_lat: number
+  location_lng: number
 }
 
 interface Props {
-  onWorkerSelect?: (workerId: string) => void;
-  requiredSkills?: string[]; // Filter workers by these skills
-  className?: string;
+  onWorkerSelect?: (workerId: string) => void
+  requiredSkills?: string[]
+  maxDistance?: number
+  className?: string
 }
 
-export default function AvailableWorkersMap({ 
-  onWorkerSelect, 
-  requiredSkills = [], 
-  className = '' 
+export default function AvailableWorkersMap({
+  onWorkerSelect,
+  requiredSkills = [],
+  maxDistance = 20,
+  className = '',
 }: Props) {
-  const [location, setLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null)
+  const [showBookModal, setShowBookModal] = useState(false)
 
   useEffect(() => {
-    (async () => {
-      try {
-        // Get user's location using Geolocation API
-        if (!navigator.geolocation) {
-          setError('Geolocation is not supported by your browser');
-          return;
-        }
+    loadWorkers()
+  }, [requiredSkills])
 
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          });
-        });
+  async function loadWorkers() {
+    try {
+      if (!navigator.geolocation) { setError('Trình duyệt không hỗ trợ định vị'); return }
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
+      })
 
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
+      const userLat = pos.coords.latitude
+      const userLng = pos.coords.longitude
+      setLocation({ lat: userLat, lng: userLng })
 
-        // Fetch verified workers from Supabase
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setError('Unauthorized');
-          return;
-        }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setError('Vui lòng đăng nhập'); return }
 
-        const { data: workersData, error: workersError } = await supabase
-          .from('workers')
-          .select('id, profiles(full_name, phone), skills, rating, completed_jobs, location_lat, location_lng, is_verified')
-          .eq('is_verified', true);
+      const { data: workersData, error: workersError } = await supabase
+        .from('workers')
+        .select('id, full_name, phone, avatar_url, skills, trust_score, is_verified, is_online, rating_avg, order_count, location_lat, location_lng')
+        .eq('is_verified', true)
+        .not('location_lat', 'is', null)
+        .not('location_lng', 'is', null)
 
-        if (workersError) {
-          throw workersError;
-        }
+      if (workersError) throw workersError
 
-        // Process worker data
-        const processedWorkers = (workersData || []).map(worker => ({
-          id: worker.id,
-          full_name: (worker.profiles?.[0] as any)?.full_name || `Worker ${worker.id}`,
-          phone: (worker.profiles?.[0] as any)?.phone || '',
-          skills: worker.skills || [],
-          rating: worker.rating || 0,
-          completed_jobs: worker.completed_jobs || 0,
-          location_lat: worker.location_lat || 0,
-          location_lng: worker.location_lng || 0,
-          is_verified: worker.is_verified || false,
-        }));
+      let filtered = (workersData || []).map((w: any) => ({
+        id: w.id,
+        full_name: w.full_name || 'Thợ',
+        phone: w.phone || '',
+        avatar_url: w.avatar_url,
+        skills: w.skills || [],
+        trust_score: w.trust_score || 50,
+        is_verified: w.is_verified || false,
+        is_online: w.is_online || false,
+        rating_avg: w.rating_avg || 0,
+        order_count: w.order_count || 0,
+        location_lat: w.location_lat,
+        location_lng: w.location_lng,
+      }))
 
-        // Filter workers by required skills if provided
-        let filteredWorkers = processedWorkers;
-        if (requiredSkills && requiredSkills.length > 0) {
-          filteredWorkers = processedWorkers.filter(worker => 
-            requiredSkills.some(skill => 
-              worker.skills.some(workerSkill => 
-                workerSkill.toLowerCase().includes(skill.toLowerCase())
-              )
-            )
-          );
-        }
-
-        // Filter workers within 20km radius
-        const radiusFilteredWorkers = filteredWorkers.filter(worker => {
-          if (!worker.location_lat || !worker.location_lng) return false;
-          const distance = haversineDistance(
-            position.coords.latitude,
-            position.coords.longitude,
-            worker.location_lat,
-            worker.location_lng
-          );
-          return distance <= 20; // 20km radius
-        });
-
-        setWorkers(radiusFilteredWorkers);
-      } catch (err: any) {
-        setError(err.message || 'An unknown error occurred');
-        console.error('AvailableWorkersMap error:', err);
-      } finally {
-        setLoading(false);
+      // Filter by skills
+      if (requiredSkills.length > 0) {
+        filtered = filtered.filter(w =>
+          requiredSkills.some(s => w.skills.some((ws: string) => ws.toLowerCase().includes(s.toLowerCase())))
+        )
       }
-    })();
-  }, [requiredSkills]);
+
+      // Filter by distance
+      filtered = filtered.filter(w => {
+        if (!w.location_lat || !w.location_lng) return false
+        const dist = haversineDistance(userLat, userLng, w.location_lat, w.location_lng)
+        return dist <= maxDistance
+      })
+
+      // Sort: online first, then by trust score
+      filtered.sort((a, b) => {
+        if (a.is_online !== b.is_online) return a.is_online ? -1 : 1
+        return (b.trust_score || 0) - (a.trust_score || 0)
+      })
+
+      setWorkers(filtered)
+    } catch (err: any) {
+      setError(err.message || 'Lỗi tải danh sách thợ')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBook = useCallback((workerId: string) => {
+    setSelectedWorkerId(workerId)
+    setShowBookModal(true)
+  }, [])
 
   if (loading) {
     return (
       <div className={`flex items-center justify-center min-h-[300px] ${className}`}>
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
-          <p className="text-gray-500">Đang tải danh sách thợ verfügable...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <p className="text-sm text-gray-500">Đang tìm thợ gần bạn...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
       <div className={`flex items-center justify-center min-h-[300px] ${className}`}>
-        <div className="flex flex-col items-center">
-          <div className="text-red-500 mb-4">Lỗi: {error}</div>
-          <button 
-            onClick={() => {
-              setLoading(true);
-              setError(null);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Thử lại
-          </button>
+        <div className="text-center">
+          <p className="text-red-500 text-sm mb-3">{error}</p>
+          <button onClick={() => { setLoading(true); setError(null); loadWorkers() }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Thử lại</button>
         </div>
       </div>
-    );
+    )
   }
 
   if (!location) {
     return (
       <div className={`flex items-center justify-center min-h-[300px] ${className}`}>
-        <div className="flex flex-col items-center">
-          <p className="text-gray-500">Đang lấy vị trí của bạn...</p>
-        </div>
+        <p className="text-gray-500 text-sm">Đang lấy vị trí của bạn...</p>
       </div>
-    );
+    )
   }
+
+  const selectedWorker = selectedWorkerId ? workers.find(w => w.id === selectedWorkerId) : null
 
   return (
     <div className={`relative ${className}`}>
-      {/* Map */}
       <DynamicMapView
-        center={[location.latitude, location.longitude]}
+        center={[location.lat, location.lng]}
         zoom={13}
-        markers={workers.map(worker => ({
-          position: [worker.location_lat, worker.location_lng],
-          title: worker.full_name,
-          onClick: () => {
-            setSelectedWorkerId(worker.id);
-            if (onWorkerSelect) {
-              onWorkerSelect(worker.id);
-            }
-          }
+        markers={workers.map(w => ({
+          position: [w.location_lat, w.location_lng] as [number, number],
+          title: w.full_name,
+          onClick: () => setSelectedWorkerId(w.id),
         }))}
         style={{ height: '100%', width: '100%' }}
       />
-      
-      {/* Worker info panel */}
-        {selectedWorkerId && workers.find(w => w.id === selectedWorkerId) && (
-          <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg max-w-[300px] p-4">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="font-semibold text-gray-900">{workers.find(w => w.id === selectedWorkerId)?.full_name}</h3>
-                <p className="text-sm text-gray-500">
-                  {workers.find(w => w.id === selectedWorkerId)?.rating}/5 • 
-                  {workers.find(w => w.id === selectedWorkerId)?.completed_jobs} jobs
-                </p>
-              </div>
-              <button 
-                onClick={() => setSelectedWorkerId(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Số điện thoại:</span>
-                <span className="font-medium">{workers.find(w => w.id === selectedWorkerId)?.phone}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-500">Kỹ năng:</span>
-                <div className="flex flex-wrap gap-1">
-                  {workers.find(w => w.id === selectedWorkerId)?.skills.map((skill, index) => (
-                    <span key={index} className="bg-blue-50 text-blue-800 text-xs px-2 py-0.5 rounded">
-                      #{skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-gray-500">Khoảng cách:</span>
-                {workers.find(w => w.id === selectedWorkerId) && (
-                  <span className="font-medium text-emerald-600">
-                    {haversineDistance(
-                      location.latitude,
-                      location.longitude,
-                      workers.find(w => w.id === selectedWorkerId)?.location_lat || 0,
-                      workers.find(w => w.id === selectedWorkerId)?.location_lng || 0
-                    ).toFixed(1)} km
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            <div className="mt-5 pt-4 border-t">
-              <button 
-                onClick={async () => {
-                  if (onWorkerSelect) {
-                    // Call the selection callback first
-                    onWorkerSelect(selectedWorkerId);
-                    
-                    // Then store the selected worker in companion memory
-                    try {
-                      const { data: { session } } = await supabase.auth.getSession();
-                      if (session) {
-                        // Store worker selection in memory
-                        const worker = workers.find(w => w.id === selectedWorkerId);
-                        if (worker) {
-                          await fetch(`/api/companion/memory`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              user_id: session.user.id,
-                              key: 'selected_worker',
-                              value: JSON.stringify({
-                                id: worker.id,
-                                full_name: worker.full_name,
-                                phone: worker.phone,
-                                skills: worker.skills,
-                                rating: worker.rating,
-                                location_lat: worker.location_lat,
-                                location_lng: worker.location_lng
-                              }),
-                              category: 'worker_selection',
-                              importance: 5
-                            })
-                          });
-                          
-                          // Also store as a learned fact for immediate use in conversation
-                          await fetch(`/api/companion/memory`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              user_id: session.user.id,
-                              key: 'last_selected_worker',
-                              value: worker.full_name,
-                              category: 'ai_learned',
-                              importance: 4
-                            })
-                          });
-                        }
-                      }
-                    } catch (error) {
-                      console.error('Failed to store worker selection in memory:', error);
-                    }
-                  }
-                  setSelectedWorkerId(null);
-                }}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded transition"
-              >
-                Xác nhận và lưu lựa chọn
-              </button>
-            </div>
-          </div>
-        )}
+
+      {/* Selected worker popup */}
+      {selectedWorker && !showBookModal && (
+        <div className="absolute bottom-4 left-4 right-4 z-10" style={{ maxWidth: 320, margin: '0 auto' }}>
+          <WorkerMapPopup
+            worker={selectedWorker}
+            userLocation={location}
+            onBook={handleBook}
+            onClose={() => setSelectedWorkerId(null)}
+          />
+        </div>
+      )}
+
+      {/* Count badge */}
+      {workers.length > 0 && (
+        <div className="absolute top-4 right-4 z-10 bg-white rounded-full shadow-lg px-3 py-1.5 text-sm font-medium text-gray-700">
+          {workers.filter(w => w.is_online).length}/{workers.length} thợ online
+        </div>
+      )}
+
+      {/* Book modal */}
+      {showBookModal && selectedWorker && (
+        <BookWorkerModal
+          workerId={selectedWorker.id}
+          workerName={selectedWorker.full_name}
+          customerLocation={location}
+          onClose={() => { setShowBookModal(false); setSelectedWorkerId(null) }}
+          onSuccess={() => { setShowBookModal(false); setSelectedWorkerId(null) }}
+        />
+      )}
     </div>
-  );
+  )
 }

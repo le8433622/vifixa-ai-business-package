@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import CustomerCompanionChat from '@/components/companion/CustomerCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
-import DynamicMapView from '@/components/map/DynamicMapView'
+import AvailableWorkersMap from '@/components/map/AvailableWorkersMap'
+import { useAutoMode } from '@/hooks/useAutoMode'
 
 const CATEGORY_LABELS: Record<string, string> = {
   air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
@@ -13,34 +14,26 @@ const CATEGORY_LABELS: Record<string, string> = {
   water_heater: 'Máy nước nóng', appliance: 'Đồ gia dụng', other: 'Khác',
 }
 
-type Order = {
-  id: string; category: string; description: string
-  status: string; estimated_price: number; final_price?: number
-  payment_status?: string; worker_lat?: number; worker_lng?: number
-  created_at: string; completed_at?: string
-}
-
 type Device = {
   id: string; device_type: string; brand?: string; model?: string
   purchase_date?: string; warranty_expiry?: string
 }
 
-// ─── 3 CORE STATES ──────────────────────────────────────────
-type AppState = 'chat' | 'quoting' | 'tracking' | 'payment' | 'completed'
-
 export default function CustomerDashboard() {
   const router = useRouter()
   const [mode, setMode] = useState<AppMode>('auto')
-  const [appState, setAppState] = useState<AppState>('chat')
   const [profile, setProfile] = useState<any>(null)
-  const [orders, setOrders] = useState<Order[]>([])
   const [devices, setDevices] = useState<Device[]>([])
+  const [userId, setUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null)
 
+  const { appState, context, loading: autoLoading, transition } = useAutoMode(userId, 'customer')
+  const { activeOrders, completedOrders, unpaidOrder, trackingOrder } = context
+
   // ─── INIT ───────────────────────────────────────────────
   useEffect(() => {
-    loadData()
+    init()
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
@@ -49,38 +42,22 @@ export default function CustomerDashboard() {
     }
   }, [])
 
-  async function loadData() {
+  async function init() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const [profileRes, ordersRes, devicesRes] = await Promise.all([
+    setUserId(session.user.id)
+
+    const [profileRes, devicesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-      supabase.from('orders').select('*').eq('customer_id', session.user.id).order('created_at', { ascending: false }),
       supabase.from('device_profiles').select('*').eq('user_id', session.user.id),
     ])
     setProfile(profileRes.data)
-    const ordersData = (ordersRes.data || []) as Order[]
-    setOrders(ordersData)
     setDevices((devicesRes.data || []) as Device[])
-
-    // Derive app state from active orders
-    const activeOrder = ordersData.find(order => ['pending', 'matched', 'in_progress'].includes(order.status))
-    if (activeOrder) {
-      if (activeOrder.status === 'in_progress') setAppState('tracking')
-      else if (activeOrder.status === 'matched') setAppState('quoting')
-    }
-    // Check for unpaid completed orders
-    const unpaidOrder = ordersData.find(order => order.status === 'completed' && order.payment_status === 'unpaid')
-    if (unpaidOrder) setAppState('payment')
-
     setLoading(false)
   }
 
   // ─── DERIVED ────────────────────────────────────────────
-  const activeOrders = orders.filter(o => ['pending', 'matched', 'in_progress'].includes(o.status))
-  const completedOrders = orders.filter(o => o.status === 'completed')
-  const unpaidOrder = completedOrders.find(o => o.payment_status === 'unpaid')
-  const trackingOrder = activeOrders.find(o => o.status === 'in_progress')
   const totalSpent = completedOrders.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
 
   const needsCareDevices = devices.filter(d => {
@@ -120,7 +97,7 @@ export default function CustomerDashboard() {
     } catch { alert('Lỗi kết nối thanh toán') }
   }
 
-  if (loading) return (
+  if (!userId || loading || autoLoading) return (
     <div className="flex items-center justify-center h-screen">
       <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-600 border-t-transparent" />
     </div>
@@ -208,7 +185,7 @@ export default function CustomerDashboard() {
               <button onClick={() => router.push('/customer/profile')} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50">👤 Tài khoản</button>
             </div>
             <div className="flex justify-between text-[10px] text-gray-400 pt-2 border-t">
-              <span>{orders.length} đơn</span>
+              <span>{activeOrders.length + completedOrders.length} đơn</span>
               <span>{completedOrders.length} hoàn thành</span>
               <span>{totalSpent.toLocaleString()}₫ đã chi</span>
             </div>
@@ -238,13 +215,18 @@ export default function CustomerDashboard() {
 
         {/* Map quoting */}
         {appState === 'quoting' && userLocation && (
-          <div className="shrink-0 bg-white border-t p-3">
-            <div className="flex items-center justify-between mb-2">
+          <div className="shrink-0 bg-white border-t">
+            <div className="flex items-center justify-between p-3 pb-0">
               <span className="text-xs font-bold text-gray-600">🗺️ Thợ gần bạn</span>
-              <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+              <button onClick={() => transition('chat')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
             </div>
-            <div className="h-40 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100">
-              <p className="text-xs text-blue-400">📍 Map placeholder — thợ gần bạn</p>
+            <div className="h-48">
+              <AvailableWorkersMap
+                requiredSkills={[]}
+                onWorkerSelect={(workerId) => {
+                  router.push(`/customer/orders?book=${workerId}`)
+                }}
+              />
             </div>
           </div>
         )}

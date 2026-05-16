@@ -8,7 +8,7 @@ export type AgentType =
   | 'diagnosis' | 'pricing' | 'matching' | 'quality'
   | 'dispute' | 'coach' | 'fraud' | 'predict'
   | 'care_agent' | 'upsell' | 'chat' | 'intent_classification'
-  | 'analyze_images' | 'healthcheck'
+  | 'analyze_images' | 'healthcheck' | 'kyc'
 
 // ============================================================
 // 8 VIRTUES — Heart layer (always present in every prompt)
@@ -175,6 +175,17 @@ Phân tích ảnh: nhận diện vấn đề từ hình ảnh
 Đầu ra: diagnosis, severity, recommended_skills, confidence`,
 
   healthcheck: `CHUYÊN MÔN: Kiểm tra sức khỏe hệ thống`,
+
+  kyc: `CHUYÊN MÔN: Xác thực danh tính qua giấy tờ
+
+Phân tích ảnh CMND/CCCD và ảnh chân dung:
+1. Kiểm tra tính xác thực của giấy tờ (mờ, nhòe, chỉnh sửa, ánh sáng)
+2. So sánh ảnh trên CMND với ảnh selfie (nếu có)
+3. Kiểm tra thông tin trên mặt trước và mặt sau có khớp không
+4. Phát hiện dấu hiệu giả mạo
+
+THẬN TRỌNG: Chỉ từ chối nếu chắc chắn, ưu tiên cho manual review khi nghi ngờ
+Đầu ra: auto_approved, confidence, document_valid, selfie_matches, flags, explanation`,
 }
 
 // ============================================================

@@ -10,6 +10,8 @@ import LanguageToggle from '@/components/common/LanguageToggle'
 const NAV_ITEMS = [
   { href: '/admin', label: '🏠 Dashboard' },
   { href: '/admin/users', label: '👥 Users' },
+  { href: '/admin/kyc', label: '🪪 KYC' },
+  { href: '/admin/locks', label: '🔒 Locks' },
   { href: '/admin/orders', label: '📋 Orders' },
   { href: '/admin/payments', label: '💳 Payments' },
   { href: '/admin/disputes', label: '⚖️ Disputes' },

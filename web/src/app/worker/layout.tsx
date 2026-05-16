@@ -6,10 +6,12 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { LanguageProvider } from '@/components/common/LanguageToggle'
 import LanguageToggle from '@/components/common/LanguageToggle'
+import WorkerLocationTracker from '@/components/map/WorkerLocationTracker'
 
 const NAV_ITEMS = [
   { href: '/worker', label: '🏠 Home', short: 'Home' },
   { href: '/worker/jobs', label: '📋 Việc làm', short: 'Jobs' },
+  { href: '/worker/map', label: '🗺️ Bản đồ', short: 'Map' },
   { href: '/worker/earnings', label: '💰 Thu nhập', short: 'Earnings' },
   { href: '/worker/profile', label: '👤 Tôi', short: 'Profile' },
 ]
@@ -18,6 +20,7 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [email, setEmail] = useState('')
+  const [userId, setUserId] = useState('')
   const router = useRouter()
   const pathname = usePathname()
 
@@ -32,6 +35,7 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
         return
       }
       setEmail(session.user.email || '')
+      setUserId(session.user.id)
       setChecking(false)
     }
     check()
@@ -79,6 +83,7 @@ export default function WorkerLayout({ children }: { children: ReactNode }) {
         </div>
       </nav>
       <main className="flex-1">{children}</main>
+      {userId && <WorkerLocationTracker workerId={userId} />}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import WorkerCompanionChat from '@/components/companion/WorkerCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
+import { useAutoMode } from '@/hooks/useAutoMode'
 
 const CATEGORY_LABELS: Record<string, string> = {
   air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
@@ -12,47 +13,35 @@ const CATEGORY_LABELS: Record<string, string> = {
   water_heater: 'Máy nước nóng', appliance: 'Đồ gia dụng', other: 'Khác',
 }
 
-type Job = {
-  id: string; category: string; description: string; status: string
-  estimated_price: number; customer_id?: string; created_at: string
-  location_lat?: number; location_lng?: number
-}
-
-type AppState = 'idle' | 'chatting' | 'on_job' | 'completed'
-
 export default function WorkerDashboard() {
   const router = useRouter()
   const [mode, setMode] = useState<AppMode>('auto')
-  const [appState, setAppState] = useState<AppState>('idle')
   const [profile, setProfile] = useState<any>(null)
-  const [jobs, setJobs] = useState<Job[]>([])
+  const [userId, setUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadData() }, [])
+  const { appState, context, transition } = useAutoMode(userId, 'worker')
+  const { activeOrders, completedOrders } = context
 
-  async function loadData() {
+  useEffect(() => { init() }, [])
+
+  async function init() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const [p, j] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-      supabase.from('orders').select('*').or(`worker_id.eq.${session.user.id},status.eq.pending`).order('created_at', { ascending: false }),
-    ])
-    setProfile(p.data)
-    setJobs(j.data || [])
+    setUserId(session.user.id)
 
-    const active = (j.data || []).find((o: any) => ['in_progress'].includes(o.status))
-    if (active) setAppState('on_job')
+    const p = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+    setProfile(p.data)
     setLoading(false)
   }
 
-  const activeJob = jobs.find(j => j.status === 'in_progress')
-  const pendingJobs = jobs.filter(j => j.status === 'pending')
-  const completedJobs = jobs.filter(j => j.status === 'completed')
-  const myJobs = jobs.filter(j => ['matched', 'in_progress', 'completed'].includes(j.status))
-  const totalEarned = completedJobs.reduce((s, j) => s + (j.estimated_price || 0), 0)
-  const todayEarned = completedJobs.filter(j => new Date(j.created_at).toDateString() === new Date().toDateString())
-    .reduce((s, j) => s + (j.estimated_price || 0), 0)
+  const activeJob = activeOrders.find(o => o.status === 'in_progress')
+  const pendingJobs = activeOrders.filter(o => o.status === 'pending')
+  const myJobs = [...activeOrders.filter(o => ['matched', 'in_progress'].includes(o.status)), ...completedOrders]
+  const totalEarned = completedOrders.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
+  const todayEarned = completedOrders.filter(o => new Date(o.created_at).toDateString() === new Date().toDateString())
+    .reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
 
   const handleAction = useCallback((action: any) => {
     if (action.type === 'view_jobs') router.push('/worker/jobs')
@@ -61,7 +50,7 @@ export default function WorkerDashboard() {
     else if (action.type === 'view_job' && action.data?.job_id) router.push(`/worker/jobs/${action.data.job_id}`)
   }, [router])
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-600 border-t-transparent" /></div>
+  if (!userId || loading) return <div className="flex items-center justify-center h-screen"><div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-600 border-t-transparent" /></div>
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col">
@@ -101,11 +90,11 @@ export default function WorkerDashboard() {
                 <span className="text-emerald-600 text-sm font-medium">Xem →</span>
               </button>
             )}
-            {(todayEarned > 0 || myJobs.length > 0 || completedJobs.length > 0) && (
+            {(todayEarned > 0 || myJobs.length > 0 || completedOrders.length > 0) && (
               <div className="flex gap-2 p-3">
                 {todayEarned > 0 && <StatBox label="Hôm nay" value={`${todayEarned.toLocaleString()}₫`} color="text-emerald-600" />}
                 {myJobs.length > 0 && <StatBox label="Việc của tôi" value={String(myJobs.length)} color="text-blue-600" />}
-                {completedJobs.length > 0 && <StatBox label="Hoàn thành" value={String(completedJobs.length)} color="text-amber-600" />}
+                {completedOrders.length > 0 && <StatBox label="Hoàn thành" value={String(completedOrders.length)} color="text-amber-600" />}
               </div>
             )}
           </div>
@@ -146,7 +135,7 @@ export default function WorkerDashboard() {
             </div>
             <div className="flex justify-between text-[10px] text-gray-400 pt-2 border-t">
               <span>{myJobs.length} việc</span>
-              <span>{completedJobs.length} hoàn thành</span>
+              <span>{completedOrders.length} hoàn thành</span>
               <span>{totalEarned.toLocaleString()}₫ kiếm được</span>
             </div>
           </div>

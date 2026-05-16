@@ -6,21 +6,24 @@ import { supabase } from '@/lib/supabase'
 import AdminCompanionChat from '@/components/companion/AdminCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 import WalletDashboard from '@/components/wallet/WalletDashboard'
-
-type AppState = 'idle' | 'analysing' | 'alert' | 'oversight'
+import { useAutoMode } from '@/hooks/useAutoMode'
 
 export default function AdminDashboard() {
   const router = useRouter()
   const [mode, setMode] = useState<AppMode>('auto')
-  const [appState, setAppState] = useState<AppState>('idle')
   const [stats, setStats] = useState({ users: 0, workers: 0, orders: 0, revenue: 0, disputes: 0 })
+  const [userId, setUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
+
+  const { appState, transition } = useAutoMode(userId, 'admin')
 
   useEffect(() => { loadStats() }, [])
 
   async function loadStats() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
+
+    setUserId(session.user.id)
 
     const [uRes, wRes, oRes, dRes] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
@@ -41,8 +44,6 @@ export default function AdminDashboard() {
       disputes: dRes.count || 0,
     })
 
-    // Check if there are alerts
-    if (dRes.count && dRes.count > 0) setAppState('alert')
     setLoading(false)
   }
 
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
     else if (action.type === 'view_disputes') router.push('/admin/orders')
   }, [router])
 
-  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-900"><div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-500 border-t-transparent" /></div>
+  if (!userId || loading) return <div className="flex items-center justify-center h-screen bg-gray-900"><div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-500 border-t-transparent" /></div>
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-gray-900">

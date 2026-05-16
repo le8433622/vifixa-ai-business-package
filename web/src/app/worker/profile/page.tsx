@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import KYCUpload from '@/components/trust/KYCUpload'
+import PortfolioManager from '@/components/trust/PortfolioManager'
+import TrustScoreGauge from '@/components/trust/TrustScoreGauge'
+import VerificationBadge from '@/components/trust/VerificationBadge'
 
 const ALL_SKILLS = [
   'Máy lạnh', 'Điện', 'Nước', 'Camera', 'Tủ lạnh',
@@ -111,11 +115,11 @@ export default function WorkerProfile() {
         <div className="bg-white rounded-xl border p-5">
           <h2 className="font-semibold mb-3">🛡️ Độ tin cậy</h2>
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full border-4 border-emerald-400 flex items-center justify-center">
-              <span className="text-2xl font-bold text-emerald-600">{profile.trust_score || 0}</span>
-            </div>
+            <TrustScoreGauge score={profile.trust_score || 0} size="lg" />
             <div>
-              <p className="font-medium">{profile.is_verified ? '✅ Đã xác thực' : '⏳ Chưa xác thực'}</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {profile.is_verified && <VerificationBadge type="identity" level="gold" />}
+              </div>
               <p className="text-xs text-gray-500 mt-1">Tăng điểm bằng cách hoàn thành job đúng hạn</p>
             </div>
           </div>
@@ -144,6 +148,41 @@ export default function WorkerProfile() {
           </div>
         </div>
       </div>
+
+      {/* KYC Verification */}
+      {profile && (
+        <div className="bg-white rounded-xl border p-5">
+          {profile.verification_status === 'verified' ? (
+            <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+              <span>✅</span>
+              <div>
+                <p className="font-medium text-sm">Đã xác thực danh tính</p>
+                {profile.kyc_reviewed_at && <p className="text-xs text-emerald-500">{new Date(profile.kyc_reviewed_at).toLocaleDateString('vi-VN')}</p>}
+              </div>
+            </div>
+          ) : profile.verification_status === 'rejected' ? (
+            <div>
+              <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-3">
+                <span>❌</span>
+                <div>
+                  <p className="font-medium text-sm">Xác thực bị từ chối</p>
+                  {profile.kyc_notes && <p className="text-xs text-red-500">{profile.kyc_notes}</p>}
+                </div>
+              </div>
+              <KYCUpload workerId={profile.id} onComplete={() => window.location.reload()} />
+            </div>
+          ) : (
+            <KYCUpload workerId={profile.id} onComplete={() => window.location.reload()} />
+          )}
+        </div>
+      )}
+
+      {/* Portfolio */}
+      {profile && (
+        <div className="bg-white rounded-xl border p-5">
+          <PortfolioManager workerId={profile.id} />
+        </div>
+      )}
 
       {/* Save */}
       <button onClick={save} disabled={saving}

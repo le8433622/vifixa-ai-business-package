@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import WalletDashboard from '@/components/wallet/WalletDashboard'
+import OTPVerification from '@/components/trust/OTPVerification'
+import VerificationBadge from '@/components/trust/VerificationBadge'
+import ConnectedAccounts from '@/components/account/ConnectedAccounts'
+import VFCBadge from '@/components/account/VFCBadge'
+import StakingManager from '@/components/account/StakingManager'
+import Link from 'next/link'
 
 export default function CustomerProfilePage() {
   const router = useRouter()
@@ -13,6 +19,9 @@ export default function CustomerProfilePage() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [editing, setEditing] = useState(false)
+  const [phoneVerified, setPhoneVerified] = useState(false)
+  const [stakingPositions, setStakingPositions] = useState<any[]>([])
+  const [vfcData, setVfcData] = useState<any>(null)
 
   // Preferences
   const [aiLevel, setAiLevel] = useState<'auto' | 'confirm' | 'manual'>('confirm')
@@ -37,7 +46,29 @@ export default function CustomerProfilePage() {
       setProfile(profileData)
       setName(profileData.full_name || '')
       setPhone(profileData.phone || '')
+      setPhoneVerified((profileData as any).phone_verified || false)
     }
+
+    // Load staking positions
+    const { data: stakingData } = await supabase
+      .from('staking_positions')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+    setStakingPositions(stakingData || [])
+
+    // Load VFC data from wallet
+    try {
+      const wRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/wallet-manager`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'balance' }),
+      })
+      if (wRes.ok) {
+        const wData = await wRes.json()
+        if (wData?.vfc) setVfcData(wData.vfc)
+      }
+    } catch {}
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/user-references`, {
@@ -118,6 +149,15 @@ export default function CustomerProfilePage() {
         </button>
       </div>
 
+      {/* Phone Verification */}
+      <div className="bg-white rounded-xl border p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <OTPVerification userId={profile?.id || ''} currentPhone={phone} phoneVerified={phoneVerified}
+            onVerified={() => setPhoneVerified(true)} />
+        </div>
+        {phoneVerified && <VerificationBadge type="phone" level="silver" size="sm" />}
+      </div>
+
       {/* AI Preferences */}
       <div className="bg-white rounded-xl border p-6 space-y-4">
         <h2 className="font-semibold">🤖 Cài đặt AI</h2>
@@ -193,6 +233,37 @@ export default function CustomerProfilePage() {
             {saving ? 'Đang lưu...' : 'Lưu cài đặt'}
           </button>
         )}
+      </div>
+
+      {/* VFC Points */}
+      <VFCBadge data={vfcData} loading={loading} />
+
+      {/* Staking */}
+      <div className="bg-white rounded-xl border p-5">
+        <StakingManager positions={stakingPositions} onRefresh={() => window.location.reload()} />
+      </div>
+
+      {/* Connected Accounts */}
+      <ConnectedAccounts />
+
+      {/* Quick Links */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/customer/security"
+          className="bg-white rounded-xl border p-4 flex items-center gap-3 hover:border-blue-300 transition">
+          <span className="text-2xl">🔐</span>
+          <div>
+            <p className="font-medium text-sm">Bảo mật</p>
+            <p className="text-xs text-gray-500">Đổi mật khẩu, xóa tài khoản</p>
+          </div>
+        </Link>
+        <Link href="/customer/settings/notifications"
+          className="bg-white rounded-xl border p-4 flex items-center gap-3 hover:border-blue-300 transition">
+          <span className="text-2xl">🔔</span>
+          <div>
+            <p className="font-medium text-sm">Thông báo</p>
+            <p className="text-xs text-gray-500">Cài đặt thông báo</p>
+          </div>
+        </Link>
       </div>
 
       {/* Wallet */}

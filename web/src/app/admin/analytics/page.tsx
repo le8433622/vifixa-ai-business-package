@@ -148,22 +148,7 @@ export default function AdminAnalytics() {
       </div>
 
       {/* Location Analytics */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
-        <h2 className="font-semibold text-gray-200 mb-4">📍 Phân tích theo khu vực</h2>
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {[
-            { label: 'Quận 1-3', value: Math.floor(growth.orders * 0.3), color: 'text-blue-400', bg: 'bg-blue-900/30' },
-            { label: 'Quận 4-7', value: Math.floor(growth.orders * 0.25), color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
-            { label: 'Quận khác', value: Math.floor(growth.orders * 0.45), color: 'text-amber-400', bg: 'bg-amber-900/30' },
-          ].map(s => (
-            <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center`}>
-              <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
-              <div className="text-xs text-gray-500 mt-1">{s.label}</div>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500">📍 Phân bố đơn hàng theo khu vực (ước tính)</p>
-      </div>
+      <LocationAnalytics />
 
       {/* Cashflow Forecast */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
@@ -206,6 +191,58 @@ export default function AdminAnalytics() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function LocationAnalytics() {
+  const [districts, setDistricts] = useState<{ district: string; order_count: number }[]>([])
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.rpc('get_location_analytics').then((result: any) => {
+      if (!result.error && result.data) {
+        setDistricts(result.data.districts || [])
+        setTotalOrders(result.data.total_orders || 0)
+      }
+      setLoading(false)
+    })
+  }, [])
+
+  const maxCount = Math.max(...districts.map(d => d.order_count), 1)
+
+  if (loading) return (
+    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+      <p className="text-sm text-gray-500">Đang tải dữ liệu khu vực...</p>
+    </div>
+  )
+
+  return (
+    <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+      <h2 className="font-semibold text-gray-200 mb-4">📍 Phân tích theo khu vực</h2>
+      {districts.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-4">Chưa có dữ liệu vị trí</p>
+      ) : (
+        <div className="space-y-3">
+          {districts.map(d => (
+            <div key={d.district} className="flex items-center gap-3">
+              <span className="w-20 text-sm text-gray-400">{d.district}</span>
+              <div className="flex-1 bg-gray-700 rounded-full h-5 overflow-hidden">
+                <div
+                  className="bg-indigo-500 h-full rounded-full transition-all"
+                  style={{ width: `${(d.order_count / maxCount) * 100}%` }}
+                />
+              </div>
+              <span className="w-16 text-right text-sm text-gray-300 font-medium">{d.order_count}</span>
+              <span className="w-12 text-right text-xs text-gray-500">
+                {totalOrders > 0 ? Math.round((d.order_count / totalOrders) * 100) : 0}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-gray-500 mt-4">📍 Phân bố đơn hàng theo quận/huyện (dữ liệu thực tế)</p>
     </div>
   )
 }

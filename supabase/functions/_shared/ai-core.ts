@@ -38,6 +38,7 @@ export const AGENT_MODEL_MAP: Record<string, ModelTier> = {
   suggestion: 'cheap',
   analytics: 'balanced',
   warranty: 'balanced',
+  kyc: 'vision',
 }
 
 // --- Zod Schemas per Agent ---
@@ -149,6 +150,15 @@ export const VisionQualitySchema = z.object({
   overall_passed: z.boolean(),
   recommendations: z.array(z.string()),
   before_after_comparison: z.string().optional(),
+})
+
+export const KYCSchema = z.object({
+  auto_approved: z.boolean(),
+  confidence: z.number().min(0).max(1),
+  document_valid: z.boolean(),
+  selfie_matches: z.boolean(),
+  flags: z.array(z.string()).optional(),
+  explanation: z.string().min(5),
 })
 
 // --- Response wrapper ---
@@ -361,6 +371,43 @@ Trả về JSON:
 
       const result = await this.callVLM(systemPrompt, userContent, model, 2048, 2)
       const parsed = VisionQualitySchema.parse(result)
+
+      return {
+        success: true, data: parsed,
+        meta: { model, latency: Date.now() - start, tokensIn: 0, tokensOut: 0, cost: 0, cacheHit: false, promptVersion: 0 },
+      }
+    } catch (e: any) {
+      return { success: false, error: e.message, meta: { model, latency: Date.now() - start, cacheHit: false } }
+    }
+  }
+
+  async verifyKYCDocuments(input: { imageUrls: string[]; selfieUrl?: string }): Promise<AIResponse<z.infer<typeof KYCSchema>>> {
+    const start = Date.now()
+    const config = MODEL_TIERS.vision
+    const model = config.model
+
+    try {
+      const systemPrompt = `Bạn là chuyên gia xác thực giấy tờ tùy thân cho Vifixa.
+Phân tích ảnh CMND/CCCD và trả về JSON:
+- auto_approved: boolean — tự động duyệt nếu giấy tờ hợp lệ
+- confidence: 0-1 — độ tin cậy của kết quả
+- document_valid: boolean — giấy tờ có hợp lệ không (rõ nét, đủ thông tin)
+- selfie_matches: boolean — ảnh selfie có khớp với ảnh trên CMND không (nếu có selfie)
+- flags: list cảnh báo (mờ, chói, thiếu góc, nghi ngờ chỉnh sửa...)
+- explanation: giải thích ngắn gọn bằng tiếng Việt`
+
+      const userContent: any[] = [{ type: 'text', text: 'Đây là ảnh giấy tờ cần xác thực:' }]
+      for (const url of input.imageUrls.slice(0, 4)) {
+        userContent.push({ type: 'image_url', image_url: { url } })
+      }
+      if (input.selfieUrl) {
+        userContent.push({ type: 'text', text: 'Đây là ảnh selfie để so sánh:' })
+        userContent.push({ type: 'image_url', image_url: { url: input.selfieUrl } })
+      }
+      userContent.push({ type: 'text', text: '\nTrả về JSON kết quả xác thực:' })
+
+      const result = await this.callVLM(systemPrompt, userContent, model, 2048, 2)
+      const parsed = KYCSchema.parse(result)
 
       return {
         success: true, data: parsed,
