@@ -7,6 +7,12 @@ import CustomerCompanionChat from '@/components/companion/CustomerCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 import DynamicMapView from '@/components/map/DynamicMapView'
 
+const CATEGORY_LABELS: Record<string, string> = {
+  air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
+  camera: 'Camera', refrigerator: 'Tủ lạnh', washing_machine: 'Máy giặt',
+  water_heater: 'Máy nước nóng', appliance: 'Đồ gia dụng', other: 'Khác',
+}
+
 type Order = {
   id: string; category: string; description: string
   status: string; estimated_price: number; final_price?: number
@@ -164,7 +170,7 @@ export default function CustomerDashboard() {
                 <span className="text-2xl">📋</span>
                 <div className="flex-1 text-left">
                   <p className="text-sm font-bold">{activeOrders.length} đơn đang xử lý</p>
-                  <p className="text-xs text-gray-500 truncate">{activeOrders[0].category}</p>
+                  <p className="text-xs text-gray-500 truncate">{CATEGORY_LABELS[activeOrders[0].category] || activeOrders[0].category}</p>
                 </div>
                 <span className="text-blue-600">→</span>
               </button>

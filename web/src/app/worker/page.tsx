@@ -6,6 +6,12 @@ import { supabase } from '@/lib/supabase'
 import WorkerCompanionChat from '@/components/companion/WorkerCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 
+const CATEGORY_LABELS: Record<string, string> = {
+  air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
+  camera: 'Camera', refrigerator: 'Tủ lạnh', washing_machine: 'Máy giặt',
+  water_heater: 'Máy nước nóng', appliance: 'Đồ gia dụng', other: 'Khác',
+}
+
 type Job = {
   id: string; category: string; description: string; status: string
   estimated_price: number; customer_id?: string; created_at: string
@@ -89,7 +95,7 @@ export default function WorkerDashboard() {
                   <span className="text-2xl">📋</span>
                   <div>
                     <p className="text-sm font-bold">{pendingJobs.length} việc mới</p>
-                    <p className="text-xs text-gray-500">{pendingJobs[0].category} · {pendingJobs[0].estimated_price.toLocaleString()}₫</p>
+                    <p className="text-xs text-gray-500">{CATEGORY_LABELS[pendingJobs[0].category] || pendingJobs[0].category} · {pendingJobs[0].estimated_price.toLocaleString()}₫</p>
                   </div>
                 </div>
                 <span className="text-emerald-600 text-sm font-medium">Xem →</span>
