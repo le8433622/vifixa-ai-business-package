@@ -77,10 +77,10 @@ export default function AdminAnalytics() {
       {/* Growth KPIs */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Users', value: growth.users, delta: growth.usersDelta, color: 'text-blue-400', bg: 'bg-blue-900/30' },
-          { label: 'Workers', value: growth.workers, delta: growth.workersDelta, color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
-          { label: 'Orders', value: growth.orders, delta: null, color: 'text-amber-400', bg: 'bg-amber-900/30' },
-          { label: 'Revenue', value: `${(growth.revenue / 1000000).toFixed(1)}M`, delta: growth.revenueDelta, color: 'text-violet-400', bg: 'bg-violet-900/30' },
+          { label: 'Người dùng', value: growth.users, delta: growth.usersDelta, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+          { label: 'Thợ', value: growth.workers, delta: growth.workersDelta, color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
+          { label: 'Đơn hàng', value: growth.orders, delta: null, color: 'text-amber-400', bg: 'bg-amber-900/30' },
+          { label: 'Doanh thu', value: `${(growth.revenue / 1000000).toFixed(1)}M`, delta: growth.revenueDelta, color: 'text-violet-400', bg: 'bg-violet-900/30' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl p-4`}>
             <div className="flex items-center justify-between">

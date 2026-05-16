@@ -85,11 +85,11 @@ export default function AdminDashboard() {
         <div className="absolute top-3 left-3 right-3 pointer-events-none">
           <div className="grid grid-cols-5 gap-2 pointer-events-auto max-w-2xl mx-auto">
             {[
-              { label: 'Users', value: stats.users, color: 'text-blue-400', bg: 'bg-blue-900/30' },
-              { label: 'Workers', value: stats.workers, color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
-              { label: 'Orders', value: stats.orders, color: 'text-amber-400', bg: 'bg-amber-900/30' },
-              { label: 'Revenue', value: `${(stats.revenue / 1000000).toFixed(1)}M`, color: 'text-violet-400', bg: 'bg-violet-900/30' },
-              { label: 'Disputes', value: stats.disputes, color: 'text-rose-400', bg: 'bg-rose-900/30' },
+              { label: 'Người dùng', value: stats.users, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+              { label: 'Thợ', value: stats.workers, color: 'text-emerald-400', bg: 'bg-emerald-900/30' },
+              { label: 'Đơn hàng', value: stats.orders, color: 'text-amber-400', bg: 'bg-amber-900/30' },
+              { label: 'Doanh thu', value: `${(stats.revenue / 1000000).toFixed(1)}M`, color: 'text-violet-400', bg: 'bg-violet-900/30' },
+              { label: 'Khiếu nại', value: stats.disputes, color: 'text-rose-400', bg: 'bg-rose-900/30' },
             ].map(s => (
               <div key={s.label} className={`${s.bg} rounded-xl p-2 text-center backdrop-blur`}>
                 <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
@@ -116,13 +116,13 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { icon: '📊', name: 'Dashboard', href: '/admin' },
-                  { icon: '👥', name: 'Users', count: stats.users, href: '/admin/users' },
-                  { icon: '📋', name: 'Orders', count: stats.orders, href: '/admin/orders' },
-                  { icon: '💳', name: 'Payments', count: null, href: '/admin/payments' },
-                  { icon: '⚖️', name: 'Disputes', count: stats.disputes, href: '/admin/disputes' },
-                  { icon: '📈', name: 'Analytics', count: null, href: '/admin/analytics' },
-                  { icon: '🔌', name: 'Integrations', href: '/admin/integrations' },
-                  { icon: '⚙️', name: 'Settings', href: '/admin/settings' },
+                  { icon: '👥', name: 'Người dùng', count: stats.users, href: '/admin/users' },
+                  { icon: '📋', name: 'Đơn hàng', count: stats.orders, href: '/admin/orders' },
+                  { icon: '💳', name: 'Thanh toán', count: null, href: '/admin/payments' },
+                  { icon: '⚖️', name: 'Khiếu nại', count: stats.disputes, href: '/admin/disputes' },
+                  { icon: '📈', name: 'Phân tích', count: null, href: '/admin/analytics' },
+                  { icon: '🔌', name: 'Tích hợp', href: '/admin/integrations' },
+                  { icon: '⚙️', name: 'Cài đặt', href: '/admin/settings' },
                 ].map(item => (
                   <button key={item.name} onClick={() => router.push(item.href)}
                     className="flex flex-col items-center p-3 bg-gray-700/50 rounded-xl hover:bg-gray-700 transition relative">

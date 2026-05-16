@@ -45,11 +45,11 @@ export default function AdminDashboard() {
 
       <View style={styles.statsGrid}>
         {[
-          { label: 'Users', value: stats.users, color: '#60a5fa', bg: '#1e3a5f' },
-          { label: 'Workers', value: stats.workers, color: '#34d399', bg: '#064e3b' },
-          { label: 'Orders', value: stats.orders, color: '#fbbf24', bg: '#78350f' },
-          { label: 'Revenue', value: `${(stats.revenue / 1000000).toFixed(1)}M`, color: '#a78bfa', bg: '#4c1d95' },
-          { label: 'Disputes', value: stats.disputes, color: '#f87171', bg: '#7f1d1d' },
+          { label: 'Người dùng', value: stats.users, color: '#60a5fa', bg: '#1e3a5f' },
+          { label: 'Thợ', value: stats.workers, color: '#34d399', bg: '#064e3b' },
+          { label: 'Đơn hàng', value: stats.orders, color: '#fbbf24', bg: '#78350f' },
+          { label: 'Doanh thu', value: `${(stats.revenue / 1000000).toFixed(1)}M`, color: '#a78bfa', bg: '#4c1d95' },
+          { label: 'Khiếu nại', value: stats.disputes, color: '#f87171', bg: '#7f1d1d' },
         ].map(s => (
           <View key={s.label} style={[styles.statCard, { backgroundColor: s.bg }]}>
             <Text style={[styles.statNum, { color: s.color }]}>{s.value}</Text>
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
       {stats.disputes > 0 && (
         <TouchableOpacity style={styles.alertBtn} onPress={() => router.push('/admin/orders')}>
-          <Text style={styles.alertText}>🚨 {stats.disputes} dispute cần xử lý</Text>
+          <Text style={styles.alertText}>🚨 {stats.disputes} khiếu nại cần xử lý</Text>
         </TouchableOpacity>
       )}
 
@@ -70,9 +70,9 @@ export default function AdminDashboard() {
           <View style={styles.menuGrid}>
             {[
               { icon: '📊', name: 'Dashboard', href: '/admin' },
-              { icon: '👥', name: 'Users', href: '/admin/users' },
-              { icon: '📋', name: 'Orders', href: '/admin/orders' },
-              { icon: '🔌', name: 'Integrations', href: '/admin/integrations' },
+              { icon: '👥', name: 'Người dùng', href: '/admin/users' },
+              { icon: '📋', name: 'Đơn hàng', href: '/admin/orders' },
+              { icon: '🔌', name: 'Tích hợp', href: '/admin/integrations' },
             ].map(item => (
               <TouchableOpacity key={item.name} style={styles.menuItem} onPress={() => router.push(item.href as any)}>
                 <Text style={styles.menuIcon}>{item.icon}</Text>
