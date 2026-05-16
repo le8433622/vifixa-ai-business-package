@@ -82,12 +82,12 @@ export default function WorkerDashboard() {
           <WorkerCompanionChat onAction={handleAction} />
         </div>
 
-        {/* Auto mode widgets */}
+        {/* Auto mode — Chỉ hiển thị khi có dữ liệu */}
         {mode === 'auto' && appState !== 'on_job' && (
-          <div className="border-t bg-white p-3 space-y-2">
+          <div className="border-t bg-white">
             {pendingJobs.length > 0 && (
               <button onClick={() => router.push('/worker/jobs')}
-                className="w-full bg-emerald-50 rounded-xl p-3 flex items-center justify-between hover:bg-emerald-100 transition">
+                className="w-full bg-emerald-50 p-3 flex items-center justify-between hover:bg-emerald-100 transition border-b">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">📋</span>
                   <div>
@@ -98,23 +98,29 @@ export default function WorkerDashboard() {
                 <span className="text-emerald-600 text-sm font-medium">Xem →</span>
               </button>
             )}
-            <div className="flex gap-2">
-              <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-emerald-600">{todayEarned.toLocaleString()}₫</p>
-                <p className="text-[10px] text-gray-500">Hôm nay</p>
-                {todayEarned === 0 && <p className="text-[8px] text-gray-400">Chưa có</p>}
+            {/* Stats chỉ hiện khi có dữ liệu */}
+            {(todayEarned > 0 || myJobs.length > 0 || completedJobs.length > 0) && (
+              <div className="flex gap-2 p-3">
+                {todayEarned > 0 && (
+                  <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-emerald-600">{todayEarned.toLocaleString()}₫</p>
+                    <p className="text-[10px] text-gray-500">Hôm nay</p>
+                  </div>
+                )}
+                {myJobs.length > 0 && (
+                  <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-blue-600">{myJobs.length}</p>
+                    <p className="text-[10px] text-gray-500">Việc của tôi</p>
+                  </div>
+                )}
+                {completedJobs.length > 0 && (
+                  <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-amber-600">{completedJobs.length}</p>
+                    <p className="text-[10px] text-gray-500">Hoàn thành</p>
+                  </div>
+                )}
               </div>
-              <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
-                <p className={`text-lg font-bold ${myJobs.length > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{myJobs.length}</p>
-                <p className="text-[10px] text-gray-500">Việc của tôi</p>
-                {myJobs.length === 0 && <p className="text-[8px] text-gray-400">Nhận việc mới</p>}
-              </div>
-              <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
-                <p className={`text-lg font-bold ${completedJobs.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{completedJobs.length}</p>
-                <p className="text-[10px] text-gray-500">Hoàn thành</p>
-                {completedJobs.length === 0 && <p className="text-[8px] text-gray-400">Bắt đầu thôi</p>}
-              </div>
-            </div>
+            )}
           </div>
         )}
 

@@ -171,8 +171,8 @@ export default function CustomerDashboard() {
           </div>
         )}
 
-        {/* ─── AUTO MODE: Contextual Widgets ─────────── */}
-        {mode === 'auto' && appState === 'chat' && (
+        {/* ─── AUTO MODE: Chỉ hiển thị khi có dữ liệu ── */}
+        {mode === 'auto' && appState === 'chat' && (activeOrders.length > 0 || needsCareDevices.length > 0) && (
           <div className="border-t bg-white p-3 space-y-2">
             {activeOrders.length > 0 && (
               <button onClick={() => router.push(`/customer/orders/${activeOrders[0].id}`)}
@@ -195,11 +195,6 @@ export default function CustomerDashboard() {
                 </div>
                 <span className="text-amber-600">→</span>
               </button>
-            )}
-            {activeOrders.length === 0 && needsCareDevices.length === 0 && (
-              <div className="text-center py-3 text-sm text-gray-500">
-                Chưa có đơn hàng. Hãy nói chuyện với AI ở trên để bắt đầu!
-              </div>
             )}
           </div>
         )}
