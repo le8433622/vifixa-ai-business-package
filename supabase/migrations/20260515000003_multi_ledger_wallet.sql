@@ -5,6 +5,40 @@
 -- ========== 0. BOOTSTRAP MISSING TABLES ==========
 -- These tables were created by 20260514_ai_map_payment_core which is in
 -- remote history but tables don't exist. Create them here so ALTER works.
+CREATE TABLE IF NOT EXISTS orders (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id      UUID REFERENCES service_requests(id),
+  customer_id     UUID REFERENCES auth.users(id) NOT NULL,
+  worker_id       UUID REFERENCES auth.users(id),
+  location_lat    NUMERIC NOT NULL,
+  location_lng    NUMERIC NOT NULL,
+  address         TEXT,
+  category        TEXT NOT NULL,
+  description     TEXT NOT NULL,
+  media_urls      JSONB DEFAULT '[]',
+  diagnosis       JSONB,
+  status          TEXT DEFAULT 'pending'
+                   CHECK (status IN ('pending', 'matched', 'in_progress', 'completed', 'cancelled', 'disputed')),
+  estimated_price NUMERIC,
+  final_price     NUMERIC,
+  platform_fee    NUMERIC DEFAULT 0,
+  worker_payout   NUMERIC DEFAULT 0,
+  payment_status  TEXT DEFAULT 'unpaid'
+                   CHECK (payment_status IN ('unpaid', 'paid', 'refunded', 'failed')),
+  before_media    JSONB DEFAULT '[]',
+  after_media     JSONB DEFAULT '[]',
+  rating          INT CHECK (rating BETWEEN 1 AND 5),
+  review_comment  TEXT,
+  completed_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_worker ON orders(worker_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_location ON orders(location_lat, location_lng);
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE IF NOT EXISTS transactions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id        UUID REFERENCES orders(id),
@@ -15,7 +49,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   currency        TEXT DEFAULT 'VND',
   fee             NUMERIC DEFAULT 0,
   status          TEXT DEFAULT 'pending'
-                  CHECK (status IN ('pending', 'processing', 'succeeded', 'failed', 'refunded')),
+                   CHECK (status IN ('pending', 'processing', 'succeeded', 'failed', 'refunded')),
   metadata        JSONB DEFAULT '{}',
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   succeeded_at    TIMESTAMPTZ
@@ -35,6 +69,24 @@ CREATE TABLE IF NOT EXISTS wallets (
 );
 CREATE INDEX IF NOT EXISTS idx_wallets_user ON wallets(user_id);
 ALTER TABLE wallets ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS ledger (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  txn_id      UUID NOT NULL,
+  wallet_id   UUID REFERENCES wallets(id),
+  account     TEXT NOT NULL,
+  direction   TEXT NOT NULL CHECK (direction IN ('debit', 'credit')),
+  amount      NUMERIC NOT NULL,
+  currency    TEXT DEFAULT 'VND',
+  ref_type    TEXT,
+  ref_id      UUID,
+  description TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ledger_txn ON ledger(txn_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_wallet ON ledger(wallet_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_created ON ledger(created_at DESC);
+ALTER TABLE ledger ENABLE ROW LEVEL SECURITY;
 
 -- ========== 1. WALLET TYPES ENUM ==========
 DO $$ BEGIN
