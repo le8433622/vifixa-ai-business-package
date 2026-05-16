@@ -249,7 +249,7 @@ export default function CustomerDashboard() {
 
         {/* ─── AUTO MODE: Contextual Widgets ────────────── */}
         {mode === 'auto' && appState === 'chat' && (
-          <div className="absolute bottom-20 left-3 right-3 pointer-events-none">
+          <div className="absolute bottom-4 left-3 right-3 pointer-events-none">
             <div className="space-y-2 pointer-events-auto max-w-lg mx-auto">
               {/* Active orders */}
               {activeOrders.length > 0 && (
@@ -275,6 +275,13 @@ export default function CustomerDashboard() {
                   </div>
                   <span className="text-blue-600 text-lg">→</span>
                 </button>
+              )}
+
+              {/* Empty state with helpful message */}
+              {activeOrders.length === 0 && needsCareDevices.length === 0 && (
+                <div className="bg-white/95 backdrop-blur rounded-xl shadow-lg border p-4 text-center">
+                  <p className="text-sm text-gray-500">Chưa có đơn hàng nào. Hãy nói với AI ở trên để bắt đầu</p>
+                </div>
               )}
             </div>
           </div>

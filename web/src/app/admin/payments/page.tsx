@@ -103,7 +103,18 @@ export default function AdminPayments() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-10 text-gray-500">Chưa có giao dịch nào</td></tr>
+              <tr><td colSpan={6} className="text-center py-10">
+                <div className="text-gray-500">
+                  <p className="text-4xl mb-3">💳</p>
+                  <p className="font-medium">Chưa có giao dịch {filter !== 'all' ? `với trạng thái "${filter}"` : ''}</p>
+                  <p className="text-xs text-gray-600 mt-1">Khi khách hàng thanh toán, giao dịch sẽ xuất hiện ở đây</p>
+                  {filter !== 'all' && (
+                    <button onClick={() => setFilter('all')} className="mt-3 px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700">
+                      Xem tất cả
+                    </button>
+                  )}
+                </div>
+              </td></tr>
             )}
           </tbody>
         </table>

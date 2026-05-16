@@ -106,14 +106,17 @@ export default function WorkerDashboard() {
                 <div className="flex-1 bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 text-center">
                   <p className="text-lg font-bold text-emerald-600">{todayEarned.toLocaleString()}₫</p>
                   <p className="text-[10px] text-gray-500">Hôm nay</p>
+                  {todayEarned === 0 && <p className="text-[8px] text-gray-400 mt-0.5">Chưa có</p>}
                 </div>
                 <div className="flex-1 bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 text-center">
-                  <p className="text-lg font-bold text-blue-600">{myJobs.length}</p>
+                  <p className={`text-lg font-bold ${myJobs.length > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{myJobs.length}</p>
                   <p className="text-[10px] text-gray-500">Việc của tôi</p>
+                  {myJobs.length === 0 && <p className="text-[8px] text-gray-400 mt-0.5">Nhận việc mới</p>}
                 </div>
                 <div className="flex-1 bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 text-center">
-                  <p className="text-lg font-bold text-amber-600">{completedJobs.length}</p>
+                  <p className={`text-lg font-bold ${completedJobs.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{completedJobs.length}</p>
                   <p className="text-[10px] text-gray-500">Hoàn thành</p>
+                  {completedJobs.length === 0 && <p className="text-[8px] text-gray-400 mt-0.5">Bắt đầu thôi</p>}
                 </div>
               </div>
             </div>
