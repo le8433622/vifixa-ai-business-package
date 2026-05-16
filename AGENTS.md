@@ -22,10 +22,11 @@
 | Check | Status |
 |-------|--------|
 | Next.js build (61 routes) | ✅ 0 errors |
-| Deno tests (6 functions) | ✅ 39/39 pass |
-| SQL migrations | 16 created |
+| Deno tests (6 functions) | ✅ 33/33 pass |
+| SQL migrations | 21 committed |
 | Docker (local supabase) | ❌ Not running |
-| Production env config | ❌ Not linked |
+| Production env config | ✅ Linked (lipjakzhzosrhttsltwo) |
+| CI/CD auto-deploy | ✅ GitHub Actions (Supabase + Vercel) |
 
 ## Gap Analysis
 - Source of truth for all identified gaps: `docs/GAP_ANALYSIS.md`, `docs/FLOWCHART.md`
@@ -41,28 +42,18 @@
 6. **Quality Fixes** — `@ts-nocheck` removed, dead code cleaned, OrderDetails interface fixed, transition prop on all 3 pages, AI KYC integration in admin approval, Layout redesign (flex flow), Language standardized EN→VI, UI polish
 
 ## SQL Migrations
-- Committed: `001_init`, `20260510...gateway_configs`, `20260514...companion_core`, `20260514...ai_map_payment_core`, `20260514...seed_vnpay`, `20260515...unify_v4_backup`, `20260515...create_companion_tables`, `20260515...multi_ledger_wallet`, `20260521...ai_vector_search`, `20260522...service_areas_heatmap`, `20260523...map_infrastructure`, `20260525...payment_intents`
-- Untracked (need commit): `20260516...trust_verification_phase1`, `20260516...map_discovery_phase2`, `20260516...account_management_phase3`, `20260516...geo_fence_checkin`
+- Committed: `001_init`, `20260510...gateway_configs`, `20260514...companion_core`, `20260514...ai_map_payment_core`, `20260514...seed_vnpay`, `20260515...unify_v4_backup`, `20260515...create_companion_tables`, `20260515...multi_ledger_wallet`, `20260521...ai_vector_search`, `20260522...service_areas_heatmap`, `20260523...map_infrastructure`, `20260525...payment_intents`, `20260526...workflow_engine`, `20260526...notifications`, +4 phase migrations
 
 ## Edge Functions
 - Deployed/ready: `ai-chat`, `ai-diagnosis`, `ai-matching`, `ai-quality`, `ai-dispute`, `ai-coach`, `ai-predict`, `ai-warranty`, `ai-healthcheck`, `ai-care-agent`, `ai-fraud-check`, `stripe-connect`, `companion/chat`
-- Untracked (need commit): `ai-auto-executor`, `ai-kyc`
-
-## Uncommitted Work (~27 items)
-- 4 phase SQL migrations
-- `ai-auto-executor` + `ai-kyc` Edge Functions
-- All phase 1-4 pages: admin/kyc, admin/locks, customer/security, customer/settings, worker/map
-- All API routes: account, admin/kyc, admin/locks, geo-match, order, otp, worker/kyc, worker/location, worker/portfolio
-- All components: trust/, account/, map/ (BookWorkerModal, WorkerLocationTracker, WorkerMapPopup, WorkerTracker)
-- `useAutoMode` hook
-- 14 modified files (layout fixes, language fixes, etc.)
+- Ready (auto-deploy on push): `ai-auto-executor`, `ai-kyc`, `workflow-engine`, `notify`
 
 ## Next Steps
-1. Commit all pending work
-2. Start Docker → `supabase db push` (apply migrations)
-3. `supabase functions deploy ai-kyc ai-auto-executor` (deploy Edge Functions)
-4. Deploy web app: `cd web && vercel --prod`
-5. Start Docker and link remote Supabase project
+1. ✅ Commit all pending work (done)
+2. ✅ Auto-deploy migrations via CI (`supabase db push` in deploy workflow)
+3. ✅ Auto-deploy Edge Functions via CI (all functions in deploy list)
+4. ✅ Auto-deploy web app via CI (`deploy-vercel.yml`)
+5. ❌ Docker chưa chạy local — chỉ cần nếu muốn dev local
 
 ## References
 - `vifixa-ai-v4` repo = backup archive (don't modify)
