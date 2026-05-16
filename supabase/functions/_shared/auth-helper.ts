@@ -5,7 +5,7 @@ export interface AuthUser {
   email?: string;
 }
 
-export async function verifyAuth(req: Request): Promise<AuthUser> {
+export async function verifyAuth(req: Request, rateLimitConfig?: RateLimitConfig): Promise<AuthUser> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new AuthError('Missing or invalid authorization header', 'UNAUTHORIZED');
@@ -21,6 +21,9 @@ export async function verifyAuth(req: Request): Promise<AuthUser> {
   if (authError || !user) {
     throw new AuthError(authError?.message || 'Invalid or expired token', 'UNAUTHORIZED_INVALID_TOKEN');
   }
+
+  const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  checkRateLimit(user.id, ip, rateLimitConfig);
 
   return { id: user.id, email: user.email };
 }

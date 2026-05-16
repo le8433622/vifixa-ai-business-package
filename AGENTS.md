@@ -5,6 +5,7 @@
 3 trụ cột: **AI · Map · Payment** — tất cả phục vụ khách hàng
 
 ## Rules
+- **Workflow Protocol (bắt buộc):** (1) Propose plan + todo → (2) Chờ user approve → (3) Execute — không tự ý làm ngoài plan
 - Source of truth: `docs/VISION.md`, `docs/COMPANION.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`
 - Follow sequential process in `agent.md` — zero deviation
 - No secrets in mobile/web frontend
@@ -25,6 +26,11 @@
 | SQL migrations | 16 created |
 | Docker (local supabase) | ❌ Not running |
 | Production env config | ❌ Not linked |
+
+## Gap Analysis
+- Source of truth for all identified gaps: `docs/GAP_ANALYSIS.md`, `docs/FLOWCHART.md`
+- Mọi task mới phải check gap analysis trước — không tạo code mới overlap hoặc ignore gap
+- Nếu phát hiện gap mới giữa các luồng, phải cập nhật GAP_ANALYSIS.md và thông báo ngay
 
 ## Phases Completed
 1. **Trust & Verification** — Worker KYC (CMND/CCCD + Selfie → AI Vision → Admin duyệt), CV/Portfolio, Customer OTP, Verification Badge (4 types × levels), Trust Score Engine
