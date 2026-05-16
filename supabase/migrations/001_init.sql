@@ -61,15 +61,15 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
-CREATE POLICY "Users can view own profile"
+CREATE POLICY IF NOT EXISTS "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
-CREATE POLICY "Users can update own profile"
+CREATE POLICY IF NOT EXISTS "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
-CREATE POLICY "Workers can view customer profiles for assigned orders"
+CREATE POLICY IF NOT EXISTS "Workers can view customer profiles for assigned orders"
   ON public.profiles FOR SELECT
   USING (
     EXISTS (
@@ -79,46 +79,46 @@ CREATE POLICY "Workers can view customer profiles for assigned orders"
     )
   );
 
-CREATE POLICY "Admins can view all profiles"
+CREATE POLICY IF NOT EXISTS "Admins can view all profiles"
   ON public.profiles FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for workers
-CREATE POLICY "Workers can manage own worker profile"
+CREATE POLICY IF NOT EXISTS "Workers can manage own worker profile"
   ON public.workers FOR ALL
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Customers can view verified worker profiles"
+CREATE POLICY IF NOT EXISTS "Customers can view verified worker profiles"
   ON public.workers FOR SELECT
   USING (is_verified = true);
 
-CREATE POLICY "Admins can manage all worker profiles"
+CREATE POLICY IF NOT EXISTS "Admins can manage all worker profiles"
   ON public.workers FOR ALL
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for orders
-CREATE POLICY "Customers can view own orders"
+CREATE POLICY IF NOT EXISTS "Customers can view own orders"
   ON public.orders FOR SELECT
   USING (auth.uid() = customer_id);
 
-CREATE POLICY "Customers can create orders"
+CREATE POLICY IF NOT EXISTS "Customers can create orders"
   ON public.orders FOR INSERT
   WITH CHECK (auth.uid() = customer_id);
 
-CREATE POLICY "Workers can view assigned orders"
+CREATE POLICY IF NOT EXISTS "Workers can view assigned orders"
   ON public.orders FOR SELECT
   USING (auth.uid() = worker_id);
 
-CREATE POLICY "Workers can update assigned orders"
+CREATE POLICY IF NOT EXISTS "Workers can update assigned orders"
   ON public.orders FOR UPDATE
   USING (auth.uid() = worker_id);
 
-CREATE POLICY "Admins can manage all orders"
+CREATE POLICY IF NOT EXISTS "Admins can manage all orders"
   ON public.orders FOR ALL
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for ai_logs
-CREATE POLICY "Only admins can view AI logs"
+CREATE POLICY IF NOT EXISTS "Only admins can view AI logs"
   ON public.ai_logs FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
@@ -138,11 +138,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
+DROP TRIGGER IF EXISTS handle_profiles_updated_at ON public.profiles;
 CREATE TRIGGER handle_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 
+DROP TRIGGER IF EXISTS handle_orders_updated_at ON public.orders;
 CREATE TRIGGER handle_orders_updated_at
   BEFORE UPDATE ON public.orders
   FOR EACH ROW
