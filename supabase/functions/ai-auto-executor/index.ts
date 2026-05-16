@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-    const aiCore = createAICore()
+    const aiCore = createAICore(supabase)
 
     switch (action) {
       case 'auto_diagnose':
