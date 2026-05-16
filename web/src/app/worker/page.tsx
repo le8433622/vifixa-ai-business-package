@@ -75,49 +75,44 @@ export default function WorkerDashboard() {
         <ModeToggle mode={mode} onChange={setMode} />
       </div>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* AI Co-pilot Chat — base layer */}
-        <div className="absolute inset-0">
+      {/* Main — Flow Layout (KHÔNG absolute) */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* AI Co-pilot Chat — flex-1, không absolute */}
+        <div className="flex-1 min-h-0">
           <WorkerCompanionChat onAction={handleAction} />
         </div>
 
         {/* Auto mode widgets */}
         {mode === 'auto' && appState !== 'on_job' && (
-          <div className="absolute bottom-20 left-3 right-3 pointer-events-none">
-            <div className="space-y-2 pointer-events-auto max-w-lg mx-auto">
-              {/* Available jobs */}
-              {pendingJobs.length > 0 && (
-                <div className="bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 flex items-center justify-between gap-3 hover:shadow-xl transition cursor-pointer"
-                  onClick={() => router.push('/worker/jobs')}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">📋</span>
-                    <div>
-                      <p className="text-sm font-bold">{pendingJobs.length} việc mới</p>
-                      <p className="text-xs text-gray-500">{pendingJobs[0].category} · {pendingJobs[0].estimated_price.toLocaleString()}₫</p>
-                    </div>
+          <div className="border-t bg-white p-3 space-y-2">
+            {pendingJobs.length > 0 && (
+              <button onClick={() => router.push('/worker/jobs')}
+                className="w-full bg-emerald-50 rounded-xl p-3 flex items-center justify-between hover:bg-emerald-100 transition">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📋</span>
+                  <div>
+                    <p className="text-sm font-bold">{pendingJobs.length} việc mới</p>
+                    <p className="text-xs text-gray-500">{pendingJobs[0].category} · {pendingJobs[0].estimated_price.toLocaleString()}₫</p>
                   </div>
-                  <span className="text-emerald-600 text-sm font-medium">Xem →</span>
                 </div>
-              )}
-
-              {/* Today's stats */}
-              <div className="flex gap-2">
-                <div className="flex-1 bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 text-center">
-                  <p className="text-lg font-bold text-emerald-600">{todayEarned.toLocaleString()}₫</p>
-                  <p className="text-[10px] text-gray-500">Hôm nay</p>
-                  {todayEarned === 0 && <p className="text-[8px] text-gray-400 mt-0.5">Chưa có</p>}
-                </div>
-                <div className="flex-1 bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 text-center">
-                  <p className={`text-lg font-bold ${myJobs.length > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{myJobs.length}</p>
-                  <p className="text-[10px] text-gray-500">Việc của tôi</p>
-                  {myJobs.length === 0 && <p className="text-[8px] text-gray-400 mt-0.5">Nhận việc mới</p>}
-                </div>
-                <div className="flex-1 bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 text-center">
-                  <p className={`text-lg font-bold ${completedJobs.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{completedJobs.length}</p>
-                  <p className="text-[10px] text-gray-500">Hoàn thành</p>
-                  {completedJobs.length === 0 && <p className="text-[8px] text-gray-400 mt-0.5">Bắt đầu thôi</p>}
-                </div>
+                <span className="text-emerald-600 text-sm font-medium">Xem →</span>
+              </button>
+            )}
+            <div className="flex gap-2">
+              <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-emerald-600">{todayEarned.toLocaleString()}₫</p>
+                <p className="text-[10px] text-gray-500">Hôm nay</p>
+                {todayEarned === 0 && <p className="text-[8px] text-gray-400">Chưa có</p>}
+              </div>
+              <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                <p className={`text-lg font-bold ${myJobs.length > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{myJobs.length}</p>
+                <p className="text-[10px] text-gray-500">Việc của tôi</p>
+                {myJobs.length === 0 && <p className="text-[8px] text-gray-400">Nhận việc mới</p>}
+              </div>
+              <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                <p className={`text-lg font-bold ${completedJobs.length > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{completedJobs.length}</p>
+                <p className="text-[10px] text-gray-500">Hoàn thành</p>
+                {completedJobs.length === 0 && <p className="text-[8px] text-gray-400">Bắt đầu thôi</p>}
               </div>
             </div>
           </div>
@@ -125,59 +120,42 @@ export default function WorkerDashboard() {
 
         {/* On-job mode */}
         {appState === 'on_job' && activeJob && (
-          <div className="absolute inset-0 z-20 flex flex-col bg-white">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
-              <div>
-                <p className="font-bold text-sm">🔧 Đang làm: {activeJob.category}</p>
-                <p className="text-xs text-gray-500">{activeJob.description?.slice(0, 60)}...</p>
-              </div>
-              <button onClick={() => router.push(`/worker/jobs/${activeJob.id}`)} className="text-xs text-emerald-600 font-medium hover:underline">
-                Chi tiết →
-              </button>
-            </div>
-            <div className="flex-1 flex items-center justify-center bg-gray-50">
-              <div className="text-center p-6">
-                <div className="text-6xl mb-4">🔧</div>
-                <p className="text-lg font-bold mb-2">Đang thực hiện job</p>
-                <p className="text-gray-500 mb-6">Mở chi tiết để cập nhật trạng thái</p>
-                <button onClick={() => router.push(`/worker/jobs/${activeJob.id}`)}
-                  className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium">
-                  📋 Mở chi tiết
-                </button>
-              </div>
-            </div>
+          <div className="border-t bg-white p-4 text-center">
+            <p className="text-4xl mb-2">🔧</p>
+            <p className="text-lg font-bold mb-1">Đang thực hiện: {activeJob.category}</p>
+            <p className="text-sm text-gray-500 mb-3">{activeJob.description?.slice(0, 60)}...</p>
+            <button onClick={() => router.push(`/worker/jobs/${activeJob.id}`)}
+              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700">
+              📋 Mở chi tiết
+            </button>
           </div>
         )}
 
         {/* Manual mode menu */}
         {mode === 'manual' && (
-          <div className="absolute inset-x-0 bottom-0 px-3 pb-3 pointer-events-none">
-            <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border pointer-events-auto p-4 max-w-lg mx-auto">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">📋 Menu</p>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                {[
-                  { icon: '📋', name: 'Việc mới', count: pendingJobs.length, href: '/worker/jobs' },
-                  { icon: '🔧', name: 'Đang làm', count: activeJob ? 1 : 0, href: activeJob ? `/worker/jobs/${activeJob.id}` : '/worker/jobs' },
-                  { icon: '💰', name: 'Thu nhập', count: null, href: '/worker/earnings' },
-                  { icon: '📊', name: 'Lịch sử', count: null, href: '/worker/jobs' },
-                  { icon: '🎓', name: 'Học', count: null, href: '/worker/profile' },
-                  { icon: '👤', name: 'Hồ sơ', count: null, href: '/worker/profile' },
-                ].map(item => (
-                  <button key={item.name} onClick={() => router.push(item.href)}
-                    className="flex flex-col items-center p-3 bg-gray-50 rounded-xl hover:bg-emerald-50 transition relative">
-                    <span className="text-2xl mb-1">{item.icon}</span>
-                    <span className="text-[10px] font-medium text-gray-600">{item.name}</span>
-                    {item.count && item.count > 0 ? (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">{item.count}</span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] text-gray-400 pt-2 border-t">
-                <span>{myJobs.length} việc</span>
-                <span>{completedJobs.length} hoàn thành</span>
-                <span>{totalEarned.toLocaleString()}₫ kiếm được</span>
-              </div>
+          <div className="border-t bg-white p-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">📋 Menu</p>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {[
+                { icon: '📋', name: 'Việc mới', count: pendingJobs.length, href: '/worker/jobs' },
+                { icon: '🔧', name: 'Đang làm', count: activeJob ? 1 : 0, href: activeJob ? `/worker/jobs/${activeJob.id}` : '/worker/jobs' },
+                { icon: '💰', name: 'Thu nhập', href: '/worker/earnings' },
+                { icon: '📊', name: 'Lịch sử', href: '/worker/jobs' },
+                { icon: '🎓', name: 'Học', href: '/worker/profile' },
+                { icon: '👤', name: 'Hồ sơ', href: '/worker/profile' },
+              ].map(item => (
+                <button key={item.name} onClick={() => router.push(item.href)}
+                  className="flex flex-col items-center p-3 bg-gray-50 rounded-xl hover:bg-emerald-50 transition relative">
+                  <span className="text-2xl mb-1">{item.icon}</span>
+                  <span className="text-[10px] font-medium text-gray-600">{item.name}</span>
+                  {item.count ? <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">{item.count}</span> : null}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-400 pt-2 border-t">
+              <span>{myJobs.length} việc</span>
+              <span>{completedJobs.length} hoàn thành</span>
+              <span>{totalEarned.toLocaleString()}₫ kiếm được</span>
             </div>
           </div>
         )}

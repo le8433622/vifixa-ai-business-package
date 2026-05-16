@@ -87,7 +87,7 @@ export default function CustomerCompanionChat({ onAction }: { onAction?: (action
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-blue-50 to-white">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 pb-24">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 pb-4">
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[88%] p-3.5 rounded-2xl ${msg.role === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-sm shadow-md' : 'bg-white border border-gray-100 rounded-bl-sm shadow-sm'}`}>

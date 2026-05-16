@@ -102,7 +102,7 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 pb-24">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 pb-4">
         {messages.map(msg => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[88%] p-3.5 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-sm shadow-md' : 'bg-gray-800 border border-gray-700 rounded-bl-sm shadow-sm'}`}>

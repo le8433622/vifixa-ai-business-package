@@ -151,190 +151,117 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      {/* ─── MAIN: AI + MAP + PAYMENT ────────────────────── */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* AI Companion — full height base layer */}
-        <div className="absolute inset-0">
+      {/* ─── MAIN: Flow Layout (KHÔNG absolute) ───────── */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* AI Companion — flex-1, không absolute */}
+        <div className="flex-1 min-h-0">
           <CustomerCompanionChat onAction={handleAction} />
         </div>
 
-        {/* ─── MAP CORE: Contextual Map ─────────────────── */}
-        {/* Shows when quoting: worker locations near user */}
+        {/* ─── MAP: Contextual Map (khi quoting) ─────── */}
         {appState === 'quoting' && userLocation && (
-          <div className="absolute bottom-24 left-3 right-3 h-48 bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden z-10 transition-all animate-slide-up">
-            <div className="flex items-center justify-between px-3 py-2 border-b">
+          <div className="border-t bg-white p-3">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-gray-600">🗺️ Thợ gần bạn</span>
-              <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+              <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
             </div>
-            <div className="h-[calc(100%-36px)]">
-              <DynamicMapView
-                center={[userLocation.lat, userLocation.lng]}
-                zoom={14}
-                markers={(orders.filter(o => o.status === 'matched')).map(o => ({
-                  position: [o.worker_lat || 10.8231, o.worker_lng || 106.6297],
-                  title: o.category,
-                }))}
-                style={{ height: '100%' }}
-              />
+            <div className="h-40 bg-blue-50 rounded-xl flex items-center justify-center border border-blue-100">
+              <p className="text-xs text-blue-400">📍 Map placeholder — thợ gần bạn</p>
             </div>
           </div>
         )}
 
-        {/* ─── MAP CORE: Tracking Map ───────────────────── */}
-        {/* Shows when tracking: worker real-time location */}
-        {appState === 'tracking' && trackingOrder && (
-          <div className="absolute inset-0 z-20 flex flex-col bg-white">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
-              <div>
-                <p className="font-bold text-sm">📍 Thợ đang đến</p>
-                <p className="text-xs text-gray-500">{trackingOrder.category} · Cách 2.5 km</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-rose-600 font-medium animate-pulse">⏱ 5 phút</span>
-                <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 px-2 py-1 text-sm">Thu gọn</button>
-              </div>
-            </div>
-            <div className="flex-1">
-              <DynamicMapView
-                center={[trackingOrder.worker_lat || 10.8231, trackingOrder.worker_lng || 106.6297]}
-                zoom={15}
-                markers={[
-                  { position: [10.8231, 106.6297], title: 'Vị trí của bạn' },
-                  { position: [trackingOrder.worker_lat || 10.8250, trackingOrder.worker_lng || 106.6300], title: 'Thợ' },
-                ]}
-                style={{ height: '100%' }}
-              />
-            </div>
-            <div className="p-3 bg-white border-t flex gap-2">
-              <button onClick={() => router.push(`/customer/orders/${trackingOrder.id}`)}
-                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
-                📋 Chi tiết đơn
-              </button>
-              <button onClick={() => handleAction({ type: 'track_order', data: { order_id: trackingOrder.id } })}
-                className="flex-1 py-2.5 border rounded-xl text-sm font-medium hover:bg-gray-50">
-                💬 Chat với thợ
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ─── PAYMENT CORE: Inline Payment ─────────────── */}
-        {/* Shows when order completed + unpaid */}
-        {appState === 'payment' && unpaidOrder && (
-          <div className="absolute bottom-24 left-3 right-3 bg-white/95 backdrop-blur rounded-2xl shadow-2xl border z-10 animate-slide-up">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-sm">💳 Thanh toán</h3>
-                <button onClick={() => setAppState('chat')} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
-              </div>
-              <div className="flex items-center justify-between mb-3 p-3 bg-amber-50 rounded-xl">
-                <span className="text-sm text-gray-700">{unpaidOrder.category}</span>
-                <span className="text-lg font-bold text-amber-700">
-                  {(unpaidOrder.final_price || unpaidOrder.estimated_price || 0).toLocaleString()}₫
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => payWithVNPay(unpaidOrder.id, unpaidOrder.final_price || unpaidOrder.estimated_price || 0)}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-sm">
-                  💳 VNPay
-                </button>
-                <button onClick={() => alert('Stripe chưa cấu hình')}
-                  className="flex-1 py-3 border border-blue-300 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-50">
-                  💳 Stripe
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ─── AUTO MODE: Contextual Widgets ────────────── */}
+        {/* ─── AUTO MODE: Contextual Widgets ─────────── */}
         {mode === 'auto' && appState === 'chat' && (
-          <div className="absolute bottom-4 left-3 right-3 pointer-events-none">
-            <div className="space-y-2 pointer-events-auto max-w-lg mx-auto">
-              {/* Active orders */}
-              {activeOrders.length > 0 && (
-                <button onClick={() => router.push(`/customer/orders/${activeOrders[0].id}`)}
-                  className="w-full bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 flex items-center gap-3 hover:shadow-xl transition">
-                  <span className="text-2xl">📋</span>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-bold">{activeOrders.length} đơn đang xử lý</p>
-                    <p className="text-xs text-gray-500 truncate">{activeOrders[0].category}</p>
-                  </div>
-                  <span className="text-blue-600 text-lg">→</span>
-                </button>
-              )}
-
-              {/* Devices needing care */}
-              {needsCareDevices.length > 0 && (
-                <button onClick={() => router.push('/customer/devices')}
-                  className="w-full bg-white/95 backdrop-blur rounded-xl shadow-lg border p-3 flex items-center gap-3 hover:shadow-xl transition">
-                  <span className="text-2xl">🔧</span>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-bold">{needsCareDevices.length} thiết bị cần bảo trì</p>
-                    <p className="text-xs text-gray-500">{needsCareDevices[0].brand} {needsCareDevices[0].model}</p>
-                  </div>
-                  <span className="text-blue-600 text-lg">→</span>
-                </button>
-              )}
-
-              {/* Empty state with helpful message */}
-              {activeOrders.length === 0 && needsCareDevices.length === 0 && (
-                <div className="bg-white/95 backdrop-blur rounded-xl shadow-lg border p-4 text-center">
-                  <p className="text-sm text-gray-500">Chưa có đơn hàng nào. Hãy nói với AI ở trên để bắt đầu</p>
+          <div className="border-t bg-white p-3 space-y-2">
+            {activeOrders.length > 0 && (
+              <button onClick={() => router.push(`/customer/orders/${activeOrders[0].id}`)}
+                className="w-full bg-blue-50 rounded-xl p-3 flex items-center gap-3 hover:bg-blue-100 transition">
+                <span className="text-2xl">📋</span>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold">{activeOrders.length} đơn đang xử lý</p>
+                  <p className="text-xs text-gray-500 truncate">{activeOrders[0].category}</p>
                 </div>
-              )}
+                <span className="text-blue-600">→</span>
+              </button>
+            )}
+            {needsCareDevices.length > 0 && (
+              <button onClick={() => router.push('/customer/devices')}
+                className="w-full bg-amber-50 rounded-xl p-3 flex items-center gap-3 hover:bg-amber-100 transition">
+                <span className="text-2xl">🔧</span>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-bold">{needsCareDevices.length} thiết bị cần bảo trì</p>
+                  <p className="text-xs text-gray-500">{needsCareDevices[0].brand} {needsCareDevices[0].model}</p>
+                </div>
+                <span className="text-amber-600">→</span>
+              </button>
+            )}
+            {activeOrders.length === 0 && needsCareDevices.length === 0 && (
+              <div className="text-center py-3 text-sm text-gray-500">
+                Chưa có đơn hàng. Hãy nói chuyện với AI ở trên để bắt đầu!
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── MANUAL MODE: Menu ──────────────────────── */}
+        {mode === 'manual' && (
+          <div className="border-t bg-white p-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">📋 Menu dịch vụ</p>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {[
+                { icon: '❄️', name: 'Máy lạnh' }, { icon: '💡', name: 'Điện' },
+                { icon: '🚿', name: 'Nước' }, { icon: '📷', name: 'Camera' },
+                { icon: '🔧', name: 'Đồ gia dụng' }, { icon: '🔌', name: 'Điện tử' },
+                { icon: '🚪', name: 'Cửa/Khóa' }, { icon: '🏠', name: 'Khác' },
+              ].map(cat => (
+                <button key={cat.name} onClick={() => router.push('/customer/service-request')}
+                  className="flex flex-col items-center p-2.5 bg-gray-50 rounded-xl hover:bg-blue-50 transition">
+                  <span className="text-2xl mb-1">{cat.icon}</span>
+                  <span className="text-[10px] font-medium text-gray-600">{cat.name}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => router.push('/customer/orders')} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
+                📋 Đơn hàng
+              </button>
+              <button onClick={() => router.push('/customer/devices')} className="flex-1 py-2.5 border border-blue-200 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-50">
+                🔧 Thiết bị
+              </button>
+              <button onClick={() => router.push('/customer/profile')} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50">
+                👤 Tài khoản
+              </button>
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-400 pt-2 border-t">
+              <span>{orders.length} đơn</span>
+              <span>{completedOrders.length} hoàn thành</span>
+              <span>{totalSpent.toLocaleString()}₫ đã chi</span>
             </div>
           </div>
         )}
 
-        {/* ─── MANUAL MODE: Full Service Menu ───────────── */}
-        {mode === 'manual' && (
-          <div className="absolute inset-x-0 bottom-0 px-3 pb-3 pointer-events-none">
-            <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl border pointer-events-auto p-4 max-w-lg mx-auto">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">📋 Menu dịch vụ</p>
-              
-              {/* Service categories */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                {[
-                  { icon: '❄️', name: 'Máy lạnh', id: 'ac' },
-                  { icon: '💡', name: 'Điện', id: 'elec' },
-                  { icon: '🚿', name: 'Nước', id: 'water' },
-                  { icon: '📷', name: 'Camera', id: 'cam' },
-                  { icon: '🔧', name: 'Đồ gia dụng', id: 'app' },
-                  { icon: '🔌', name: 'Điện tử', id: 'elec2' },
-                  { icon: '🚪', name: 'Cửa/Khóa', id: 'door' },
-                  { icon: '🏠', name: 'Khác', id: 'other' },
-                ].map(cat => (
-                  <button key={cat.id} onClick={() => router.push('/customer/service-request')}
-                    className="flex flex-col items-center p-2.5 bg-gray-50 rounded-xl hover:bg-blue-50 transition">
-                    <span className="text-2xl mb-1">{cat.icon}</span>
-                    <span className="text-[10px] font-medium text-gray-600">{cat.name}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex gap-2">
-                <button onClick={() => router.push('/customer/orders')}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm">
-                  📋 Đơn hàng
-                </button>
-                <button onClick={() => router.push('/customer/devices')}
-                  className="flex-1 py-3 border border-blue-200 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-50 transition">
-                  🔧 Thiết bị
-                </button>
-                <button onClick={() => router.push('/customer/profile')}
-                  className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
-                  👤 Tài khoản
-                </button>
-              </div>
-
-              {/* Stats */}
-              <div className="flex justify-between mt-3 pt-3 border-t border-gray-100 text-[10px] text-gray-400">
-                <span>{orders.length} đơn</span>
-                <span>{completedOrders.length} hoàn thành</span>
-                <span>{totalSpent.toLocaleString()}₫ đã chi</span>
-              </div>
+        {/* ─── PAYMENT: Inline Payment ────────────────── */}
+        {appState === 'payment' && unpaidOrder && (
+          <div className="border-t bg-amber-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm">💳 Thanh toán</h3>
+            </div>
+            <div className="flex items-center justify-between mb-3 p-3 bg-white rounded-xl">
+              <span className="text-sm text-gray-700">{unpaidOrder.category}</span>
+              <span className="text-lg font-bold text-amber-700">
+                {(unpaidOrder.final_price || unpaidOrder.estimated_price || 0).toLocaleString()}₫
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => payWithVNPay(unpaidOrder.id, unpaidOrder.final_price || unpaidOrder.estimated_price || 0)}
+                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700">
+                💳 VNPay
+              </button>
+              <button onClick={() => router.push(`/customer/payment?order_id=${unpaidOrder.id}&amount=${unpaidOrder.final_price || unpaidOrder.estimated_price || 0}`)}
+                className="flex-1 py-2.5 border border-blue-300 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-50">
+                💳 Stripe
+              </button>
             </div>
           </div>
         )}
