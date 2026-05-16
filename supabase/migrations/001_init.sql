@@ -61,15 +61,18 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
-CREATE POLICY IF NOT EXISTS "Users can view own profile"
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
-CREATE POLICY IF NOT EXISTS "Users can update own profile"
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
-CREATE POLICY IF NOT EXISTS "Workers can view customer profiles for assigned orders"
+DROP POLICY IF EXISTS "Workers can view customer profiles for assigned orders" ON public.profiles;
+CREATE POLICY "Workers can view customer profiles for assigned orders"
   ON public.profiles FOR SELECT
   USING (
     EXISTS (
@@ -79,46 +82,104 @@ CREATE POLICY IF NOT EXISTS "Workers can view customer profiles for assigned ord
     )
   );
 
-CREATE POLICY IF NOT EXISTS "Admins can view all profiles"
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+CREATE POLICY "Admins can view all profiles"
   ON public.profiles FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for workers
-CREATE POLICY IF NOT EXISTS "Workers can manage own worker profile"
+DROP POLICY IF EXISTS "Workers can manage own worker profile" ON public.workers;
+CREATE POLICY "Workers can manage own worker profile"
   ON public.workers FOR ALL
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Customers can view verified worker profiles"
+DROP POLICY IF EXISTS "Customers can view verified worker profiles" ON public.workers;
+CREATE POLICY "Customers can view verified worker profiles"
   ON public.workers FOR SELECT
   USING (is_verified = true);
 
-CREATE POLICY IF NOT EXISTS "Admins can manage all worker profiles"
+DROP POLICY IF EXISTS "Admins can manage all worker profiles" ON public.workers;
+CREATE POLICY "Admins can manage all worker profiles"
   ON public.workers FOR ALL
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for orders
-CREATE POLICY IF NOT EXISTS "Customers can view own orders"
+DROP POLICY IF EXISTS "Customers can view own orders" ON public.orders;
+CREATE POLICY "Customers can view own orders"
   ON public.orders FOR SELECT
   USING (auth.uid() = customer_id);
 
-CREATE POLICY IF NOT EXISTS "Customers can create orders"
+DROP POLICY IF EXISTS "Customers can create orders" ON public.orders;
+CREATE POLICY "Customers can create orders"
   ON public.orders FOR INSERT
   WITH CHECK (auth.uid() = customer_id);
 
-CREATE POLICY IF NOT EXISTS "Workers can view assigned orders"
+DROP POLICY IF EXISTS "Workers can view assigned orders" ON public.orders;
+CREATE POLICY "Workers can view assigned orders"
   ON public.orders FOR SELECT
   USING (auth.uid() = worker_id);
 
-CREATE POLICY IF NOT EXISTS "Workers can update assigned orders"
+DROP POLICY IF EXISTS "Workers can update assigned orders" ON public.orders;
+CREATE POLICY "Workers can update assigned orders"
   ON public.orders FOR UPDATE
   USING (auth.uid() = worker_id);
 
-CREATE POLICY IF NOT EXISTS "Admins can manage all orders"
+DROP POLICY IF EXISTS "Admins can manage all orders" ON public.orders;
+CREATE POLICY "Admins can manage all orders"
   ON public.orders FOR ALL
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
 -- RLS Policies for ai_logs
-CREATE POLICY IF NOT EXISTS "Only admins can view AI logs"
+DROP POLICY IF EXISTS "Only admins can view AI logs" ON public.ai_logs;
+CREATE POLICY "Only admins can view AI logs"
+  ON public.ai_logs FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- RLS Policies for workers
+DROP POLICY IF EXISTS "Workers can manage own worker profile" ON public.workers;
+CREATE POLICY "Workers can manage own worker profile"
+  ON public.workers FOR ALL
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Customers can view verified worker profiles" ON public.workers;
+CREATE POLICY "Customers can view verified worker profiles"
+  ON public.workers FOR SELECT
+  USING (is_verified = true);
+
+DROP POLICY IF EXISTS "Admins can manage all worker profiles" ON public.workers;
+CREATE POLICY "Admins can manage all worker profiles"
+  ON public.workers FOR ALL
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- RLS Policies for orders
+DROP POLICY IF EXISTS "Customers can view own orders" ON public.orders;
+CREATE POLICY "Customers can view own orders"
+  ON public.orders FOR SELECT
+  USING (auth.uid() = customer_id);
+
+DROP POLICY IF EXISTS "Customers can create orders" ON public.orders;
+CREATE POLICY "Customers can create orders"
+  ON public.orders FOR INSERT
+  WITH CHECK (auth.uid() = customer_id);
+
+DROP POLICY IF EXISTS "Workers can view assigned orders" ON public.orders;
+CREATE POLICY "Workers can view assigned orders"
+  ON public.orders FOR SELECT
+  USING (auth.uid() = worker_id);
+
+DROP POLICY IF EXISTS "Workers can update assigned orders" ON public.orders;
+CREATE POLICY "Workers can update assigned orders"
+  ON public.orders FOR UPDATE
+  USING (auth.uid() = worker_id);
+
+DROP POLICY IF EXISTS "Admins can manage all orders" ON public.orders;
+CREATE POLICY "Admins can manage all orders"
+  ON public.orders FOR ALL
+  USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- RLS Policies for ai_logs
+DROP POLICY IF EXISTS "Only admins can view AI logs" ON public.ai_logs;
+CREATE POLICY "Only admins can view AI logs"
   ON public.ai_logs FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
