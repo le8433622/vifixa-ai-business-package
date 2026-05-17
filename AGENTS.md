@@ -21,13 +21,10 @@
 ## Build Status (2026-05-17)
 | Check | Status |
 |-------|--------|
-| Next.js build (61 routes) | ✅ 0 errors |
+| Next.js build (62 routes) | ✅ 0 errors |
 | Deno tests (6 functions → 33) | ✅ 33/33 pass |
-| SQL migrations | 25 committed (001 → 20260528000001 + 20260517000004 + 20260517000005) |
+| SQL migrations | 26 committed (001 → 20260529000001) |
 | RLS on profiles | ✅ Fixed — `is_admin_from_jwt()` helper, 24+ policies converted |
-| Test user passwords | ✅ Reset to `Vifixa@2026!` — login working for all 3 roles |
-| Docker (local supabase) | ❌ Not running |
-| Production env config | ✅ Linked (lipjakzhzosrhttsltwo) |
 | CI/CD auto-deploy | ✅ GitHub Actions (Supabase + Vercel) — all green |
 
 ## Gap Analysis
@@ -71,20 +68,30 @@
 - **Mobile**: Expo project with all screens, push notification hook wired, GPS tracking ready
 - **Analytics**: Anomaly detection, revenue forecast, workforce suggestions, location analytics all in admin dashboard
 
+## Recent Work (2026-05-17)
+1. ✅ Applied all 10 P0 bug fixes — RLS recursion, payment function names, wallet escrow, mobile worker chat, admin disputes route, ai-fraud-check verifyAuth()
+2. ✅ Created customer map page `/customer/map` — standalone map with skill filter + AvailableWorkersMap
+3. ✅ Created worker mobile map `(worker)/map.tsx` — nearby orders on map with accept + detail panel
+4. ✅ Created 7 missing mobile admin screens: KYC, Payments, Settings, Analytics, Locks, Notifications, Refunds — updated admin tab layout with Vietnamese labels + comprehensive dashboard menu
+5. ✅ Verified AI scheduler cron — code complete (Edge Function + Vercel Cron route + vercel.json schedule)
+6. ✅ Implemented worker payout method — fixed Stripe Connect button (added worker_id), added payout history display on web + mobile earnings pages
+7. ✅ Rewrote admin AI settings page — fully functional: model selector, API keys, prompt editor, quality thresholds, persisting to app_settings table
+8. ✅ Added migration `20260529000001_ai_settings.sql` — creates app_settings table with AI config defaults
+
+## Build Status (2026-05-17)
+| Check | Status |
+|-------|--------|
+| Next.js build (62 routes) | ✅ 0 errors |
+| Deno tests (6 functions → 33) | ✅ 33/33 pass |
+| SQL migrations | 26 committed (001 → 20260529000001) |
+| RLS on profiles | ✅ Fixed |
+| CI/CD auto-deploy | ✅ GitHub Actions (Supabase + Vercel) |
+
 ## Next Steps
-1. ✅ Commit all pending work (done)
-2. ✅ Auto-deploy migrations via CI (`supabase db push` in deploy workflow)
-3. ✅ Auto-deploy Edge Functions via CI (all functions in deploy list)
-4. ✅ Auto-deploy web app via CI (`deploy-vercel.yml`)
-5. ❌ Docker chưa chạy local — chỉ cần nếu muốn dev local
-6. ✅ Commit + push current changes → CI/CD sẽ deploy tự động
-7. ⏳ **Fix P0 bugs** — `payment-create` function name mismatch (all VNPay broken), wallet escrow hardcoded `workerId`, mobile worker chat self-navigates
-8. ⏳ **Customer map page** — missing `/customer/map` for browsing workers visually
-9. ⏳ **Worker mobile map** — missing mobile worker map page
-10. ⏳ **Mobile admin pages** — only 4/12 admin mobile screens implemented
-11. ⏳ **AI scheduler cron** — proactive maintenance reminders not triggered automatically
-12. ⏳ **Worker payout method** — no bank/Stripe Connect payout for workers
-13. ⏳ **Admin AI settings page** — stub only, cannot configure models/prompts
+1. ⏳ **Verify CI/CD** after push — check deploy-vercel + deploy-supabase workflows
+2. ⏳ **Mobile admin**: fix English tab labels → Vietnamese (admin index, users, orders, disputes screens)
+3. ⏳ **P1 fixes**: map marker clustering, OSRM route optimization, push notification for worker arrival
+4. ⏳ **P2 fixes**: UI polish, English string audit, transition animations, empty states
 
 ## References
 - `vifixa-ai-v4` repo = backup archive (don't modify)

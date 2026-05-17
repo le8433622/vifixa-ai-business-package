@@ -20,6 +20,7 @@ function getRoleHomePath(role: string | null | undefined) {
 
 const NAV_ITEMS = [
   { href: '/customer', label: '🏠 Home', short: 'Home' },
+  { href: '/customer/map', label: '🗺️ Bản đồ', short: 'Map' },
   { href: '/customer/orders', label: '📋 Đơn hàng', short: 'Orders' },
   { href: '/customer/devices', label: '🔧 Thiết bị', short: 'Devices' },
   { href: '/customer/profile', label: '👤 Tài khoản', short: 'Account' },

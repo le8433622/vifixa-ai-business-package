@@ -72,7 +72,15 @@ export default function AdminDashboard() {
               { icon: '📊', name: 'Dashboard', href: '/admin' },
               { icon: '👥', name: 'Người dùng', href: '/admin/users' },
               { icon: '📋', name: 'Đơn hàng', href: '/admin/orders' },
+              { icon: '🪪', name: 'KYC', href: '/admin/kyc' },
+              { icon: '💳', name: 'Thanh toán', href: '/admin/payments' },
+              { icon: '⚖️', name: 'Khiếu nại', href: '/admin/disputes' },
+              { icon: '💰', name: 'Hoàn tiền', href: '/admin/refunds' },
+              { icon: '🔒', name: 'Khóa TK', href: '/admin/locks' },
+              { icon: '📈', name: 'Phân tích', href: '/admin/analytics' },
+              { icon: '🔔', name: 'Thông báo', href: '/admin/notifications' },
               { icon: '🔌', name: 'Tích hợp', href: '/admin/integrations' },
+              { icon: '⚙️', name: 'Cài đặt', href: '/admin/settings' },
             ].map(item => (
               <TouchableOpacity key={item.name} style={styles.menuItem} onPress={() => router.push(item.href as any)}>
                 <Text style={styles.menuIcon}>{item.icon}</Text>

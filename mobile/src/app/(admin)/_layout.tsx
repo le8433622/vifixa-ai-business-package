@@ -14,20 +14,28 @@ export default function AdminLayout() {
         tabBarIcon: ({ color, size }) => <Ionicons name="speedometer" size={size} color={color} />,
       }} />
       <Tabs.Screen name="users/index" options={{
-        title: 'Users',
+        title: 'Người dùng',
         tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
       }} />
       <Tabs.Screen name="orders/index" options={{
-        title: 'Orders',
+        title: 'Đơn hàng',
         tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} />,
       }} />
+      <Tabs.Screen name="kyc/index" options={{
+        title: 'KYC',
+        tabBarIcon: ({ color, size }) => <Ionicons name="id-card" size={size} color={color} />,
+      }} />
+      <Tabs.Screen name="payments/index" options={{
+        title: 'Thanh toán',
+        tabBarIcon: ({ color, size }) => <Ionicons name="card" size={size} color={color} />,
+      }} />
       <Tabs.Screen name="disputes" options={{
-        title: 'Disputes',
+        title: 'Khiếu nại',
         tabBarIcon: ({ color, size }) => <Ionicons name="scale" size={size} color={color} />,
       }} />
-      <Tabs.Screen name="integrations" options={{
-        title: 'Integrations',
-        tabBarIcon: ({ color, size }) => <Ionicons name="puzzle" size={size} color={color} />,
+      <Tabs.Screen name="settings/index" options={{
+        title: 'Cài đặt',
+        tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} />,
       }} />
     </Tabs>
   );

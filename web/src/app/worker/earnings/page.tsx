@@ -188,25 +188,75 @@ export default function WorkerEarnings() {
         </div>
       )}
 
-      {/* Stripe Connect - Nhận tiền qua Stripe */}
+      {/* Stripe Connect - Nhận tiền */}
       <div className="bg-white rounded-xl border p-5">
-        <h2 className="font-semibold mb-3">🌐 Stripe Connect</h2>
-        <p className="text-sm text-gray-500 mb-4">Nhận thanh toán quốc tế qua Stripe. Tạo tài khoản Stripe Express để rút tiền về tài khoản ngân hàng.</p>
+        <h2 className="font-semibold mb-3">🌐 Phương thức thanh toán</h2>
+        <p className="text-sm text-gray-500 mb-4">Kết nối tài khoản Stripe Express để nhận thanh toán quốc tế. Tiền sẽ được chuyển trực tiếp về tài khoản ngân hàng của bạn.</p>
         <button onClick={async () => {
           const { data: { session } } = await supabase.auth.getSession()
           if (!session) return
-          const res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-connect`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ country: 'VN' }),
+          const { data: worker } = await supabase.from('workers').select('stripe_account_id').eq('id', session.user.id).single()
+          if (worker?.stripe_account_id) {
+            const { data: link } = await supabase.functions.invoke('stripe-connect', {
+              body: { worker_id: session.user.id, country: 'VN' },
+            })
+            if ((link as any)?.url) window.open((link as any).url, '_blank')
+            return
+          }
+          const res = await supabase.functions.invoke('stripe-connect', {
+            body: { worker_id: session.user.id, email: session.user.email, country: 'VN' },
           })
-          const data = await res.json()
-          if (data.url) window.open(data.url, '_blank')
+          const data = res.data as any
+          if (data?.onboarding_url) window.open(data.onboarding_url, '_blank')
+          else if (data?.url) window.open(data.url, '_blank')
         }}
           className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition">
           🔗 Kết nối Stripe Express
         </button>
       </div>
+
+      {/* Payout History */}
+      <PayoutSection userId={userId} SUPABASE_URL={SUPABASE_URL || ''} />
+    </div>
+  )
+}
+
+function PayoutSection({ userId, SUPABASE_URL }: { userId: string; SUPABASE_URL: string }) {
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [stripeId, setStripeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('workers').select('stripe_account_id').eq('id', userId).single().then(({ data }) => {
+      if (data?.stripe_account_id) setStripeId(data.stripe_account_id)
+    })
+    supabase.from('payouts').select('*').eq('worker_id', userId).order('created_at', { ascending: false }).limit(20).then(({ data }) => {
+      if (data) setPayouts(data)
+    })
+  }, [userId])
+
+  return (
+    <div className="bg-white rounded-xl border p-5 space-y-4">
+      <h2 className="font-semibold">📋 Lịch sử nhận tiền</h2>
+      {stripeId && <p className="text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">✅ Stripe Connect: {stripeId.slice(0, 12)}...</p>}
+      {payouts.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-6">Chưa có giao dịch nhận tiền</p>
+      ) : (
+        <div className="space-y-2">
+          {payouts.map(p => (
+            <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{p.amount.toLocaleString()}₫</p>
+                <p className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString('vi-VN')}</p>
+              </div>
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                p.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                p.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                'bg-red-100 text-red-700'
+              }`}>{p.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
