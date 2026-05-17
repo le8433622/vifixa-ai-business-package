@@ -21,9 +21,11 @@ CREATE INDEX IF NOT EXISTS idx_service_areas_active ON public.service_areas(is_a
 
 ALTER TABLE public.service_areas ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Worker can manage own service area" ON public.service_areas;
 CREATE POLICY "Worker can manage own service area" ON public.service_areas
   FOR ALL USING (auth.uid() = worker_id);
 
+DROP POLICY IF EXISTS "Service role can manage service areas" ON public.service_areas;
 CREATE POLICY "Service role can manage service areas" ON public.service_areas
   FOR ALL USING (auth.role() = 'service_role');
 
@@ -86,7 +88,8 @@ CREATE INDEX IF NOT EXISTS idx_orders_location ON public.orders(location_lat, lo
 CREATE INDEX IF NOT EXISTS idx_orders_category_loc ON public.orders(category, location_lat, location_lng);
 
 -- Heatmap view: đếm số đơn theo khu vực
-CREATE OR REPLACE VIEW public.order_heatmap AS
+DROP VIEW IF EXISTS public.order_heatmap;
+CREATE VIEW public.order_heatmap AS
 SELECT
   category,
   ROUND(location_lat::NUMERIC, 3) AS lat_grid,

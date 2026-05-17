@@ -17,9 +17,11 @@ CREATE INDEX IF NOT EXISTS idx_ai_embeddings_type ON public.ai_embeddings(conten
 
 ALTER TABLE public.ai_embeddings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can search embeddings" ON public.ai_embeddings;
 CREATE POLICY "Anyone can search embeddings" ON public.ai_embeddings
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Service role can manage embeddings" ON public.ai_embeddings;
 CREATE POLICY "Service role can manage embeddings" ON public.ai_embeddings
   FOR ALL USING (auth.role() = 'service_role');
 

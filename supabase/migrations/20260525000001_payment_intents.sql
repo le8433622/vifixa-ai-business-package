@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS payment_intents (
   updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Table might exist with different columns from previous migration iteration
+ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS order_id UUID REFERENCES orders(id);
+ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id);
+ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS gateway_txn_id TEXT;
+ALTER TABLE payment_intents ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+
 CREATE INDEX IF NOT EXISTS idx_pi_order ON payment_intents(order_id);
 CREATE INDEX IF NOT EXISTS idx_pi_user ON payment_intents(user_id);
 CREATE INDEX IF NOT EXISTS idx_pi_gateway_txn ON payment_intents(gateway_txn_id);
