@@ -5,6 +5,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 import { createAICore } from '../_shared/ai-core.ts'
 
+const SUPABASE_URL = Deno.env.get('NEXT_PUBLIC_SUPABASE_URL') || ''
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
 interface ExecutorRequest {
   action: 'auto_diagnose' | 'auto_estimate' | 'auto_match' | 'auto_verify_kyc' | 'auto_resolve_dispute' | 'auto_complete'
   data: {
@@ -70,6 +73,14 @@ Deno.serve(async (req: Request) => {
   }
 })
 
+async function callWorkflowEngine(orderId: string, event: string, data?: Record<string, unknown>) {
+  await fetch(`${SUPABASE_URL}/functions/v1/workflow-engine`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}` },
+    body: JSON.stringify({ order_id: orderId, event, data }),
+  }).catch(e => console.error(`[auto-executor] workflow event ${event} failed:`, e))
+}
+
 async function handleDiagnose(supabase: any, aiCore: any, data: any) {
   if (!data.description) return jsonResponse({ error: 'Missing description' }, 400)
 
@@ -102,6 +113,11 @@ async function handleDiagnose(supabase: any, aiCore: any, data: any) {
     } catch (e) {
       console.warn('Vision analysis failed:', e)
     }
+  }
+
+  // Trigger workflow engine
+  if (data.order_id) {
+    await callWorkflowEngine(data.order_id, 'diagnosis:completed')
   }
 
   return jsonResponse({
@@ -137,6 +153,9 @@ async function handleEstimate(supabase: any, aiCore: any, data: any) {
     output: price,
   })
 
+  // Trigger workflow engine
+  await callWorkflowEngine(data.order_id, 'price:estimated')
+
   return jsonResponse({
     success: true,
     action: 'auto_match' as string,
@@ -168,7 +187,6 @@ async function handleMatch(supabase: any, aiCore: any, data: any) {
   // Auto-assign best worker
   await supabase.from('orders').update({
     worker_id: bestWorker.worker_id,
-    status: 'matched',
     updated_at: new Date().toISOString(),
   }).eq('id', data.order_id)
 
@@ -180,6 +198,9 @@ async function handleMatch(supabase: any, aiCore: any, data: any) {
     input: { order_id: data.order_id },
     output: { matched: bestWorker, alternatives: nearest.slice(1) },
   })
+
+  // Trigger workflow engine — status change handled by workflow
+  await callWorkflowEngine(data.order_id, 'worker:matched', { worker_id: bestWorker.worker_id })
 
   return jsonResponse({
     success: true,
@@ -300,10 +321,12 @@ async function handleDispute(supabase: any, aiCore: any, data: any) {
 async function handleComplete(supabase: any, data: any) {
   if (data.order_id) {
     await supabase.from('orders').update({
-      status: 'completed',
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('id', data.order_id)
+
+    // Trigger workflow engine — status change handled by workflow
+    await callWorkflowEngine(data.order_id, 'job:completed')
   }
 
   return jsonResponse({

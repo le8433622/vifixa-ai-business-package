@@ -103,6 +103,15 @@ export default function WorkerJobDetail() {
       })
     } catch {}
 
+    // Trigger workflow engine
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/workflow-engine`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: jobId, event: 'job:completed' }),
+      })
+    } catch {}
+
     await loadJob()
     setShowComplete(false)
     setUpdating(false)
@@ -352,6 +361,12 @@ function GeoFenceCheckIn({ job, jobId }: { job: any; jobId: string }) {
         worker_lng: workerLng,
         distance_km: distance || 0,
         within_radius: true,
+      })
+
+      await fetch(`${SUPABASE_URL}/functions/v1/workflow-engine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ order_id: jobId, event: 'worker:arrived' }),
       })
 
       setCheckedIn(true)

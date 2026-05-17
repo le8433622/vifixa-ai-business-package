@@ -18,12 +18,12 @@
 - Layout: flex flow only (no absolute overlays)
 - Auto mode: AI executes defined manual steps; centralized `useAutoMode` hook with Realtime subscriptions
 
-## Build Status (2026-05-16)
+## Build Status (2026-05-17)
 | Check | Status |
 |-------|--------|
 | Next.js build (61 routes) | ✅ 0 errors |
-| Deno tests (6 functions) | ✅ 33/33 pass |
-| SQL migrations | 21 committed |
+| Deno tests (6 functions → 33) | ✅ 33/33 pass |
+| SQL migrations | 22 committed |
 | Docker (local supabase) | ❌ Not running |
 | Production env config | ✅ Linked (lipjakzhzosrhttsltwo) |
 | CI/CD auto-deploy | ✅ GitHub Actions (Supabase + Vercel) |
@@ -42,11 +42,28 @@
 6. **Quality Fixes** — `@ts-nocheck` removed, dead code cleaned, OrderDetails interface fixed, transition prop on all 3 pages, AI KYC integration in admin approval, Layout redesign (flex flow), Language standardized EN→VI, UI polish
 
 ## SQL Migrations
-- Committed: `001_init`, `20260510...gateway_configs`, `20260514...companion_core`, `20260514...ai_map_payment_core`, `20260514...seed_vnpay`, `20260515...unify_v4_backup`, `20260515...create_companion_tables`, `20260515...multi_ledger_wallet`, `20260521...ai_vector_search`, `20260522...service_areas_heatmap`, `20260523...map_infrastructure`, `20260525...payment_intents`, `20260526...workflow_engine`, `20260526...notifications`, +4 phase migrations
+- Committed: `001_init`, `20260510...gateway_configs`, `20260514...companion_core`, `20260514...ai_map_payment_core`, `20260514...seed_vnpay`, `20260515...unify_v4_backup`, `20260515...create_companion_tables`, `20260515...multi_ledger_wallet`, `20260521...ai_vector_search`, `20260522...service_areas_heatmap`, `20260523...map_infrastructure`, `20260525...payment_intents`, `20260526...workflow_engine`, `20260526...notifications`, `20260527...workflow_triggers_idempotency`, `20260528...device_tokens_messages`, +4 phase migrations
 
 ## Edge Functions
 - Deployed/ready: `ai-chat`, `ai-diagnosis`, `ai-matching`, `ai-quality`, `ai-dispute`, `ai-coach`, `ai-predict`, `ai-warranty`, `ai-healthcheck`, `ai-care-agent`, `ai-fraud-check`, `stripe-connect`, `companion/chat`
 - Ready (auto-deploy on push): `ai-auto-executor`, `ai-kyc`, `workflow-engine`, `notify`
+
+## Recent Work (2026-05-17)
+1. ✅ Fixed login routing bug (P0) — profiles columns, error handling on login/register/home pages
+2. ✅ Applied 14 migrations to production (20260515000004 → 20260528000001)
+3. ✅ Added `DROP POLICY IF EXISTS` to 4 migration files for idempotent deployment
+4. ✅ Wired `ai-auto-executor` to call workflow engine (diagnosis:completed, price:estimated, worker:matched, job:completed)
+5. ✅ Wired worker GeoFenceCheckIn → `worker:arrived` workflow event
+6. ✅ Wired worker job complete → `job:completed` workflow event
+7. ✅ Wired mobile `usePushNotifications` hook into App.tsx root
+
+## Current State
+- **Workflow Engine**: Full 11-state machine, all events wired from payment-process, wallet-manager, ai-auto-executor, and worker UI
+- **Notification Engine**: 13 notification types, SMS (Twilio) + Push (Expo) + In-app table, NotificationBell component wired in all 3 layouts
+- **Real-time Tracking**: WorkerTracker with Realtime subscription, OSRM route integration on worker map
+- **Customer Refund**: RefundRequestModal + Admin refund management page complete
+- **Mobile**: Expo project with all screens, push notification hook wired, GPS tracking ready
+- **Analytics**: Anomaly detection, revenue forecast, workforce suggestions, location analytics all in admin dashboard
 
 ## Next Steps
 1. ✅ Commit all pending work (done)
@@ -54,6 +71,7 @@
 3. ✅ Auto-deploy Edge Functions via CI (all functions in deploy list)
 4. ✅ Auto-deploy web app via CI (`deploy-vercel.yml`)
 5. ❌ Docker chưa chạy local — chỉ cần nếu muốn dev local
+6. ⏳ Commit + push current changes → CI/CD sẽ deploy tự động
 
 ## References
 - `vifixa-ai-v4` repo = backup archive (don't modify)
