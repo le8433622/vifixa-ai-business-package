@@ -124,7 +124,7 @@ export default function CustomerOrderDetailsPage() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
     try {
-      const res = await fetch(`${supabaseUrl}/functions/v1/payment-create`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/payment-process`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.access_token}`,

@@ -51,7 +51,7 @@ export default function AdminDashboard() {
     if (action.type === 'view_users') router.push('/admin/users')
     else if (action.type === 'view_orders') router.push('/admin/orders')
     else if (action.type === 'view_integrations') router.push('/admin/integrations')
-    else if (action.type === 'view_disputes') router.push('/admin/orders')
+    else if (action.type === 'view_disputes') router.push('/admin/disputes')
   }, [router])
 
   if (!userId || loading) return <div className="flex items-center justify-center h-screen bg-gray-900"><div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-500 border-t-transparent" /></div>

@@ -47,7 +47,7 @@ export default function WorkerDashboard() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.chatBtn} onPress={() => router.push('/(worker)/index')}>
+        <TouchableOpacity style={styles.chatBtn} onPress={() => router.push('/(worker)/chat')}>
           <Text style={styles.chatBtnText}>💬 Chat với AI</Text>
         </TouchableOpacity>
       </View>

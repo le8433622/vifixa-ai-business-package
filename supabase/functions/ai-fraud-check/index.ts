@@ -1,9 +1,4 @@
-// Enhanced AI Fraud Check Edge Function
-// Per 12_OPERATIONS_AND_TRUST.md - Anti-fraud detection
-// TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
-// Per Step 7: Trust & Quality - Task 5
-
-import { corsHeaders } from '../_shared/cors.ts';
+import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface FraudCheckRequest {
@@ -20,56 +15,25 @@ interface FraudAlert {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req);
+    if (!user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify admin role
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': serviceRoleKey,
-      },
-    });
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
 
-    if (!userResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userData = await userResponse.json();
-
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${userData.id}&select=role`,
-      {
-        headers: {
-          'Authorization': `Bearer ${serviceRoleKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const profile = await profileResponse.json();
-
-    if (!profile[0] || profile[0].role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized: Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!profile || profile.role !== 'admin') {
+      return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
     }
 
     const { order_id, user_id, check_type }: FraudCheckRequest = await req.json();
@@ -310,28 +274,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        alerts,
-        risk_score: alerts.reduce((score, alert) => {
-          if (alert.severity === 'critical') return score + 30;
-          if (alert.severity === 'high') return score + 20;
-          if (alert.severity === 'medium') return score + 10;
-          return score + 5;
-        }, 0),
-        alerts_count: alerts.length,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      alerts,
+      risk_score: alerts.reduce((score, alert) => {
+        if (alert.severity === 'critical') return score + 30;
+        if (alert.severity === 'high') return score + 20;
+        if (alert.severity === 'medium') return score + 10;
+        return score + 5;
+      }, 0),
+      alerts_count: alerts.length,
+    });
   } catch (error: unknown) {
     console.error('Fraud check error:', error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({ error: (error as Error).message }, 500);
   }
 });

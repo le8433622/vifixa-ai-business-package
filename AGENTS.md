@@ -23,10 +23,12 @@
 |-------|--------|
 | Next.js build (61 routes) | ✅ 0 errors |
 | Deno tests (6 functions → 33) | ✅ 33/33 pass |
-| SQL migrations | 22 committed |
+| SQL migrations | 25 committed (001 → 20260528000001 + 20260517000004 + 20260517000005) |
+| RLS on profiles | ✅ Fixed — `is_admin_from_jwt()` helper, 24+ policies converted |
+| Test user passwords | ✅ Reset to `Vifixa@2026!` — login working for all 3 roles |
 | Docker (local supabase) | ❌ Not running |
 | Production env config | ✅ Linked (lipjakzhzosrhttsltwo) |
-| CI/CD auto-deploy | ✅ GitHub Actions (Supabase + Vercel) |
+| CI/CD auto-deploy | ✅ GitHub Actions (Supabase + Vercel) — all green |
 
 ## Gap Analysis
 - Source of truth for all identified gaps: `docs/GAP_ANALYSIS.md`, `docs/FLOWCHART.md`
@@ -56,6 +58,10 @@
 5. ✅ Wired worker GeoFenceCheckIn → `worker:arrived` workflow event
 6. ✅ Wired worker job complete → `job:completed` workflow event
 7. ✅ Wired mobile `usePushNotifications` hook into App.tsx root
+8. ✅ **RLS Recursion Fix**: Created `is_admin_from_jwt()` helper, converted 24+ admin policies across all tables to use JWT instead of subquerying `profiles` — breaks infinite `profiles → orders → profiles` loop
+9. ✅ **Test user passwords**: Reset to `Vifixa@2026!` — login verified for all 3 roles
+10. ✅ **Migration cleanup**: Removed superseded 02/03 files, repaired migration history (marked reverted), committed + pushed 04 + 05
+11. ✅ **CI/CD**: All 3 pipelines green (Deploy Vercel, Deploy Supabase, Self-Check)
 
 ## Current State
 - **Workflow Engine**: Full 11-state machine, all events wired from payment-process, wallet-manager, ai-auto-executor, and worker UI
@@ -71,7 +77,14 @@
 3. ✅ Auto-deploy Edge Functions via CI (all functions in deploy list)
 4. ✅ Auto-deploy web app via CI (`deploy-vercel.yml`)
 5. ❌ Docker chưa chạy local — chỉ cần nếu muốn dev local
-6. ⏳ Commit + push current changes → CI/CD sẽ deploy tự động
+6. ✅ Commit + push current changes → CI/CD sẽ deploy tự động
+7. ⏳ **Fix P0 bugs** — `payment-create` function name mismatch (all VNPay broken), wallet escrow hardcoded `workerId`, mobile worker chat self-navigates
+8. ⏳ **Customer map page** — missing `/customer/map` for browsing workers visually
+9. ⏳ **Worker mobile map** — missing mobile worker map page
+10. ⏳ **Mobile admin pages** — only 4/12 admin mobile screens implemented
+11. ⏳ **AI scheduler cron** — proactive maintenance reminders not triggered automatically
+12. ⏳ **Worker payout method** — no bank/Stripe Connect payout for workers
+13. ⏳ **Admin AI settings page** — stub only, cannot configure models/prompts
 
 ## References
 - `vifixa-ai-v4` repo = backup archive (don't modify)

@@ -27,13 +27,20 @@ export default function PaymentPage() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [step, setStep] = useState<'select' | 'confirm' | 'processing' | 'done'>('select')
   const [result, setResult] = useState<any>(null)
+  const [workerId, setWorkerId] = useState<string>('')
 
   useEffect(() => {
     if (orderId && amountParam <= 0) {
       loadOrderAmount()
     }
+    if (orderId) loadOrderWorker()
     if (selectedGateway === 'wallet') loadWalletBalance()
   }, [selectedGateway, orderId])
+
+  async function loadOrderWorker() {
+    const { data } = await supabase.from('orders').select('worker_id').eq('id', orderId).single()
+    if (data?.worker_id) setWorkerId(data.worker_id)
+  }
 
   async function loadOrderAmount() {
     const { data } = await supabase.from('orders').select('estimated_price').eq('id', orderId).single()
@@ -67,7 +74,7 @@ export default function PaymentPage() {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/wallet-manager`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'escrow:hold', orderId, workerId: 'pending', amount }),
+          body: JSON.stringify({ action: 'escrow:hold', orderId, workerId: workerId || 'pending', amount }),
         })
         const data = await res.json()
         if (data.status === 'pending') {

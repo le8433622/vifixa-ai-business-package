@@ -1188,6 +1188,20 @@ Phase 6: Polish + Test + Deploy
 
 ### 2026-05-15 — v1.20: Full Architecture Final
 
+### 2026-05-17 — v1.22: 🔴 RLS Recursion Fix + Login Working + Comprehensive Gap Analysis
+- 🐛 **Bug #CRITICAL**: Infinite RLS recursion — `profiles` policies → `orders` admin policy → `profiles` → infinite loop
+  - Root cause: "Admins can manage all orders" on `orders` used `EXISTS (SELECT 1 FROM profiles WHERE ...)`
+  - 24+ admin-check policies across 20+ tables (orders, kyc_documents, complaints, workers, wallets, etc.) all referenced `profiles`
+- 🔧 **Fix**: Created `public.is_admin_from_jwt()` — reads role from JWT metadata, zero DB queries
+  - Rewrote ALL 24+ admin policies to use `is_admin_from_jwt()` instead of subquerying `profiles`
+  - Dropped stale `check_is_admin()` SECURITY DEFINER function
+- 🔑 **Test user passwords**: Reset all 3 to `Vifixa@2026!`
+- ✅ **Verification**: All 3 roles login + query profiles successfully
+- 🏗️ **Migrations committed + pushed**: `20260517000004` (profiles fix) + `20260517000005` (comprehensive fix)
+- ✅ **CI/CD**: All 3 pipelines green (Deploy Vercel, Deploy Supabase, Self-Check)
+- 📋 **New Gap Analysis** — 77 pain points identified across Customer (13), Worker (10), Admin (10), AI (8), Map (8), Payment (10), Mobile (13), Cross-cutting (5)
+- 🔴 **P0 critical**: `payment-create` function doesn't exist (all VNPay flows broken), wallet escrow hardcodes `workerId: 'pending'`, mobile worker chat self-navigates
+
 ### 2026-05-15 — v1.21: Language Standardization + Gap Analysis
 - 🌐 **Language rules added** — UI text PHẢI là Tiếng Việt, EN chỉ trong code comments
 - 🔍 **Gap Analysis** — 30 features checked across AI (10/10 ✅) + Map (6/8 ⚠️) + Payment (12/12 ✅)
