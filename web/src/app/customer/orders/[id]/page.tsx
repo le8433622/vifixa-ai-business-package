@@ -12,6 +12,7 @@ import { useToast } from '@/components/Toast';
 import Link from 'next/link'
 import ReviewModal from '@/components/modals/ReviewModal'
 import ComplaintModal from '@/components/modals/ComplaintModal'
+import RefundRequestModal from '@/components/modals/RefundRequestModal'
 import WarrantyModal from '@/components/modals/WarrantyModal'
 import VerificationBadge from '@/components/trust/VerificationBadge'
 import WorkerTracker from '@/components/map/WorkerTracker'
@@ -76,6 +77,7 @@ export default function CustomerOrderDetailsPage() {
   const [showReview, setShowReview] = useState(false)
   const [showWarranty, setShowWarranty] = useState(false)
   const [showComplaint, setShowComplaint] = useState(false)
+  const [showRefund, setShowRefund] = useState(false)
 
   const { data: order, isLoading, error: orderError, refetch } = useQuery({
     queryKey: ['order', orderId],
@@ -597,6 +599,12 @@ export default function CustomerOrderDetailsPage() {
                   ⚠️ Khiếu nại
                 </button>
               )}
+              {(order.payment_status === 'paid') && (
+                <button onClick={() => setShowRefund(true)}
+                  className="w-full px-4 py-2.5 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium">
+                  💰 Yêu cầu hoàn tiền
+                </button>
+              )}
               {['completed', 'cancelled', 'disputed'].includes(order.status) && !showReviewButton && !showWarrantyButton && !showComplaintButton && (
                 <p className="text-sm text-gray-400 text-center">Không có hành động khả dụng</p>
               )}
@@ -658,6 +666,12 @@ export default function CustomerOrderDetailsPage() {
       {showComplaint && (
         <ComplaintModal orderId={order.id} onClose={() => setShowComplaint(false)}
           onSuccess={() => { setShowComplaint(false); refetch() }} />
+      )}
+      {showRefund && (
+        <RefundRequestModal orderId={order.id}
+          maxAmount={order.final_price || order.estimated_price || 0}
+          onClose={() => setShowRefund(false)}
+          onSuccess={() => { setShowRefund(false); refetch() }} />
       )}
     </div>
   );

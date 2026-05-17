@@ -18,7 +18,9 @@ const NAV_ITEMS = [
   { href: '/admin/orders', label: '📋 Orders' },
   { href: '/admin/payments', label: '💳 Payments' },
   { href: '/admin/disputes', label: '⚖️ Disputes' },
+  { href: '/admin/refunds', label: '💰 Refunds' },
   { href: '/admin/analytics', label: '📈 Analytics' },
+  { href: '/admin/notifications', label: '🔔 Notifications' },
   { href: '/admin/integrations', label: '🔌 Integrations' },
 ]
 

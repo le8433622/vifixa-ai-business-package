@@ -32,6 +32,8 @@ export default function WorkerMapPage() {
   const [loading, setLoading] = useState(true)
   const [workerPos, setWorkerPos] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
+  const [routeCoords, setRouteCoords] = useState<Array<[number, number]> | null>(null)
+  const [routeEta, setRouteEta] = useState<{ distance: number; duration: number } | null>(null)
 
   useEffect(() => {
     load()
@@ -90,6 +92,25 @@ export default function WorkerMapPage() {
     router.push(`/worker/jobs/${orderId}`)
   }
 
+  // Fetch OSRM route when order selected
+  useEffect(() => {
+    if (!selectedOrder || !workerPos) { setRouteCoords(null); setRouteEta(null); return }
+    const order = orders.find(o => o.id === selectedOrder)
+    if (!order) return
+
+    const from = `${workerPos.lng},${workerPos.lat}`
+    const to = `${order.location_lng},${order.location_lat}`
+    fetch(`https://router.project-osrm.org/route/v1/driving/${from};${to}?overview=full&geometries=geojson`)
+      .then(r => r.json())
+      .then(data => {
+        const route = data?.routes?.[0]
+        const coords = route?.geometry?.coordinates
+        if (coords) setRouteCoords(coords.map((c: number[]) => [c[1], c[0]] as [number, number]))
+        if (route) setRouteEta({ distance: route.distance, duration: route.duration })
+      })
+      .catch(() => {})
+  }, [selectedOrder, workerPos])
+
   if (loading) return (
     <div className="flex items-center justify-center h-[calc(100vh-3.5rem)]">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
@@ -113,6 +134,7 @@ export default function WorkerMapPage() {
               onClick: () => setSelectedOrder(o.id),
             })),
           ]}
+          route={routeCoords || undefined}
           style={{ height: '100%', width: '100%' }}
         />
 
@@ -145,6 +167,23 @@ export default function WorkerMapPage() {
                 from={workerPos}
                 to={{ lat: selectedOrderData.location_lat, lng: selectedOrderData.location_lng }}
               />
+            )}
+            {routeCoords && (
+              <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                <span>🛣️ Có lộ trình</span>
+                {routeEta && (
+                  <span className="text-gray-700 font-medium">
+                    {routeEta.duration > 60
+                      ? `${Math.round(routeEta.duration / 60)} phút`
+                      : `${Math.round(routeEta.duration)} giây`}
+                    {' · '}
+                    {routeEta.distance > 1000
+                      ? `${(routeEta.distance / 1000).toFixed(1)} km`
+                      : `${Math.round(routeEta.distance)} m`}
+                  </span>
+                )}
+                <span className="text-gray-500">→ {selectedOrderData.address?.slice(0, 25) || 'Đã có chỉ đường'}</span>
+              </div>
             )}
             <div className="flex gap-2">
               <button onClick={() => acceptOrder(selectedOrderData.id)}

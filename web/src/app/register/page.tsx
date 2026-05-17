@@ -29,29 +29,32 @@ export default function Register() {
     if (!data.user) { setError('Đăng ký thất bại'); setLoading(false); return }
 
     // Cập nhật profile với thông tin từ form
-    await (supabase as any).from('profiles').update({
+    const { error: profileError } = await supabase.from('profiles').update({
       full_name: fullName,
       phone,
       role,
     }).eq('id', data.user.id)
+    if (profileError) console.error('Profile update failed:', profileError)
 
     // Nếu là worker, tạo worker profile
     if (role === 'worker') {
-      await (supabase as any).from('workers').insert({
+      const { error: workerError } = await supabase.from('workers').insert({
         id: data.user.id,
         full_name: fullName,
         phone,
       })
+      if (workerError) console.error('Worker insert failed:', workerError)
     }
 
     // Tạo companion greeting trong memory
-    await (supabase as any).from('companion_memories').insert({
+    const { error: memoryError } = await supabase.from('companion_memories').insert({
       user_id: data.user.id,
       key: 'welcome_date',
       value: new Date().toISOString(),
       category: 'onboarding',
       importance: 3,
     })
+    if (memoryError) console.error('Memory insert failed:', memoryError)
 
     alert('🎉 Đăng ký thành công! Chào mừng bạn đến với Vifixa AI.')
     router.push('/login')

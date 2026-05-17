@@ -7,6 +7,7 @@ import KYCUpload from '@/components/trust/KYCUpload'
 import PortfolioManager from '@/components/trust/PortfolioManager'
 import TrustScoreGauge from '@/components/trust/TrustScoreGauge'
 import VerificationBadge from '@/components/trust/VerificationBadge'
+import ServiceAreaDrawer from '@/components/map/ServiceAreaDrawer'
 
 const ALL_SKILLS = [
   'Máy lạnh', 'Điện', 'Nước', 'Camera', 'Tủ lạnh',
@@ -29,6 +30,8 @@ export default function WorkerProfile() {
   const [skills, setSkills] = useState<string[]>([])
   const [areas, setAreas] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [servicePolygon, setServicePolygon] = useState<[number, number][] | null>(null)
+  const [showMap, setShowMap] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -98,7 +101,7 @@ export default function WorkerProfile() {
       {/* Service areas */}
       <div className="bg-white rounded-xl border p-5">
         <h2 className="font-semibold mb-3">📍 Khu vực phục vụ</h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-3">
           {ALL_AREAS.map(area => (
             <button key={area} onClick={() => setAreas(prev => prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area])}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
@@ -108,6 +111,22 @@ export default function WorkerProfile() {
             </button>
           ))}
         </div>
+        <button onClick={() => setShowMap(!showMap)}
+          className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+          {showMap ? '🔼 Ẩn bản đồ' : '🗺️ Vẽ khu vực trên bản đồ'}
+        </button>
+        {showMap && (
+          <div className="mt-3">
+            <ServiceAreaDrawer
+              value={servicePolygon}
+              onChange={setServicePolygon}
+              height={400}
+            />
+            {servicePolygon && servicePolygon.length > 0 && (
+              <p className="text-xs text-emerald-600 mt-2">✅ Đã vẽ khu vực ({servicePolygon.length} điểm)</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Trust score */}

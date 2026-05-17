@@ -1,6 +1,32 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
+// Expo push notification endpoint
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
+
+async function sendPushNotification(token: string, title: string, body: string, data?: Record<string, unknown>): Promise<void> {
+  try {
+    const res = await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: token,
+        title,
+        body,
+        data: data || {},
+        sound: 'default',
+        priority: 'high',
+      }),
+    })
+    if (!res.ok) {
+      const errText = await res.text()
+      console.error('[notify] Expo push error:', errText)
+    }
+  } catch (e) {
+    console.error('[notify] Expo push failed:', e)
+  }
+}
+
 type NotifyType =
   | 'new_job'
   | 'job_accepted'
@@ -195,6 +221,19 @@ Deno.serve(async (req: Request) => {
       if (profile?.phone) {
         const smsBody = template.sms(body)
         sendSms(profile.phone as string, smsBody)
+      }
+    }
+
+    // Send push notification to all active device tokens
+    const { data: tokens } = await supabase
+      .from('device_tokens')
+      .select('token')
+      .eq('user_id', user_id)
+      .eq('is_active', true)
+
+    if (tokens && tokens.length > 0) {
+      for (const t of tokens) {
+        sendPushNotification(t.token as string, title, body_, { order_id, type })
       }
     }
 

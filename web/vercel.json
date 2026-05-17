@@ -9,5 +9,15 @@
       "destination": "/",
       "permanent": true
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/ai-scheduler",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-idempotency",
+      "schedule": "0 3 * * 0"
+    }
   ]
 }

@@ -13,6 +13,7 @@ interface MapViewProps {
     icon?: L.DivIcon
     onClick?: () => void
   }>
+  route?: Array<[number, number]>
   className?: string
   style?: React.CSSProperties
   onMapReady?: (map: L.Map) => void
@@ -23,6 +24,7 @@ export default function MapView({
   center = [10.8231, 106.6297],
   zoom = 12,
   markers = [],
+  route,
   className = '',
   style,
   onMapReady,
@@ -31,6 +33,7 @@ export default function MapView({
   const mapRef = useRef<L.Map | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const markersRef = useRef<L.Marker[]>([])
+  const routeRef = useRef<L.Polyline | null>(null)
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -78,6 +81,21 @@ export default function MapView({
     if (!mapRef.current) return
     mapRef.current.setView(center, zoom)
   }, [center, zoom])
+
+  useEffect(() => {
+    if (routeRef.current) {
+      routeRef.current.remove()
+      routeRef.current = null
+    }
+    if (!mapRef.current || !route || route.length < 2) return
+    routeRef.current = L.polyline(route, {
+      color: '#3b82f6',
+      weight: 4,
+      opacity: 0.7,
+      dashArray: '10, 10',
+    }).addTo(mapRef.current)
+    mapRef.current.fitBounds(routeRef.current.getBounds().pad(0.1))
+  }, [route])
 
   return (
     <div

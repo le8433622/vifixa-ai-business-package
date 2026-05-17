@@ -22,12 +22,13 @@ export default function Home() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        const { data } = await (supabase as any)
+        const { data, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
           .single();
 
+        if (profileError) { console.error('profile fetch error:', profileError); setLoading(false); return; }
         const profile = data as { role?: string } | null;
         const role = profile?.role;
         const updatedUser = { ...session.user, role };

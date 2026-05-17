@@ -26,7 +26,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       - name: Deploy Key Functions
         run: |
-          for fn in companion ai-diagnose ai-match ai-coach ai-dispute ai-quality ai-fraud-check ai-predict ai-care-agent ai-healthcheck ai-matching ai-estimate-price ai-kyc ai-auto-executor workflow-engine notify admin-dashboard payment-create payment-process wallet-manager vnpay-ipn; do
+          for fn in companion ai-diagnose ai-match ai-coach ai-dispute ai-quality ai-fraud-check ai-predict ai-care-agent ai-healthcheck ai-matching ai-estimate-price ai-kyc ai-auto-executor workflow-engine notify admin-dashboard payment-create payment-process wallet-manager vnpay-ipn register-device stripe-create-payout ai-scheduler stripe-connect stripe-payment-intent stripe-webhook stripe-checkout; do
             echo "Deploying $fn..."
             supabase functions deploy "$fn" --project-ref lipjakzhzosrhttsltwo --use-api || echo "⚠️ $fn deploy failed, skipping..."
           done

@@ -157,7 +157,7 @@ async function executeAction(action: string, orderId: string, supabase: any, con
     }
     case 'calculate_trust_score': {
       supabase.rpc('calculate_trust_score', { target_user_id: context?.worker_id || '' })
-        .catch(e => console.error('[workflow] calculate_trust_score failed', e))
+        .catch((e: any) => console.error('[workflow] calculate_trust_score failed', e))
       break
     }
     case 'request_review': {
@@ -205,8 +205,21 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405)
 
   try {
-    const user = await verifyAuth(req)
-    if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || Deno.env.get('NEXT_PUBLIC_SUPABASE_URL') || ''
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse({ error: 'Server configuration error' }, 500)
+    }
+
+    // Allow internal calls (service_role key) in addition to user JWTs
+    const authHeader = req.headers.get('Authorization') || ''
+    const isInternalCall = authHeader === `Bearer ${serviceRoleKey}`
+
+    if (!isInternalCall) {
+      const user = await verifyAuth(req)
+      if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
 
     const body: WorkflowRequest = await req.json()
     const { order_id, event, data = {} } = body
@@ -215,8 +228,6 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Missing order_id or event' }, 400)
     }
 
-    const supabaseUrl = Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')!
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     let { data: workflow, error: fetchError } = await supabase

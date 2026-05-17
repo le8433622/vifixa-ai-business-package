@@ -18,7 +18,8 @@ export default function Login() {
   }, [])
 
   async function redirectByRole(userId: string) {
-    const { data } = await supabase.from('profiles').select('role').eq('id', userId).single()
+    const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single()
+    if (error || !data) { console.error('redirectByRole error:', error); router.replace('/'); return }
     const role = (data as any)?.role
     if (role === 'customer') router.replace('/customer')
     else if (role === 'worker') router.replace('/worker')

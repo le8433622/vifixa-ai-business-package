@@ -13,6 +13,10 @@ export default function CustomerLayout() {
         title: 'Home',
         tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
       }} />
+      <Tabs.Screen name="map" options={{
+        title: 'Bản đồ',
+        tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
+      }} />
       <Tabs.Screen name="orders/index" options={{
         title: 'Đơn hàng',
         tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} />,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
+import { useQueryClient } from '@tanstack/react-query'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -30,6 +31,8 @@ export default function DisputeDetail() {
     setLoading(false)
   }
 
+  const queryClient = useQueryClient()
+
   async function handleResolve() {
     setResolving(true)
     const { data: { session } } = await supabase.auth.getSession()
@@ -53,9 +56,15 @@ export default function DisputeDetail() {
         await fetch(`${SUPABASE_URL}/functions/v1/wallet-manager`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'escrow:refund', orderId: dispute.order_id }),
+          body: JSON.stringify({ action: 'escrow:refund', orderId: dispute.order_id, idempotency_key: `admin_refund_${disputeId}` }),
         })
         await supabase.from('orders').update({ status: 'disputed', payment_status: 'refunded' }).eq('id', dispute.order_id)
+        // Trigger workflow engine
+        await fetch(`${SUPABASE_URL}/functions/v1/workflow-engine`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: dispute.order_id, event: 'quality:failed', data: { resolution: resolveAction } }),
+        }).catch(() => {})
       } catch (e) {
         console.error('Refund error:', e)
       }
@@ -67,7 +76,8 @@ export default function DisputeDetail() {
     }
 
     setShowResolveModal(false)
-    toast('✅ Dispute resolved', 'success')
+    toast('✅ Đã giải quyết', 'success')
+    queryClient.invalidateQueries({ queryKey: ['orders'] })
     load()
     setResolving(false)
   }

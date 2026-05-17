@@ -4,6 +4,28 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 import { logVifixa } from '../_shared/logger.ts'
+
+// ─── IDEMPOTENCY HELPERS ──────────────────────────────────
+
+async function checkIdempotency(supabase: any, key: string): Promise<any | null> {
+  const { data } = await supabase.from('idempotency_keys').select('response').eq('key', key).maybeSingle()
+  return data?.response || null
+}
+
+async function saveIdempotency(supabase: any, key: string, response: any): Promise<void> {
+  await supabase.from('idempotency_keys').insert({ key, response }).catch(() => {})
+}
+
+async function callWorkflowEngine(supabase: any, orderId: string, event: string, data?: Record<string, unknown>): Promise<void> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!supabaseUrl || !serviceRoleKey) return
+  fetch(`${supabaseUrl}/functions/v1/workflow-engine`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceRoleKey}` },
+    body: JSON.stringify({ order_id: orderId, event, data }),
+  }).catch(e => console.error('[wallet] workflow call failed:', e))
+}
 import {
   type WalletType, type TransferRequest, type SplitRequest,
   calculateSplit, calculateFee, calculateDynamicPrice,
@@ -34,8 +56,8 @@ Deno.serve(async (req: Request) => {
       case 'deposit': return await deposit(supabase, user.id, params)
       case 'withdraw': return await withdraw(supabase, user.id, params)
       case 'escrow:hold': return await escrowHold(supabase, user.id, params)
-      case 'escrow:release': return await escrowRelease(supabase, params.orderId)
-      case 'escrow:refund': return await escrowRefund(supabase, params.orderId)
+      case 'escrow:release': return await escrowRelease(supabase, params.orderId, params)
+      case 'escrow:refund': return await escrowRefund(supabase, params.orderId, params)
       case 'stake:create': return await stakeCreate(supabase, user.id, params)
       case 'stake:claim': return await stakeClaim(supabase, user.id, params)
       case 'stake:calculate': return await stakeCalculate(supabase, user.id, params)
@@ -145,7 +167,11 @@ async function escrowHold(supabase: any, userId: string, params: any) {
   return jsonResponse({ status: 'pending', amount, fee, workerPayout })
 }
 
-async function escrowRelease(supabase: any, orderId: string) {
+async function escrowRelease(supabase: any, orderId: string, params?: any) {
+  const idemKey = params?.idempotency_key || `escrow_release_${orderId}`
+  const existing = await checkIdempotency(supabase, idemKey)
+  if (existing) return jsonResponse(existing)
+
   // Get escrow + verify conditions
   const { data: escrow } = await supabase
     .from('escrow').select('*').eq('order_id', orderId).single()
@@ -166,15 +192,33 @@ async function escrowRelease(supabase: any, orderId: string) {
 
   if (error) throw error
   logVifixa('wallet', 'escrow_released', { orderId, amount: escrow.amount })
-  return jsonResponse({ status: 'released', transaction: data })
+
+  const response = { status: 'released', transaction: data }
+  await saveIdempotency(supabase, idemKey, response)
+
+  // Trigger workflow engine after release
+  callWorkflowEngine(supabase, orderId, 'quality:passed', { escrow_status: 'released' })
+
+  return jsonResponse(response)
 }
 
-async function escrowRefund(supabase: any, orderId: string) {
+async function escrowRefund(supabase: any, orderId: string, params?: any) {
+  const idemKey = params?.idempotency_key || `escrow_refund_${orderId}`
+  const existing = await checkIdempotency(supabase, idemKey)
+  if (existing) return jsonResponse(existing)
+
   const { data, error } = await supabase.rpc('refund_escrow', {
     p_order_id: orderId,
   })
   if (error) throw error
-  return jsonResponse({ status: 'refunded', transaction: data })
+
+  const response = { status: 'refunded', transaction: data }
+  await saveIdempotency(supabase, idemKey, response)
+
+  // Trigger workflow engine after refund
+  callWorkflowEngine(supabase, orderId, 'order:cancelled', { refund_status: 'refunded' })
+
+  return jsonResponse(response)
 }
 
 // ─── STAKING ───────────────────────────────────────────────

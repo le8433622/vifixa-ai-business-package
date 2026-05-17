@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import WalletDashboard from '@/components/wallet/WalletDashboard'
+import { useToast } from '@/components/Toast'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -186,6 +187,26 @@ export default function WorkerEarnings() {
           </div>
         </div>
       )}
+
+      {/* Stripe Connect - Nhận tiền qua Stripe */}
+      <div className="bg-white rounded-xl border p-5">
+        <h2 className="font-semibold mb-3">🌐 Stripe Connect</h2>
+        <p className="text-sm text-gray-500 mb-4">Nhận thanh toán quốc tế qua Stripe. Tạo tài khoản Stripe Express để rút tiền về tài khoản ngân hàng.</p>
+        <button onClick={async () => {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session) return
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-connect`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ country: 'VN' }),
+          })
+          const data = await res.json()
+          if (data.url) window.open(data.url, '_blank')
+        }}
+          className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition">
+          🔗 Kết nối Stripe Express
+        </button>
+      </div>
     </div>
   )
 }

@@ -25,6 +25,32 @@ import {
   listRegisteredGateways,
 } from '../_shared/payment-gateway.ts'
 
+// ========== HELPERS ==========
+
+async function checkIdempotency(supabase: any, key: string): Promise<any | null> {
+  const { data } = await supabase.from('idempotency_keys').select('response').eq('key', key).single()
+  return data?.response || null
+}
+
+async function saveIdempotency(supabase: any, key: string, response: any): Promise<void> {
+  await supabase.from('idempotency_keys').insert({ key, response }).catch(() => {})
+}
+
+async function callWorkflowEngine(supabase: any, orderId: string, event: string, data?: Record<string, unknown>): Promise<void> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!supabaseUrl || !serviceRoleKey) return
+  const { data: workflow } = await supabase.from('workflow_states').select('current_state').eq('order_id', orderId).maybeSingle()
+  if (!workflow) {
+    await supabase.from('workflow_states').insert({ order_id: orderId, current_state: 'created' }).catch(() => {})
+  }
+  fetch(`${supabaseUrl}/functions/v1/workflow-engine`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceRoleKey}` },
+    body: JSON.stringify({ order_id: orderId, event, data }),
+  }).catch(e => console.error('[payment] workflow call failed:', e))
+}
+
 // ========== SERVE ==========
 Deno.serve(async (req: Request) => {
   const optionsResp = handleOptions(req)
@@ -103,11 +129,16 @@ async function handleCreatePayment(req: Request, supabase: any): Promise<Respons
 
   // Parse request
   const body = await req.json()
-  const { order_id, amount, gateway, return_url, description } = body
+  const { order_id, amount, gateway, return_url, description, idempotency_key } = body
 
   if (!order_id || !amount) {
     return jsonResponse({ error: 'Missing order_id or amount' }, 400)
   }
+
+  // Check idempotency
+  const idemKey = idempotency_key || `payment_create_${order_id}`
+  const existing = await checkIdempotency(supabase, idemKey)
+  if (existing) return jsonResponse(existing)
 
   // Get gateway config
   const { data: config, error: configError } = await supabase
@@ -161,13 +192,18 @@ async function handleCreatePayment(req: Request, supabase: any): Promise<Respons
     console.error('Error saving payment intent:', saveError)
   }
 
-  return jsonResponse({
+  const response = {
     payment_id: result.id,
     status: result.status,
     redirect_url: result.redirectUrl,
     qr_code: result.qrCode,
     deep_link: result.deepLink,
-  })
+  }
+
+  // Save idempotency
+  await saveIdempotency(supabase, idemKey, response)
+
+  return jsonResponse(response)
 }
 
 async function handleWebhook(req: Request, supabase: any, gatewayName: string): Promise<Response> {
@@ -330,6 +366,13 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
           }
         }
       }
+
+      // Trigger workflow engine after successful payment
+      callWorkflowEngine(supabase, paymentIntent.order_id, 'payment:succeeded', {
+        payment_id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        paid_at: event.timestamp.toISOString(),
+      })
     }
   }
 
@@ -386,11 +429,16 @@ async function handleRefund(req: Request, supabase: any): Promise<Response> {
   }
 
   const body = await req.json()
-  const { payment_id, amount } = body
+  const { payment_id, amount, idempotency_key } = body
 
   if (!payment_id) {
     return jsonResponse({ error: 'Missing payment_id' }, 400)
   }
+
+  // Check idempotency
+  const idemKey = idempotency_key || `payment_refund_${payment_id}`
+  const existing = await checkIdempotency(supabase, idemKey)
+  if (existing) return jsonResponse(existing)
 
   // Get payment intent
   const { data: payment } = await supabase
@@ -421,11 +469,15 @@ async function handleRefund(req: Request, supabase: any): Promise<Response> {
     .update({ status: refundResult.status })
     .eq('id', payment.id)
 
-  return jsonResponse({
+  const response = {
     refund_id: refundResult.id,
     status: refundResult.status,
     amount: refundResult.amount,
-  })
+  }
+
+  await saveIdempotency(supabase, idemKey, response)
+
+  return jsonResponse(response)
 }
 
 async function handleListGateways(_req: Request, supabase: any): Promise<Response> {
