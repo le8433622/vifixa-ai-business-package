@@ -20,6 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_workflow_state ON workflow_states(current_state);
 ALTER TABLE workflow_states ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role manages workflow" ON workflow_states;
+DROP POLICY IF EXISTS "Service role manages workflow" ON workflow_states;
 CREATE POLICY "Service role manages workflow" ON workflow_states
   FOR ALL USING (auth.role() = 'service_role');
 
@@ -56,6 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_created ON idempotency_keys(created_a
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role manages idempotency" ON idempotency_keys;
+DROP POLICY IF EXISTS "Service role manages idempotency" ON idempotency_keys;
 CREATE POLICY "Service role manages idempotency" ON idempotency_keys
   FOR ALL USING (auth.role() = 'service_role');
 
@@ -82,13 +84,16 @@ CREATE INDEX IF NOT EXISTS idx_refund_status ON refund_requests(status);
 ALTER TABLE refund_requests ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Customers can view own refund requests" ON refund_requests;
+DROP POLICY IF EXISTS "Customers can view own refund requests" ON refund_requests;
 CREATE POLICY "Customers can view own refund requests" ON refund_requests
   FOR SELECT USING (auth.uid() = customer_id);
 
 DROP POLICY IF EXISTS "Customers can create refund requests" ON refund_requests;
+DROP POLICY IF EXISTS "Customers can create refund requests" ON refund_requests;
 CREATE POLICY "Customers can create refund requests" ON refund_requests
   FOR INSERT WITH CHECK (auth.uid() = customer_id);
 
+DROP POLICY IF EXISTS "Admins can manage all refunds" ON refund_requests;
 DROP POLICY IF EXISTS "Admins can manage all refunds" ON refund_requests;
 CREATE POLICY "Admins can manage all refunds" ON refund_requests
   FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));

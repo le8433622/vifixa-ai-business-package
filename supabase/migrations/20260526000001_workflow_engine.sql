@@ -28,9 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_created ON idempotency_keys(created_a
 ALTER TABLE workflow_states ENABLE ROW LEVEL SECURITY;
 ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role manages workflow" ON workflow_states;
 CREATE POLICY "Service role manages workflow" ON workflow_states
   FOR ALL USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Service role manages idempotency" ON idempotency_keys;
 CREATE POLICY "Service role manages idempotency" ON idempotency_keys
   FOR ALL USING (auth.role() = 'service_role');
 

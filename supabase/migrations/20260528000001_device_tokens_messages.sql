@@ -17,6 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_device_tokens_active ON device_tokens(is_active) 
 
 ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users manage own device tokens" ON device_tokens;
 CREATE POLICY "Users manage own device tokens" ON device_tokens
   FOR ALL USING (auth.uid() = user_id);
 
@@ -38,9 +39,11 @@ CREATE INDEX IF NOT EXISTS idx_conversations_participants ON conversations(custo
 
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Participants view conversations" ON conversations;
 CREATE POLICY "Participants view conversations" ON conversations
   FOR SELECT USING (auth.uid() = customer_id OR auth.uid() = worker_id);
 
+DROP POLICY IF EXISTS "Participants insert conversations" ON conversations;
 CREATE POLICY "Participants insert conversations" ON conversations
   FOR INSERT WITH CHECK (auth.uid() = customer_id OR auth.uid() = worker_id);
 
@@ -61,12 +64,14 @@ CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Participants view messages" ON messages;
 CREATE POLICY "Participants view messages" ON messages
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM conversations c WHERE c.id = messages.conversation_id
       AND (c.customer_id = auth.uid() OR c.worker_id = auth.uid()))
   );
 
+DROP POLICY IF EXISTS "Participants send messages" ON messages;
 CREATE POLICY "Participants send messages" ON messages
   FOR INSERT WITH CHECK (
     sender_id = auth.uid() AND

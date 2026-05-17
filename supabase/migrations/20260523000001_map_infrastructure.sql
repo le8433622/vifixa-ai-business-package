@@ -51,6 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_service_areas_worker ON public.service_areas(work
 
 ALTER TABLE public.service_areas ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Worker can manage own service area" ON public.service_areas;
+DROP POLICY IF EXISTS "Worker can manage own service area" ON public.service_areas;
 CREATE POLICY "Worker can manage own service area" ON public.service_areas
   FOR ALL USING (auth.uid() = worker_id);
 
