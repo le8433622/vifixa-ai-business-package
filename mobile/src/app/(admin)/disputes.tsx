@@ -24,7 +24,7 @@ export default function AdminDisputes() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>⚖️ Disputes ({pending} pending)</Text>
+      <Text style={styles.title}>⚖️ Khiếu nại ({pending} chờ)</Text>
       <View style={styles.filterRow}>
         {['pending', 'resolved', 'all'].map(s => (
           <TouchableOpacity key={s} onPress={() => setFilter(s)} style={[styles.filter, filter === s && styles.filterActive]}>
@@ -43,7 +43,7 @@ export default function AdminDisputes() {
             <Text style={styles.date}>{new Date(item.created_at).toLocaleDateString()}</Text>
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>Không có dispute</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>Không có khiếu nại</Text>}
       />
     </View>
   );

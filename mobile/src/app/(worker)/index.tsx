@@ -40,10 +40,10 @@ export default function WorkerDashboard() {
         
         <View style={styles.modeRow}>
           <TouchableOpacity style={[styles.modeBtn, mode === 'auto' && styles.modeActive]} onPress={() => setMode('auto')}>
-            <Text style={[styles.modeText, mode === 'auto' && styles.modeTextActive]}>🤖 Auto</Text>
+            <Text style={[styles.modeText, mode === 'auto' && styles.modeTextActive]}>🤖 Tự động</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.modeBtn, mode === 'manual' && styles.modeActive]} onPress={() => setMode('manual')}>
-            <Text style={[styles.modeText, mode === 'manual' && styles.modeTextActive]}>👆 Manual</Text>
+            <Text style={[styles.modeText, mode === 'manual' && styles.modeTextActive]}>👆 Thủ công</Text>
           </TouchableOpacity>
         </View>
 

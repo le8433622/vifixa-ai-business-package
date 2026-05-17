@@ -26,8 +26,8 @@ export default function AdminOrders() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📋 Orders</Text>
-      <Text style={styles.stats}>Tổng: {stats.total} · DT: {(stats.revenue / 1000000).toFixed(1)}M · Dispute: {stats.disputed}</Text>
+      <Text style={styles.title}>📋 Đơn hàng</Text>
+      <Text style={styles.stats}>Tổng: {stats.total} · DT: {(stats.revenue / 1000000).toFixed(1)}M · Khiếu nại: {stats.disputed}</Text>
 
       <View style={styles.filterRow}>
         {['all', 'pending', 'in_progress', 'completed', 'disputed'].map(s => (

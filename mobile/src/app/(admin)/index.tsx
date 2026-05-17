@@ -32,7 +32,7 @@ export default function AdminDashboard() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
-        <Text style={styles.heroTitle}>🛡️ AI Analyst</Text>
+        <Text style={styles.heroTitle}>🛡️ AI Phân tích</Text>
         <View style={styles.modeRow}>
           <TouchableOpacity style={[styles.modeBtn, mode === 'auto' && styles.modeActive]} onPress={() => setMode('auto')}>
             <Text style={[styles.modeText, mode === 'auto' && styles.modeTextActive]}>🤖 Auto</Text>
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
           <Text style={styles.sectionTitle}>📋 Menu</Text>
           <View style={styles.menuGrid}>
             {[
-              { icon: '📊', name: 'Dashboard', href: '/admin' },
+              { icon: '📊', name: 'Bảng điều khiển', href: '/admin' },
               { icon: '👥', name: 'Người dùng', href: '/admin/users' },
               { icon: '📋', name: 'Đơn hàng', href: '/admin/orders' },
               { icon: '🪪', name: 'KYC', href: '/admin/kyc' },

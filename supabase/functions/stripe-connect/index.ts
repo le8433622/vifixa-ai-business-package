@@ -1,62 +1,31 @@
-// Stripe Connect Onboarding Edge Function
-// Per 09_REVENUE_MODEL.md - Stripe Connect for worker payouts
-// Per 15_CODEX_BUSINESS_CONTEXT.md - Payments & Payouts
+import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
+import { z } from 'https://esm.sh/zod@3.22.4';
 
-import { corsHeaders } from '../_shared/cors.ts';
-
-interface StripeConnectRequest {
-  worker_id: string;
-  email: string;
-  country?: string;
-}
+const ConnectSchema = z.object({
+  worker_id: z.string().uuid(),
+  email: z.string().email().optional(),
+  country: z.string().length(2).default('VN'),
+});
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
+    const user = await verifyAuth(req);
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
 
-    // Verify user is a worker
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': serviceRoleKey,
-      },
-    });
+    const body = await req.json();
+    const parsed = ConnectSchema.parse(body);
 
-    if (!userResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (user.id !== parsed.worker_id) {
+      return jsonResponse({ error: 'worker_id must match authenticated user' }, 403);
     }
 
-    const userData = await userResponse.json();
-
-    const { worker_id, email, country = 'US' }: StripeConnectRequest = await req.json();
-
-    if (!worker_id || !email) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: worker_id, email' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if worker already has a Stripe account
     const workerResponse = await fetch(
-      `${supabaseUrl}/rest/v1/workers?id=eq.${worker_id}&select=stripe_account_id`,
+      `${supabaseUrl}/rest/v1/workers?id=eq.${parsed.worker_id}&select=stripe_account_id`,
       {
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
@@ -67,16 +36,16 @@ Deno.serve(async (req) => {
 
     const worker = await workerResponse.json();
     if (!workerResponse.ok || !worker[0]) {
-      return new Response(
-        JSON.stringify({ error: 'Worker not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Worker not found' }, 404);
     }
 
     let stripeAccountId = worker[0].stripe_account_id;
 
-    // Create Stripe Connect account if not exists
     if (!stripeAccountId) {
+      if (!parsed.email) {
+        return jsonResponse({ error: 'Email is required to create a new Stripe account' }, 400);
+      }
+
       const stripeResponse = await fetch('https://api.stripe.com/v1/accounts', {
         method: 'POST',
         headers: {
@@ -85,8 +54,8 @@ Deno.serve(async (req) => {
         },
         body: new URLSearchParams({
           type: 'express',
-          country,
-          email,
+          country: parsed.country,
+          email: parsed.email,
           'capabilities[transfers][requested]': 'true',
           'capabilities[card_payments][requested]': 'true',
         }),
@@ -94,17 +63,13 @@ Deno.serve(async (req) => {
 
       if (!stripeResponse.ok) {
         const stripeError = await stripeResponse.json();
-        return new Response(
-          JSON.stringify({ error: 'Failed to create Stripe account', details: stripeError }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: 'Failed to create Stripe account', details: stripeError }, 500);
       }
 
       const stripeAccount = await stripeResponse.json();
       stripeAccountId = stripeAccount.id;
 
-      // Save Stripe account ID to worker
-      await fetch(`${supabaseUrl}/rest/v1/workers?id=eq.${worker_id}`, {
+      await fetch(`${supabaseUrl}/rest/v1/workers?id=eq.${parsed.worker_id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
@@ -115,7 +80,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create account link for onboarding
     const accountLinkResponse = await fetch('https://api.stripe.com/v1/account_links', {
       method: 'POST',
       headers: {
@@ -124,38 +88,32 @@ Deno.serve(async (req) => {
       },
       body: new URLSearchParams({
         account: stripeAccountId,
-        refresh_url: `${req.headers.get('origin')}/worker/onboarding?refresh=true`,
-        return_url: `${req.headers.get('origin')}/worker/onboarding?success=true`,
+        refresh_url: `${req.headers.get('origin') || 'https://vifixa.com'}/worker/earnings?refresh=true`,
+        return_url: `${req.headers.get('origin') || 'https://vifixa.com'}/worker/earnings?success=true`,
         type: 'account_onboarding',
       }),
     });
 
     if (!accountLinkResponse.ok) {
       const linkError = await accountLinkResponse.json();
-      return new Response(
-        JSON.stringify({ error: 'Failed to create onboarding link', details: linkError }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Failed to create onboarding link', details: linkError }, 500);
     }
 
     const accountLink = await accountLinkResponse.json();
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        stripe_account_id: stripeAccountId,
-        onboarding_url: accountLink.url,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      stripe_account_id: stripeAccountId,
+      onboarding_url: accountLink.url,
+    });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return jsonResponse({ error: 'Validation failed', details: error.errors }, 400);
+    }
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return jsonResponse({ error: error.message }, 401);
+    }
     console.error('Stripe Connect error:', error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return jsonResponse({ error: (error as Error).message }, 500);
   }
 });

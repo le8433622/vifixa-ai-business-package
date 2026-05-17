@@ -10,7 +10,7 @@ export default function CustomerLayout() {
       headerShown: false,
     }}>
       <Tabs.Screen name="index" options={{
-        title: 'Home',
+        title: 'Trang chủ',
         tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
       }} />
       <Tabs.Screen name="map" options={{

@@ -938,6 +938,56 @@ Thumbs.db
 
 ---
 
+## 🧠 PRE-CODE PROTOCOL (Bắt buộc — Không được bỏ qua bước nào)
+
+### 7 bước bắt buộc TRƯỚC KHI viết dòng code nào:
+
+```
+Step 0: PROPOSE PLAN
+  └── Tạo todo list với từng task cụ thể
+  └── Gửi cho user → chờ approval (Workflow Protocol)
+  └── KHÔNG tự ý làm ngoài plan — mọi deviation phải báo user
+
+Step 1: READ CONTEXT
+  └── Đọc file hiện tại cần sửa (bắt buộc dùng Read tool)
+  └── Đọc file liên quan (imports, dependencies, styles)
+  └── Tìm files tương tự trong codebase (Glob + Grep)
+  └── NẾU chưa đọc → KHÔNG được sửa (Auto Reject)
+
+Step 2: CHECK GAPS
+  └── Mở docs/GAP_ANALYSIS.md — so sánh task với gap đã biết
+  └── Nếu task overlap với gap đã biết → không tạo code mới
+  └── Nếu phát hiện gap mới → cập nhật GAP_ANALYSIS.md TRƯỚC
+
+Step 3: VERIFY EXISTING CODE
+  └── Check git status — có file nào đang modified không?
+  └── Kiểm tra có file tương tự đã tồn tại không (dùng Glob)
+  └── Kiểm tra có component/dependency sẵn dùng không (dùng Grep)
+  └── Nguyên tắc: KHÔNG tạo mới nếu đã có — REUSE > REWRITE
+
+Step 4: CHECK DEPENDENCIES
+  └── File này phụ thuộc vào gì? (imports, types, APIs)
+  └── Dependency đã tồn tại chưa? (table, function, component)
+  └── Nếu cần dependency mới → báo user + thêm vào plan
+
+Step 5: CHECK CONSISTENCY
+  └── Web có, Mobile có? (if applicable)
+  └── Customer có, Worker có, Admin có? (nếu cross-role)
+  └── UI language: đã là Tiếng Việt chưa?
+  └── Màn hình này ảnh hưởng đến màn hình khác không?
+
+Step 6: THINK BEFORE WRITE
+  └── Viết ra kế hoạch thay đổi (file nào, sửa gì)
+  └── Ước lượng tác động: files changed, lines added
+  └── Có thể break build không? Có test không?
+```
+
+**❌ AUTO REJECT nếu bỏ qua bất kỳ bước nào.**
+**❌ AUTO REJECT nếu chưa Read file mà đã Edit.**
+**❌ AUTO REJECT nếu chưa Propose plan mà đã Execute.**
+
+---
+
 ## ⚠️ Rules (Tuyệt đối tuân thủ)
 
 1. **Đọc 7 docs bắt buộc** trước khi code: VISION → ARCHITECTURE → SCREENS → AI_HEART → BRAIN → COMPANION → ROADMAP
@@ -981,6 +1031,23 @@ Thumbs.db
     - Chứng minh: `pending → matched → in_progress → completed` đồng bộ 3 màn hình
     - Nếu thiếu bất kỳ transition nào → Phase chưa hoàn thành
     - Ghi proof vào ERROR_ANALYSIS.md: "E2E Verification: 10/10 steps passed"
+22. **Gap Detection bắt buộc trước mỗi task** — Check `docs/GAP_ANALYSIS.md` trước khi code:
+    - Nếu task trùng với gap đã biết → KHÔNG code (gap đã có solution hoặc đang tracking)
+    - Nếu phát hiện gap mới trong quá trình code → UPDATE GAP_ANALYSIS.MD ngay
+    - Nếu không có gap → ghi chú "No new gap detected" trong task log
+23. **Propose Gap Improvements định kỳ** — Sau mỗi 3-5 tasks hoàn thành:
+    - Dừng lại, review codebase, đề xuất gaps chưa ai thấy
+    - Phân loại: P0 (blocking) / P1 (major) / P2 (minor)
+    - Ghi vào GAP_ANALYSIS.md hoặc báo user
+24. **Read-before-Edit bắt buộc** — KHÔNG edit file chưa đọc trong session này:
+    - Dùng Read tool đọc ít nhất 1 lần trước khi Edit
+    - Nếu file lớn → đọc section cần sửa (offset + limit)
+    - Ngoại lệ: Write file mới (không tồn tại) — không cần Read
+25. **Context-Gathering bắt buộc** — Trước khi tạo file mới, phải:
+    - Glob tìm file tương tự (+ import patterns)
+    - Grep tìm component đã tồn tại
+    - Đọc file liên quan cùng thư mục
+    - Ghi rõ: "Đã kiểm tra [list files], [N] file tương tự tồn tại"
 
 ---
 
@@ -1254,6 +1321,16 @@ Phase 6: Polish + Test + Deploy
 **Map (6/8 ⚠️) — 2 gaps cần fix:**
 1. **Geo-fence Check-in** — Worker check-in khi đến nhà khách → trigger escrow release
 2. **Location Analytics** — Admin xem dispute/order theo khu vực địa lý
+
+### 2026-05-17 — v1.23: 🚨 Pre-Code Protocol + Gap Detection + 5 Rules mới
+- 🧠 **Pre-Code Protocol (7 bước)** — Bắt buộc trước mọi dòng code: Propose Plan → Read Context → Check Gaps → Verify Existing → Check Dependencies → Check Consistency → Think Before Write
+- 🚫 **3 Auto-Reject conditions** — Viết code không plan, edit file chưa đọc, execute không propose = AUTO REJECT
+- 📋 **Rule #22 — Gap Detection bắt buộc** — Check GAP_ANALYSIS.md trước mọi task, update gap mới ngay
+- 💡 **Rule #23 — Propose Gap Improvements** — Sau 3-5 tasks, review codebase, đề xuất gaps mới
+- 📖 **Rule #24 — Read-before-Edit** — KHÔNG edit file chưa đọc trong session
+- 🔍 **Rule #25 — Context-Gathering** — Glob + Grep + Read trước khi tạo file mới
+- 🐛 **Bài học từ P0 session (2026-05-17)**: 2 P0 bugs sót (admin disputes route, ai-fraud-check verifyAuth) vì không có Pre-Code Protocol. Worker payout method thiếu `worker_id` vì không đọc Edge Function signature trước khi viết UI.
+- 📋 **Changelog cập nhật** — v1.23 với Pre-Code Protocol + 5 rules mới
 
 ### Next Update (sau mỗi Phase mới)
 - Ghi lại bug mới phát hiện

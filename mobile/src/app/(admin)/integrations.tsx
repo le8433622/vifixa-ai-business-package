@@ -11,8 +11,8 @@ const PLUGINS = [
 export default function AdminIntegrations() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>🔌 Integrations</Text>
-      <Text style={styles.subtitle}>{PLUGINS.filter(p => p.active).length} active · {PLUGINS.filter(p => !p.active).length} coming soon</Text>
+      <Text style={styles.title}>🔌 Tích hợp</Text>
+      <Text style={styles.subtitle}>{PLUGINS.filter(p => p.active).length} đang hoạt động · {PLUGINS.filter(p => !p.active).length} sắp ra mắt</Text>
 
       {PLUGINS.map(p => (
         <View key={p.id} style={[styles.card, p.active && styles.cardActive]}>

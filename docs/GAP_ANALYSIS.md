@@ -332,4 +332,82 @@ order:created
 
 ---
 
-> **Kết Luận**: Hệ thống có đầy đủ building blocks (43 Edge Functions, 61 routes, 16 migrations) nhưng **thiếu keo dính (glue)** giữa các thành phần. Quan trọng nhất là **Workflow Engine** để kết nối AI → Payment → Map → Notification thành 1 luồng tự động hoàn chỉnh.
+---
+
+## GAP #10: Admin Mobile Route Paths Sai
+
+| Vấn Đề | Mô Tả | Mức Độ |
+|--------|-------|--------|
+| Admin menu navigate sai | `router.push('/admin/users')` nhưng Expo Router route là `/(admin)/users` | 🟡 P1 |
+| Tab labels tiếng Anh | Dashboard, Users, Orders, Disputes, Integrations — vi phạm Language Standardization | 🟢 P2 |
+
+**Fix**: Đổi router.push path + VI labels trong `(admin)/_layout.tsx` và `(admin)/index.tsx`
+
+---
+
+## GAP #11: Worker Payout Onboarding Status
+
+| Vấn Đề | Mô Tả | Mức Độ |
+|--------|-------|--------|
+| Không hiển thị Stripe status | Worker không biết Stripe account đã active chưa | 🟡 P1 |
+| Không notification cho payout mới | Worker không được thông báo khi có tiền về | 🟡 P1 |
+
+**Fix**: Thêm Stripe account status badge + push notification khi payout created
+
+---
+
+## GAP #12: AI Settings Migration
+
+| Vấn Đề | Mô Tả | Mức Độ |
+|--------|-------|--------|
+| `app_settings` table chưa tồn tại | Migration `20260529000001_ai_settings.sql` mới tạo — cần apply production | 🟡 P1 |
+| Seed data missing | Default prompts, quality thresholds cần đảm bảo đã insert | 🟢 P2 |
+
+**Fix**: Apply migration + verify seed data
+
+---
+
+## GAP #13: Cron Jobs Không Có Dashboard
+
+| Vấn Đề | Mô Tả | Mức Độ |
+|--------|-------|--------|
+| ai-scheduler cron | Admin không có UI xem cron đã chạy chưa, kết quả thế nào | 🟢 P2 |
+| cleanup-idempotency cron | Không có log hoặc dashboard cho cron jobs | 🟢 P2 |
+
+**Fix**: Thêm admin cron dashboard page
+
+---
+
+## GAP #14: stripe-connect thiếu input validation ✅
+
+| Vấn Đề | Mô Tả | Mức Độ | Trạng Thái |
+|--------|-------|--------|------------|
+| Không validate worker_id | Function có thể nhận worker_id rỗng → tạo Stripe account sai | 🟡 P1 | ✅ Đã fix |
+| Không verifyAuth() | Function dùng manual auth thay vì verifyAuth() từ auth-helper.ts | 🔴 P0 | ✅ Đã fix |
+
+**Fix**: Thêm Zod validation + verifyAuth() ✅
+- `Deno.serve` rewritten with `verifyAuth()` from `_shared/auth-helper.ts`
+- Zod schema validates `worker_id` (uuid), `email` (optional email), `country` (2 chars, default VN)
+- Authenticated user must match `worker_id` (403 if mismatch)
+- `email` required when creating new Stripe account (400 if missing)
+- 5 Deno tests passing (valid input, default country, invalid uuid, invalid email, response structure)
+- Web page bug fixed: `(link as any)?.url` → `(link as any)?.onboarding_url`
+- Return URLs point to `/worker/earnings` (not non-existent `/worker/onboarding`)
+
+---
+
+## GAP #15: P0 Bugs Tái Phát (Lesson Learned)
+
+| Vấn Đề | Mô Tả | Mức Độ |
+|--------|-------|--------|
+| admin disputes route sai | Bug tương tự Bug #1 (admin routes trong user code) — lẽ ra không được phép tái phát | 🔴 P0 |
+| ai-fraud-check thiếu verifyAuth() | Bug tương tự Bug đã biết — lỗi tái phát vì không có Pre-Code Protocol | 🔴 P0 |
+
+**Root Cause**: Không có cơ chế kiểm tra "bug tương tự đã xảy ra chưa" trước khi code
+**Fix**: Pre-Code Protocol Step 2 (Check Gaps) + Step 3 (Verify Existing) — đã thêm vào agent.md v1.23
+**Rule mới**: Trước mỗi task, grep ERROR_ANALYSIS.md + GAP_ANALYSIS.md cho bugs tương tự
+
+---
+
+> **Kết Luận**: Hệ thống có đầy đủ building blocks (43 Edge Functions, 61 routes, 16 migrations) nhưng **thiếu keo dính (glue)** giữa các thành phần. Quan trọng nhất là **Workflow Engine** để kết nối AI → Payment → Map → Notification thành 1 luồng tự động hoàn chỉnh.  
+> **Cập nhật 2026-05-17**: Phát hiện thêm 6 gaps mới (#10-#15) từ session P0+P1 fixes — chủ yếu về routing, visibility, và validation. Pre-Code Protocol (agent.md v1.23) được thêm để ngăn tái phát.

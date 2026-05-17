@@ -6,11 +6,11 @@ import { supabase } from '@/lib/supabase';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
 const ADMIN_ACTIONS = [
-  { emoji: '📊', label: 'Dashboard', query: 'Xem dashboard tổng quan' },
-  { emoji: '👥', label: 'Users', query: 'Xem danh sách users' },
-  { emoji: '📋', label: 'Orders', query: 'Xem đơn hàng' },
-  { emoji: '💳', label: 'Payments', query: 'Xem giao dịch' },
-  { emoji: '⚖️', label: 'Disputes', query: 'Xem khiếu nại' },
+  { emoji: '📊', label: 'Tổng quan', query: 'Xem tổng quan' },
+  { emoji: '👥', label: 'Người dùng', query: 'Xem danh sách người dùng' },
+  { emoji: '📋', label: 'Đơn hàng', query: 'Xem đơn hàng' },
+  { emoji: '💳', label: 'Thanh toán', query: 'Xem giao dịch' },
+  { emoji: '⚖️', label: 'Khiếu nại', query: 'Xem khiếu nại' },
 ];
 
 export default function AdminCompanionChat({ onAction }: { onAction?: (action: any) => void }) {
@@ -58,9 +58,9 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* KPI Cards */}
       <View style={styles.kpiRow}>
-        <KpiCard icon="👥" value={kpi.users} label="Users" color="#60a5fa" />
-        <KpiCard icon="📋" value={kpi.orders} label="Orders" color="#fbbf24" />
-        <KpiCard icon="🚨" value={kpi.disputes} label="Disputes" color="#f87171" />
+        <KpiCard icon="👥" value={kpi.users} label="Người dùng" color="#60a5fa" />
+        <KpiCard icon="📋" value={kpi.orders} label="Đơn hàng" color="#fbbf24" />
+        <KpiCard icon="🚨" value={kpi.disputes} label="Khiếu nại" color="#f87171" />
       </View>
 
       <FlatList ref={flatListRef} data={messages} keyExtractor={m => m.id} style={styles.list}

@@ -56,7 +56,7 @@ export default function WorkerMap({ onJobPress }: Props) {
         // Request location permission
         let permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) {
-          setError('Permission to access location was denied');
+          setError('Không có quyền truy cập vị trí');
           return;
         }
 
@@ -72,7 +72,7 @@ export default function WorkerMap({ onJobPress }: Props) {
         // Fetch jobs from Supabase
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          setError('Unauthorized');
+          setError('Không có quyền truy cập');
           return;
         }
 
@@ -100,7 +100,7 @@ export default function WorkerMap({ onJobPress }: Props) {
 
         setJobs(filteredJobs);
       } catch (err: any) {
-        setError(err.message || 'An unknown error occurred');
+        setError(err.message || 'Lỗi không xác định');
       } finally {
         setLoading(false);
       }
@@ -111,7 +111,7 @@ export default function WorkerMap({ onJobPress }: Props) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading map...</Text>
+        <Text style={styles.loadingText}>Đang tải bản đồ...</Text>
       </View>
     );
   }
@@ -119,7 +119,7 @@ export default function WorkerMap({ onJobPress }: Props) {
   if (error) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Error: {error}</Text>
+        <Text style={styles.errorText}>Lỗi: {error}</Text>
       </View>
     );
   }
@@ -127,7 +127,7 @@ export default function WorkerMap({ onJobPress }: Props) {
   if (!location) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Waiting for location...</Text>
+        <Text style={styles.loadingText}>Đang chờ vị trí...</Text>
       </View>
     );
   }
@@ -138,7 +138,7 @@ export default function WorkerMap({ onJobPress }: Props) {
         style={styles.map}
         initialRegion={location}
         showsUserLocation={true}
-        userLocationAnnotationTitle={"Your Location"}
+        userLocationAnnotationTitle={"Vị trí của bạn"}
       >
         {jobs.map(job => (
           <Marker
@@ -151,7 +151,7 @@ export default function WorkerMap({ onJobPress }: Props) {
               <View style={styles.calloutContainer}>
                 <Text style={styles.calloutTitle}>{job.category}</Text>
                 <Text style={styles.calloutDescription}>{job.description}</Text>
-                <Text style={styles.calloutPrice}>Est. ${job.estimated_price}</Text>
+                <Text style={styles.calloutPrice}>Dự kiến: {job.estimated_price.toLocaleString('vi-VN')}₫</Text>
               </View>
             </Callout>
           </Marker>

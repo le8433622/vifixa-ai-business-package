@@ -46,7 +46,7 @@ export default function TrackingMap({ workerLat, workerLng, customerLat, custome
         {/* Map placeholder — will be replaced with react-native-maps */}
         <View style={styles.mapPlaceholder}>
           <Text style={styles.mapIcon}>🗺️</Text>
-          <Text style={styles.mapText}>Bản đồ real-time</Text>
+          <Text style={styles.mapText}>Bản đồ thời gian thực</Text>
           <Text style={styles.mapHint}>Cần react-native-maps để hiển thị</Text>
         </View>
       </View>

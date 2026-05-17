@@ -200,7 +200,7 @@ export default function WorkerEarnings() {
             const { data: link } = await supabase.functions.invoke('stripe-connect', {
               body: { worker_id: session.user.id, country: 'VN' },
             })
-            if ((link as any)?.url) window.open((link as any).url, '_blank')
+            if ((link as any)?.onboarding_url) window.open((link as any).onboarding_url, '_blank')
             return
           }
           const res = await supabase.functions.invoke('stripe-connect', {

@@ -173,7 +173,7 @@ export default function AvailableWorkersMap({ onWorkerSelect, requiredSkills = [
             key={worker.id}
             coordinate={{ latitude: worker.location_lat, longitude: worker.location_lng }}
             title={worker.full_name}
-            description={`${worker.skills.join(', ')} • ${worker.rating}★ ({worker.completed_jobs} jobs)`}
+            description={`${worker.skills.join(', ')} • ${worker.rating}★ (${worker.completed_jobs} việc)`}
             markerSelected={selectedWorkerId === worker.id}
           >
             <Callout>
@@ -186,11 +186,11 @@ export default function AvailableWorkersMap({ onWorkerSelect, requiredSkills = [
                 </Text>
                 <View style={styles.calloutStats}>
                   <Text style={styles.statItem}>
-                    <Text style={styles.statLabel}>Rating:</Text>
+                    <Text style={styles.statLabel}>Đánh giá:</Text>
                     <Text style={styles.statValue}>{worker.rating}/5</Text>
                   </Text>
                   <Text style={styles.statItem}>
-                    <Text style={styles.statLabel}>Jobs:</Text>
+                    <Text style={styles.statLabel}>Việc:</Text>
                     <Text style={styles.statValue}>{worker.completed_jobs}</Text>
                   </Text>
                 </View>

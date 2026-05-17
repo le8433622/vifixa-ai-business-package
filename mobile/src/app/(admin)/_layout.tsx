@@ -10,7 +10,7 @@ export default function AdminLayout() {
       headerShown: false,
     }}>
       <Tabs.Screen name="index" options={{
-        title: 'Dashboard',
+        title: 'Bảng điều khiển',
         tabBarIcon: ({ color, size }) => <Ionicons name="speedometer" size={size} color={color} />,
       }} />
       <Tabs.Screen name="users/index" options={{

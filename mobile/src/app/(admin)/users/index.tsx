@@ -23,7 +23,7 @@ export default function AdminUsers() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>👥 Users</Text>
+      <Text style={styles.title}>👥 Người dùng</Text>
       <View style={styles.tabRow}>
         {['all', 'customer', 'worker', 'admin'].map(t => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
