@@ -230,17 +230,17 @@ Phase riêng: Mobile app development (Expo SDK 54) với các tính năng tối 
 
 ## Ưu Tiên Khắc Phục
 
-| Ưu Tiên | Gap | Tác Động | Effort |
-|---------|-----|----------|--------|
-| 🔴 P0 | #1 Event-driven workflow engine | Block end-to-end auto mode | 3 ngày |
-| 🔴 P0 | #9 Idempotency cho payments | Ngăn duplicate transactions | 1 ngày |
-| 🟡 P1 | #3 Notification engine | Không thể giao tiếp với user | 2 ngày |
-| 🟡 P1 | #2 Real-time tracking sharing | UX tracking chưa hoàn chỉnh | 2 ngày |
-| 🟡 P1 | #5 Refund/dispute integration | Không xử lý được dispute | 2 ngày |
-| 🟢 P2 | #4 AI Proactive | Predictive care chưa tự động | 2 ngày |
-| 🟢 P2 | #6 Admin AI decision support | Admin chưa có AI hỗ trợ | 2 ngày |
-| 🟢 P2 | #7 Spatial intelligence | Map chưa thông minh | 2 ngày |
-| 🔵 P3 | #8 Mobile app | Mở rộng platform | 2 tuần |
+| Ưu Tiên | Gap | Tác Động | Effort | Trạng Thái |
+|---------|-----|----------|--------|------------|
+| 🔴 P0 | #1 Event-driven workflow engine | Block end-to-end auto mode | 3 ngày | ✅ Có (11-state, wired) |
+| 🔴 P0 | #9 Idempotency cho payments | Ngăn duplicate transactions | 1 ngày | ✅ stripe-pi + stripe-webhook fixed |
+| 🟡 P1 | #3 Notification engine | Không thể giao tiếp với user | 2 ngày | ✅ Có (notify, 13 types) |
+| 🟡 P1 | #2 Real-time tracking sharing | UX tracking chưa hoàn chỉnh | 2 ngày | ⏳ Partial (watchPosition done) |
+| 🟡 P1 | #5 Refund/dispute integration | Không xử lý được dispute | 2 ngày | ✅ Có (RefundRequestModal + admin) |
+| 🟢 P2 | #4 AI Proactive | Predictive care chưa tự động | 2 ngày | ✅ Có (ai-scheduler cron) |
+| 🟢 P2 | #6 Admin AI decision support | Admin chưa có AI hỗ trợ | 2 ngày | ⏳ Partial (analytics + AI Analyst) |
+| 🟢 P2 | #7 Spatial intelligence | Map chưa thông minh | 2 ngày | ⏳ Partial (geo-fence, analytics) |
+| 🔵 P3 | #8 Mobile app | Mở rộng platform | 2 tuần | ✅ Có (Expo project, screens)
 
 ---
 
@@ -334,47 +334,60 @@ order:created
 
 ---
 
-## GAP #10: Admin Mobile Route Paths Sai
+## GAP #10: Admin Mobile Route Paths Sai ✅
 
-| Vấn Đề | Mô Tả | Mức Độ |
-|--------|-------|--------|
-| Admin menu navigate sai | `router.push('/admin/users')` nhưng Expo Router route là `/(admin)/users` | 🟡 P1 |
-| Tab labels tiếng Anh | Dashboard, Users, Orders, Disputes, Integrations — vi phạm Language Standardization | 🟢 P2 |
+| Vấn Đề | Mô Tả | Mức Độ | Trạng Thái |
+|--------|-------|--------|------------|
+| Admin menu navigate sai | `router.push('/admin/users')` nhưng Expo Router route là `/(admin)/users` | 🟡 P1 | ✅ Đã fix |
+| Tab labels tiếng Anh | Dashboard, Users, Orders, Disputes, Integrations — vi phạm Language Standardization | 🟢 P2 | ✅ Đã fix |
 
-**Fix**: Đổi router.push path + VI labels trong `(admin)/_layout.tsx` và `(admin)/index.tsx`
-
----
-
-## GAP #11: Worker Payout Onboarding Status
-
-| Vấn Đề | Mô Tả | Mức Độ |
-|--------|-------|--------|
-| Không hiển thị Stripe status | Worker không biết Stripe account đã active chưa | 🟡 P1 |
-| Không notification cho payout mới | Worker không được thông báo khi có tiền về | 🟡 P1 |
-
-**Fix**: Thêm Stripe account status badge + push notification khi payout created
+**Fix**: Đổi router.push path + VI labels ✅
+- All 13 admin navigation paths fixed: `/admin/*` → `/(admin)/*`
+- All 6 worker navigation paths fixed: `/worker/*` → `/(worker)/*`
+- Tab labels: Dashboard→Bảng điều khiển, Users→Người dùng, etc.
 
 ---
 
-## GAP #12: AI Settings Migration
+## GAP #11: Worker Payout Onboarding Status ✅
 
-| Vấn Đề | Mô Tả | Mức Độ |
-|--------|-------|--------|
-| `app_settings` table chưa tồn tại | Migration `20260529000001_ai_settings.sql` mới tạo — cần apply production | 🟡 P1 |
-| Seed data missing | Default prompts, quality thresholds cần đảm bảo đã insert | 🟢 P2 |
+| Vấn Đề | Mô Tả | Mức Độ | Trạng Thái |
+|--------|-------|--------|------------|
+| Không hiển thị Stripe status | Worker không biết Stripe account đã active chưa | 🟡 P1 | ✅ Đã fix |
+| Không notification cho payout mới | Worker không được thông báo khi có tiền về | 🟡 P1 | ✅ Đã fix |
 
-**Fix**: Apply migration + verify seed data
+**Fix**: Thêm Stripe account status badge + push notification khi payout created ✅
+- stripe-webhook: handler `account.updated` → update `stripe_onboarding_complete`
+- stripe-webhook: handler `payout.paid` → tạo in-app notification cho worker
+- Web earnings page: hiển thị trạng thái (sẵn sàng / chờ hoàn tất)
+- Mobile earnings page: select `stripe_onboarding_complete`
 
 ---
 
-## GAP #13: Cron Jobs Không Có Dashboard
+## GAP #12: AI Settings Migration ✅
 
-| Vấn Đề | Mô Tả | Mức Độ |
-|--------|-------|--------|
-| ai-scheduler cron | Admin không có UI xem cron đã chạy chưa, kết quả thế nào | 🟢 P2 |
-| cleanup-idempotency cron | Không có log hoặc dashboard cho cron jobs | 🟢 P2 |
+| Vấn Đề | Mô Tả | Mức Độ | Trạng Thái |
+|--------|-------|--------|------------|
+| `app_settings` table chưa tồn tại | Migration cần apply production | 🟡 P1 | ✅ Production verified |
+| Seed data missing | Default prompts, quality thresholds cần đảm bảo đã insert | 🟢 P2 | ✅ Seed data exists |
 
-**Fix**: Thêm admin cron dashboard page
+**Fix**: Apply migration + verify seed data ✅
+- `app_settings` table đã tồn tại ở production (different schema, data present)
+- Seed data (`ai_prompts`, `ai_quality`, `ai_api_keys`) verified in production
+
+---
+
+## GAP #13: Cron Jobs Không Có Dashboard ✅
+
+| Vấn Đề | Mô Tả | Mức Độ | Trạng Thái |
+|--------|-------|--------|------------|
+| ai-scheduler cron | Admin không có UI xem cron đã chạy chưa, kết quả thế nào | 🟢 P2 | ✅ Đã fix |
+| cleanup-idempotency cron | Không có log hoặc dashboard cho cron jobs | 🟢 P2 | ✅ Đã fix |
+
+**Fix**: Thêm admin cron dashboard page ✅
+- Migration `20260530000001_cron_job_log.sql` — tạo table `cron_job_log`
+- 2 Vercel cron routes (`ai-scheduler`, `cleanup-idempotency`) — insert log khi chạy
+- Admin mobile page `(admin)/cron.tsx` — xem lịch sử, filter theo job, status
+- Menu `index.tsx` — thêm mục "Cron Jobs"
 
 ---
 
@@ -393,6 +406,19 @@ order:created
 - 5 Deno tests passing (valid input, default country, invalid uuid, invalid email, response structure)
 - Web page bug fixed: `(link as any)?.url` → `(link as any)?.onboarding_url`
 - Return URLs point to `/worker/earnings` (not non-existent `/worker/onboarding`)
+
+---
+
+## GAP #9: Payment Idempotency ✅
+
+| Vấn Đề | Mô Tả | Mức Độ | Trạng Thái |
+|--------|-------|--------|------------|
+| `stripe-payment-intent` không idempotent | Retry → duplicate Stripe Payment Intents + DB records | 🔴 P0 | ✅ Đã fix |
+| `stripe-webhook` không check duplicate | Stripe retry → xử lý lại event nhiều lần | 🟡 P1 | ✅ Đã fix |
+| `payment-process` gateway key dùng Date.now() | `Date.now()` trong key làm mất tác dụng idempotency | 🟡 P1 | ⏳ Pending — cần tách khỏi scope |
+
+**Fix**: stripe-payment-intent ✅ thêm `idempotency_keys` check + cached response.
+stripe-webhook ✅ thêm duplicate event check qua `webhook_events` table.
 
 ---
 

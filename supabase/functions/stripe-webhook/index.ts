@@ -47,15 +47,24 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Store webhook event
-    await supabase.from('webhook_events').insert({
-      gateway: 'stripe',
-      event_type: event.type,
-      event_id: event.id,
-      raw_body: payload,
-      status: 'received',
-      signature_valid: true,
-    })
+    // Check for duplicate webhook (Stripe may retry)
+    const { data: existingEvent } = await supabase.from('webhook_events')
+      .select('id, status').eq('event_id', event.id).single()
+
+    if (existingEvent) {
+      if (existingEvent.status === 'processed') {
+        return jsonResponse({ received: true, duplicate: true })
+      }
+    } else {
+      await supabase.from('webhook_events').insert({
+        gateway: 'stripe',
+        event_type: event.type,
+        event_id: event.id,
+        raw_body: payload,
+        status: 'received',
+        signature_valid: true,
+      })
+    }
 
     // Handle payment_intent.succeeded
     if (event.type === 'payment_intent.succeeded') {
@@ -72,6 +81,51 @@ Deno.serve(async (req: Request) => {
           .eq('id', orderId)
 
         logVifixa('stripe-webhook', 'payment_success', { orderId, amount: pi.amount })
+      }
+    }
+
+    // Handle account.updated — Stripe Connect onboarding status
+    if (event.type === 'account.updated') {
+      const account = event.data.object
+      const stripeAccountId = account.id
+
+      if (account.charges_enabled || account.payouts_enabled) {
+        await supabase.from('workers')
+          .update({
+            stripe_onboarding_complete: true,
+            stripe_charges_enabled: account.charges_enabled || false,
+          })
+          .eq('stripe_account_id', stripeAccountId)
+
+        logVifixa('stripe-webhook', 'connect_onboarding_complete', {
+          stripeAccountId,
+          charges_enabled: account.charges_enabled,
+        })
+      }
+    }
+
+    // Handle payout.paid — notify worker
+    if (event.type === 'payout.paid') {
+      const payout = event.data.object
+      const stripeAccountId = payout.destination
+
+      const { data: worker } = await supabase.from('workers')
+        .select('id, full_name')
+        .eq('stripe_account_id', stripeAccountId)
+        .single()
+
+      if (worker) {
+        await supabase.from('notifications').insert({
+          user_id: worker.id,
+          type: 'payout_received',
+          title: '💵 Tiền đã về!',
+          body: `Khoản thanh toán ${(payout.amount / 100).toLocaleString('vi-VN')}đ đã được chuyển vào tài khoản ngân hàng của bạn.`,
+          data: { payout_id: payout.id, amount: payout.amount },
+        })
+        logVifixa('stripe-webhook', 'payout_notified', {
+          workerId: worker.id,
+          amount: payout.amount,
+        })
       }
     }
 

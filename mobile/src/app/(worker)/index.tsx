@@ -56,13 +56,13 @@ export default function WorkerDashboard() {
       {mode === 'auto' && (
         <>
           {activeJob ? (
-            <TouchableOpacity style={styles.activeCard} onPress={() => router.push(`/worker/jobs/${activeJob.id}`)}>
+            <TouchableOpacity style={styles.activeCard} onPress={() => router.push(`/(worker)/jobs/${activeJob.id}`)}>
               <Text style={styles.activeTitle}>🔧 Đang làm: {activeJob.category}</Text>
               <Text style={styles.activeDesc}>{activeJob.description?.slice(0, 80)}</Text>
               <Text style={styles.activePrice}>{activeJob.estimated_price.toLocaleString()}₫</Text>
             </TouchableOpacity>
           ) : pendingJobs.length > 0 ? (
-            <TouchableOpacity style={styles.widgetCard} onPress={() => router.push('/worker/jobs')}>
+            <TouchableOpacity style={styles.widgetCard} onPress={() => router.push('/(worker)/jobs')}>
               <Text style={styles.widgetTitle}>📋 {pendingJobs.length} việc mới</Text>
               <Text style={styles.widgetDesc}>{pendingJobs[0].category} · {pendingJobs[0].estimated_price.toLocaleString()}₫</Text>
             </TouchableOpacity>
@@ -82,11 +82,11 @@ export default function WorkerDashboard() {
           <Text style={styles.sectionTitle}>📋 Menu</Text>
           <View style={styles.menuGrid}>
             {[
-              { icon: '📋', name: 'Việc mới', count: pendingJobs.length, href: '/worker/jobs' },
-              { icon: '🔧', name: 'Đang làm', count: activeJob ? 1 : 0, href: activeJob ? `/worker/jobs/${activeJob.id}` : '/worker/jobs' },
-              { icon: '💰', name: 'Thu nhập', href: '/worker/earnings' },
-              { icon: '📊', name: 'Lịch sử', href: '/worker/jobs' },
-              { icon: '👤', name: 'Hồ sơ', href: '/worker/profile' },
+              { icon: '📋', name: 'Việc mới', count: pendingJobs.length, href: '/(worker)/jobs' },
+              { icon: '🔧', name: 'Đang làm', count: activeJob ? 1 : 0, href: activeJob ? `/(worker)/jobs/${activeJob.id}` : '/(worker)/jobs' },
+              { icon: '💰', name: 'Thu nhập', href: '/(worker)/earnings' },
+              { icon: '📊', name: 'Lịch sử', href: '/(worker)/jobs' },
+              { icon: '👤', name: 'Hồ sơ', href: '/(worker)/profile' },
             ].map(item => (
               <TouchableOpacity key={item.name} style={styles.menuItem} onPress={() => router.push(item.href as any)}>
                 <Text style={styles.menuIcon}>{item.icon}</Text>

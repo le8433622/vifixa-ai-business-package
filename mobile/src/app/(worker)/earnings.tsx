@@ -30,11 +30,13 @@ export default function WorkerEarnings() {
       const [wRes, pRes, sRes] = await Promise.all([
         supabase.from('wallets').select('balance,locked').eq('user_id', session.user.id).single().catch(() => ({ data: null })),
         supabase.from('payouts').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('workers').select('stripe_account_id').eq('id', session.user.id).single().catch(() => ({ data: null })),
+        supabase.from('workers').select('stripe_account_id, stripe_onboarding_complete').eq('id', session.user.id).single().catch(() => ({ data: null })),
       ]);
       if (wRes.data) setWallet(wRes.data as any);
       if (pRes.data) setPayouts(pRes.data);
-      if (sRes.data?.stripe_account_id) setStripeId(sRes.data.stripe_account_id);
+      if (sRes.data?.stripe_account_id) {
+        setStripeId(sRes.data.stripe_account_id);
+      }
     })();
   }, []);
 

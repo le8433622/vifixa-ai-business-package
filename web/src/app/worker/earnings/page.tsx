@@ -195,7 +195,7 @@ export default function WorkerEarnings() {
         <button onClick={async () => {
           const { data: { session } } = await supabase.auth.getSession()
           if (!session) return
-          const { data: worker } = await supabase.from('workers').select('stripe_account_id').eq('id', session.user.id).single()
+          const { data: worker } = await supabase.from('workers').select('stripe_account_id, stripe_onboarding_complete').eq('id', session.user.id).single()
           if (worker?.stripe_account_id) {
             const { data: link } = await supabase.functions.invoke('stripe-connect', {
               body: { worker_id: session.user.id, country: 'VN' },
@@ -211,7 +211,7 @@ export default function WorkerEarnings() {
           else if (data?.url) window.open(data.url, '_blank')
         }}
           className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition">
-          🔗 Kết nối Stripe Express
+          {worker?.stripe_onboarding_complete ? '🔄 Cập nhật Stripe' : worker?.stripe_account_id ? '✅ Hoàn tất đăng ký Stripe' : '🔗 Kết nối Stripe Express'}
         </button>
       </div>
 
@@ -224,10 +224,14 @@ export default function WorkerEarnings() {
 function PayoutSection({ userId, SUPABASE_URL }: { userId: string; SUPABASE_URL: string }) {
   const [payouts, setPayouts] = useState<any[]>([])
   const [stripeId, setStripeId] = useState<string | null>(null)
+  const [onboardingComplete, setOnboardingComplete] = useState(false)
 
   useEffect(() => {
-    supabase.from('workers').select('stripe_account_id').eq('id', userId).single().then(({ data }) => {
-      if (data?.stripe_account_id) setStripeId(data.stripe_account_id)
+    supabase.from('workers').select('stripe_account_id, stripe_onboarding_complete').eq('id', userId).single().then(({ data }) => {
+      if (data?.stripe_account_id) {
+        setStripeId(data.stripe_account_id)
+        setOnboardingComplete(!!data.stripe_onboarding_complete)
+      }
     })
     supabase.from('payouts').select('*').eq('worker_id', userId).order('created_at', { ascending: false }).limit(20).then(({ data }) => {
       if (data) setPayouts(data)
@@ -237,7 +241,9 @@ function PayoutSection({ userId, SUPABASE_URL }: { userId: string; SUPABASE_URL:
   return (
     <div className="bg-white rounded-xl border p-5 space-y-4">
       <h2 className="font-semibold">📋 Lịch sử nhận tiền</h2>
-      {stripeId && <p className="text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">✅ Stripe Connect: {stripeId.slice(0, 12)}...</p>}
+      {stripeId && <p className={`text-xs rounded-lg px-3 py-2 ${onboardingComplete ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+        {onboardingComplete ? '✅ Stripe đã sẵn sàng' : '⏳ Stripe chờ hoàn tất đăng ký'}: {stripeId.slice(0, 12)}...
+      </p>}
       {payouts.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-6">Chưa có giao dịch nhận tiền</p>
       ) : (

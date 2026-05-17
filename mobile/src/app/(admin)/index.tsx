@@ -59,7 +59,7 @@ export default function AdminDashboard() {
       </View>
 
       {stats.disputes > 0 && (
-        <TouchableOpacity style={styles.alertBtn} onPress={() => router.push('/admin/orders')}>
+        <TouchableOpacity style={styles.alertBtn} onPress={() => router.push('/(admin)/orders')}>
           <Text style={styles.alertText}>🚨 {stats.disputes} khiếu nại cần xử lý</Text>
         </TouchableOpacity>
       )}
@@ -69,18 +69,19 @@ export default function AdminDashboard() {
           <Text style={styles.sectionTitle}>📋 Menu</Text>
           <View style={styles.menuGrid}>
             {[
-              { icon: '📊', name: 'Bảng điều khiển', href: '/admin' },
-              { icon: '👥', name: 'Người dùng', href: '/admin/users' },
-              { icon: '📋', name: 'Đơn hàng', href: '/admin/orders' },
-              { icon: '🪪', name: 'KYC', href: '/admin/kyc' },
-              { icon: '💳', name: 'Thanh toán', href: '/admin/payments' },
-              { icon: '⚖️', name: 'Khiếu nại', href: '/admin/disputes' },
-              { icon: '💰', name: 'Hoàn tiền', href: '/admin/refunds' },
-              { icon: '🔒', name: 'Khóa TK', href: '/admin/locks' },
-              { icon: '📈', name: 'Phân tích', href: '/admin/analytics' },
-              { icon: '🔔', name: 'Thông báo', href: '/admin/notifications' },
-              { icon: '🔌', name: 'Tích hợp', href: '/admin/integrations' },
-              { icon: '⚙️', name: 'Cài đặt', href: '/admin/settings' },
+              { icon: '📊', name: 'Bảng điều khiển', href: '/(admin)' },
+              { icon: '👥', name: 'Người dùng', href: '/(admin)/users' },
+              { icon: '📋', name: 'Đơn hàng', href: '/(admin)/orders' },
+              { icon: '🪪', name: 'KYC', href: '/(admin)/kyc' },
+              { icon: '💳', name: 'Thanh toán', href: '/(admin)/payments' },
+              { icon: '⚖️', name: 'Khiếu nại', href: '/(admin)/disputes' },
+              { icon: '💰', name: 'Hoàn tiền', href: '/(admin)/refunds' },
+              { icon: '🔒', name: 'Khóa TK', href: '/(admin)/locks' },
+              { icon: '📈', name: 'Phân tích', href: '/(admin)/analytics' },
+              { icon: '🔔', name: 'Thông báo', href: '/(admin)/notifications' },
+              { icon: '🔌', name: 'Tích hợp', href: '/(admin)/integrations' },
+              { icon: '⏰', name: 'Cron Jobs', href: '/(admin)/cron' },
+              { icon: '⚙️', name: 'Cài đặt', href: '/(admin)/settings' },
             ].map(item => (
               <TouchableOpacity key={item.name} style={styles.menuItem} onPress={() => router.push(item.href as any)}>
                 <Text style={styles.menuIcon}>{item.icon}</Text>

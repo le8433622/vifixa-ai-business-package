@@ -12,18 +12,45 @@ export async function GET(req: NextRequest) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  const startedAt = new Date()
 
-  const { data, error } = await supabase
-    .from('idempotency_keys')
-    .delete()
-    .lt('created_at', sevenDaysAgo.toISOString())
+  const { data: logEntry } = await supabase.from('cron_job_log').insert({
+    job_name: 'cleanup-idempotency',
+    status: 'started',
+    started_at: startedAt.toISOString(),
+  }).select('id').single()
 
-  if (error) {
-    console.error('[cron] cleanup error:', error)
+  try {
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+    const { data, error } = await supabase
+      .from('idempotency_keys')
+      .delete()
+      .lt('created_at', sevenDaysAgo.toISOString())
+
+    if (error) throw error
+
+    const deleted = data?.length || 0
+    const completedAt = new Date()
+
+    await supabase.from('cron_job_log').update({
+      status: 'succeeded',
+      completed_at: completedAt.toISOString(),
+      duration_ms: completedAt.getTime() - startedAt.getTime(),
+      result_summary: `deleted ${deleted} expired idempotency keys`,
+    }).eq('id', logEntry?.id)
+
+    return NextResponse.json({ success: true, deleted })
+  } catch (error: any) {
+    const completedAt = new Date()
+    await supabase.from('cron_job_log').update({
+      status: 'failed',
+      completed_at: completedAt.toISOString(),
+      duration_ms: completedAt.getTime() - startedAt.getTime(),
+      error_message: error.message,
+    }).eq('id', logEntry?.id)
+
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-
-  return NextResponse.json({ success: true, deleted: data?.length || 0 })
 }
