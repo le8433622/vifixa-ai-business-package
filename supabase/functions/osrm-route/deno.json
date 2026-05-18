@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "serve": "deno serve --allow-net --allow-env --port 8080 index.ts"
+  },
+  "imports": {
+    "../_shared/": "../_shared/"
+  }
+}
