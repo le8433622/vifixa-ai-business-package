@@ -7,11 +7,11 @@ import { createClient } from '@supabase/supabase-js';
 let _supabaseClient: ReturnType<typeof createClient> | null = null;
 
 function getSupabaseUrl() {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
 }
 
 function getSupabaseAnonKey() {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-key';
 }
 
 export function getSupabaseClient() {
@@ -21,7 +21,6 @@ export function getSupabaseClient() {
   return _supabaseClient;
 }
 
-// Export a proxy that lazily initializes the client
 export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   get(target, prop) {
     const client = getSupabaseClient();

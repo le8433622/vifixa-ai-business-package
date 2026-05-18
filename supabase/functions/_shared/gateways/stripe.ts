@@ -27,32 +27,60 @@ export class StripeGateway implements PaymentGateway {
   private secretKey = ''
   private endpoint = 'https://api.stripe.com/v1'
 
+  private isSandbox = false
+
   initialize(config: GatewayKeys): void {
     this.publishableKey = config.publishable_key || ''
     this.secretKey = config.secret_key || ''
+    this.isSandbox = config.sandbox === 'true' || config.sandbox === '1'
   }
 
   async createPayment(request: CreatePaymentRequest): Promise<CreatePaymentResponse> {
-    // Stripe Payment Intents API
     const amountInCents = request.amount.currency === 'USD'
       ? request.amount.amount
-      : request.amount.amount * 100 // Convert to cents
+      : request.amount.amount * 100
 
-    // In real implementation, make POST to /v1/payment_intents
-    // For now, return mock response
-    const paymentIntentId = `pi_${Date.now()}`
+    if (this.isSandbox || !this.secretKey) {
+      const paymentIntentId = `pi_mock_${Date.now()}`
+      return {
+        id: paymentIntentId,
+        status: 'requires_payment_method',
+        redirectUrl: undefined,
+        raw: {
+          id: paymentIntentId,
+          amount: amountInCents,
+          currency: request.amount.currency.toLowerCase(),
+          status: 'requires_payment_method',
+          client_secret: `${paymentIntentId}_secret_${Math.random().toString(36).substring(2, 15)}`,
+          sandbox: true,
+        },
+      }
+    }
+
+    const response = await fetch('https://api.stripe.com/v1/payment_intents', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        amount: amountInCents.toString(),
+        currency: request.amount.currency.toLowerCase(),
+        description: request.description || '',
+        ...(request.idempotencyKey ? { idempotency_key: request.idempotencyKey } : {}),
+      }),
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(`Stripe API error: ${data.error?.message || response.statusText}`)
+    }
 
     return {
-      id: paymentIntentId,
-      status: 'requires_payment_method',
-      redirectUrl: undefined, // Stripe uses client-side confirmation
-      raw: {
-        id: paymentIntentId,
-        amount: amountInCents,
-        currency: request.amount.currency.toLowerCase(),
-        status: 'requires_payment_method',
-        client_secret: `${paymentIntentId}_secret_${Math.random().toString(36).substring(2, 15)}`,
-      },
+      id: data.id,
+      status: data.status,
+      redirectUrl: undefined,
+      raw: data,
     }
   }
 
@@ -61,7 +89,7 @@ export class StripeGateway implements PaymentGateway {
     return {
       id: paymentId,
       status: 'pending',
-      gateway_payment_id: paymentId,
+      gateway_txn_id: paymentId,
     }
   }
 
@@ -80,14 +108,22 @@ export class StripeGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, signature: string): boolean {
-    // Verify Stripe-Signature header
-    // v1: t=...,v1=...
-    // Use Stripe webhook secret to verify
+  async verifyWebhook(payload: string, signature: string): Promise<boolean> {
     try {
-      const sig = signature.replace('t=', '').split(',')[0]
-      // Real implementation: Stripe.webhooks.constructEvent
-      return true
+      const parts = signature.split(',')
+      const timePart = parts.find(p => p.startsWith('t='))
+      const sigPart = parts.find(p => p.startsWith('v1='))
+      if (!timePart || !sigPart) return false
+      const sig = sigPart.slice(3)
+      const signedPayload = `${timePart.slice(2)}.${payload}`
+      const encoder = new TextEncoder()
+      const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+      const key = await crypto.subtle.importKey('raw', encoder.encode(webhookSecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      const expectedBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(signedPayload))
+      const expected = Array.from(new Uint8Array(expectedBytes)).map(b => b.toString(16).padStart(2, '0')).join('')
+      if (expected.length !== sig.length) return false
+      const result = expected.split('').map((c, i) => c === sig[i]).every(Boolean)
+      return result
     } catch {
       return false
     }
@@ -123,8 +159,21 @@ export class StripeGateway implements PaymentGateway {
     if (!this.publishableKey || !this.secretKey) {
       return { ok: false, message: 'Missing Stripe API keys' }
     }
-    // In real implementation, make test API call
-    return { ok: true, message: 'Stripe gateway configured' }
+    if (this.isSandbox) {
+      return { ok: true, message: 'Stripe sandbox mode — keys present, not verified' }
+    }
+    try {
+      const response = await fetch('https://api.stripe.com/v1/balance', {
+        headers: { 'Authorization': `Bearer ${this.secretKey}` },
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        return { ok: false, message: `Stripe API error: ${data.error?.message || response.statusText}` }
+      }
+      return { ok: true, message: 'Stripe API keys verified successfully' }
+    } catch (err: any) {
+      return { ok: false, message: `Stripe connection failed: ${err.message}` }
+    }
   }
 }
 

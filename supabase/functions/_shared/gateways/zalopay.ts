@@ -75,7 +75,7 @@ export class ZaloPayGateway implements PaymentGateway {
     return {
       id: paymentId,
       status: 'pending',
-      gateway_payment_id: paymentId,
+      gateway_txn_id: paymentId,
     }
   }
 
@@ -93,7 +93,7 @@ export class ZaloPayGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, signature: string): boolean {
+  async verifyWebhook(payload: string, signature: string): Promise<boolean> {
     try {
       const data = JSON.parse(payload)
       const expectedMac = data.mac

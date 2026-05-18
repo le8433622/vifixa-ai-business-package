@@ -72,7 +72,7 @@ export default function Register() {
 
         <div className="bg-white p-8 rounded-2xl shadow-lg border">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
+            <div data-testid="register-error" className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
               {error}
             </div>
           )}
@@ -80,25 +80,25 @@ export default function Register() {
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Họ tên</label>
-              <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+              <input data-testid="register-name" type="text" value={fullName} onChange={e => setFullName(e.target.value)}
                 required placeholder="Nguyễn Văn A"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              <input data-testid="register-email" type="email" value={email} onChange={e => setEmail(e.target.value)}
                 required placeholder="your@email.com"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              <input data-testid="register-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                 placeholder="+84 123 456 789"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              <input data-testid="register-password" type="password" value={password} onChange={e => setPassword(e.target.value)}
                 required minLength={6} placeholder="•••••••• (ít nhất 6 ký tự)"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 outline-none transition" />
             </div>
@@ -106,7 +106,7 @@ export default function Register() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Tôi muốn</label>
               <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => setRole('customer')}
+                <button data-testid="register-role-customer" type="button" onClick={() => setRole('customer')}
                   className={`py-3 px-4 rounded-xl border-2 font-medium transition-all ${
                     role === 'customer'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -115,7 +115,7 @@ export default function Register() {
                   <span className="text-2xl block mb-1">🏠</span>
                   Thuê dịch vụ
                 </button>
-                <button type="button" onClick={() => setRole('worker')}
+                <button data-testid="register-role-worker" type="button" onClick={() => setRole('worker')}
                   className={`py-3 px-4 rounded-xl border-2 font-medium transition-all ${
                     role === 'worker'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -127,7 +127,7 @@ export default function Register() {
               </div>
             </div>
 
-            <button type="submit" disabled={loading}
+            <button data-testid="register-submit" type="submit" disabled={loading}
               className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all">
               {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
             </button>

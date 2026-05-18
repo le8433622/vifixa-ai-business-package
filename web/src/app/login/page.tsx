@@ -49,7 +49,7 @@ export default function Login() {
 
         <div className="bg-white p-8 rounded-2xl shadow-lg border">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
+            <div data-testid="login-error" className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
               {error}
             </div>
           )}
@@ -58,7 +58,7 @@ export default function Login() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                data-testid="login-email" type="email" value={email} onChange={e => setEmail(e.target.value)}
                 required placeholder="your@email.com"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
               />
@@ -66,12 +66,12 @@ export default function Login() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
               <input
-                type="password" value={password} onChange={e => setPassword(e.target.value)}
+                data-testid="login-password" type="password" value={password} onChange={e => setPassword(e.target.value)}
                 required placeholder="••••••••"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition"
               />
             </div>
-            <button type="submit" disabled={loading}
+            <button data-testid="login-submit" type="submit" disabled={loading}
               className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 transition-all">
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>

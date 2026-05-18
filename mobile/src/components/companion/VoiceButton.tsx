@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
-import { TouchableOpacity, Text, StyleSheet } from 'react-native'
-import { Audio } from 'expo-av'
+import { useState, useEffect, useCallback } from 'react'
+import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native'
+import Voice, { SpeechResultsEvent, SpeechErrorEvent } from '@react-native-voice/voice'
 
 interface VoiceButtonProps {
   onTranscript: (text: string) => void
@@ -9,49 +9,57 @@ interface VoiceButtonProps {
 
 export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
   const [isRecording, setIsRecording] = useState(false)
-  const recordingRef = useRef<Audio.Recording | null>(null)
+  const [error, setError] = useState('')
+
+  const onSpeechResults = useCallback((e: SpeechResultsEvent) => {
+    const transcript = e.value?.[0]
+    if (transcript) {
+      onTranscript(transcript)
+    }
+  }, [onTranscript])
+
+  const onSpeechError = useCallback((e: SpeechErrorEvent) => {
+    const msg = e.error?.message || 'Lỗi nhận dạng giọng nói'
+    setError(msg)
+    setIsRecording(false)
+  }, [])
+
+  useEffect(() => {
+    Voice.onSpeechResults = onSpeechResults
+    Voice.onSpeechError = onSpeechError
+    return () => {
+      Voice.destroy().then(() => Voice.removeAllListeners())
+    }
+  }, [onSpeechResults, onSpeechError])
 
   async function toggle() {
     if (isRecording) {
-      await stopRecording()
+      await stopRecognition()
     } else {
-      await startRecording()
+      await startRecognition()
     }
   }
 
-  async function startRecording() {
+  async function startRecognition() {
     try {
-      const { granted } = await Audio.requestPermissionsAsync()
-      if (!granted) {
-        alert('Cần quyền mic để nhập giọng nói')
+      setError('')
+      const available = await Voice.isAvailable()
+      if (!available) {
+        alert('Thiết bị không hỗ trợ nhận dạng giọng nói')
         return
       }
-
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
-      const recording = new Audio.Recording()
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-      await recording.startAsync()
-      recordingRef.current = recording
+      await Voice.start('vi-VN')
       setIsRecording(true)
     } catch {
-      alert('Không thể bắt đầu ghi âm')
+      alert('Không thể bắt đầu nhận dạng giọng nói')
     }
   }
 
-  async function stopRecording() {
+  async function stopRecognition() {
     try {
-      if (!recordingRef.current) return
-      await recordingRef.current.stopAndUnloadAsync()
-      const uri = recordingRef.current.getURI()
-      recordingRef.current = null
+      await Voice.stop()
       setIsRecording(false)
-
-      if (uri) {
-        // Voice-to-text handled via Edge Function or native speech API
-        onTranscript('[Đã ghi âm giọng nói — xử lý trên server]')
-      }
     } catch {
-      alert('Lỗi khi dừng ghi âm')
       setIsRecording(false)
     }
   }
@@ -65,6 +73,7 @@ export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps
       <Text style={[styles.icon, isRecording && styles.iconActive]}>
         {isRecording ? '🔴' : '🎤'}
       </Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </TouchableOpacity>
   )
 }
@@ -87,5 +96,13 @@ const styles = StyleSheet.create({
   },
   iconActive: {
     color: '#e53935',
+  },
+  error: {
+    position: 'absolute',
+    bottom: -16,
+    fontSize: 10,
+    color: '#e53935',
+    width: 80,
+    textAlign: 'center',
   },
 })

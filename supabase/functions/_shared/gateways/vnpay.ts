@@ -82,7 +82,7 @@ export class VNPayGateway implements PaymentGateway {
     return {
       id: paymentId,
       status: 'pending',
-      gateway_payment_id: paymentId,
+      gateway_txn_id: paymentId,
     }
   }
 
@@ -100,15 +100,46 @@ export class VNPayGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, _signature: string): boolean {
-    // Simplified mock verification - in production, use HMAC-SHA512
+  async verifyWebhook(payload: string, _signature: string): Promise<boolean> {
+    // VNPay IPN uses HMAC-SHA512 signature in vnp_SecureHash field
     try {
       const params = this.parseQueryString(payload)
       const secureHash = params.vnp_SecureHash
-      return !!secureHash
+      if (!secureHash) return false
+
+      if (this.config.sandbox === 'true' || this.config.sandbox === '1') {
+        return true
+      }
+
+      const { vnp_SecureHash: _, vnp_SecureHashType: __, ...cleanParams } = params
+      const sortedParams = this.sortParams(cleanParams as Record<string, string>)
+      const signData = this.toQueryString(sortedParams)
+      return await this.verifySignature(signData, secureHash)
     } catch {
       return false
     }
+  }
+
+  private async verifySignature(data: string, expected: string): Promise<boolean> {
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(this.secretKey)
+    const messageData = encoder.encode(data)
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: { name: 'SHA-512' } },
+      false,
+      ['sign']
+    )
+
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
+    const computed = Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    if (computed.length !== expected.length) return false
+    return computed.split('').map((c, i) => c === expected[i]).every(Boolean)
   }
 
   normalizeWebhook(payload: any, _headers: Record<string, string>): NormalizedEvent {

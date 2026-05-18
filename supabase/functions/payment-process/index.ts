@@ -155,7 +155,7 @@ async function handleCreatePayment(req: Request, supabase: any): Promise<Respons
   // Create payment request
   const paymentRequest: CreatePaymentRequest = {
     amount: { amount, currency: 'VND' },
-    idempotencyKey: `order_${order_id}_${Date.now()}`,
+    idempotencyKey: idemKey,
     description: description || `Payment for order ${order_id}`,
     returnUrl: return_url,
     customer: { id: user.id },
@@ -176,7 +176,7 @@ async function handleCreatePayment(req: Request, supabase: any): Promise<Respons
     .from('payment_intents')
     .insert({
       gateway: config.key,
-      gateway_payment_id: result.id,
+      gateway_txn_id: result.id,
       order_id,
       user_id: user.id,
       amount: paymentRequest.amount.amount,
@@ -228,7 +228,7 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
   )
 
   // Verify webhook
-  const isValid = gatewayInstance.verifyWebhook(payload, signature)
+  const isValid = await gatewayInstance.verifyWebhook(payload, signature)
   if (!isValid) {
     return jsonResponse({ error: 'Invalid webhook signature' }, 401)
   }
@@ -268,7 +268,7 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
   const { data: paymentIntent } = await supabase
     .from('payment_intents')
     .select('*')
-    .eq('gateway_payment_id', event.paymentId)
+    .eq('gateway_txn_id', event.paymentId)
     .single()
 
   if (paymentIntent) {
@@ -302,7 +302,7 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
       // Get order details for ledger
       const { data: order } = await supabase
         .from('orders')
-        .select('worker_id, platform_fee, worker_payout_amount')
+        .select('worker_id, platform_fee, worker_payout')
         .eq('id', paymentIntent.order_id)
         .single()
 
@@ -311,7 +311,7 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
 
         // Ledger: Customer payment (credit platform)
         await supabase
-          .from('ledger_entries')
+          .from('ledger')
           .insert({
             transaction_id: transactionId,
             wallet_id: paymentIntent.user_id, // customer wallet (if exists)
@@ -327,7 +327,7 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
         // Ledger: Platform fee (if any)
         if (order.platform_fee) {
           await supabase
-            .from('ledger_entries')
+            .from('ledger')
             .insert({
               transaction_id: transactionId,
               account: 'platform.fee',
@@ -341,7 +341,7 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
         }
 
         // Ledger: Worker payout (escrow)
-        if (order.worker_id && order.worker_payout_amount) {
+        if (order.worker_id && order.worker_payout) {
           // Credit worker wallet (held in escrow)
           const { data: workerWallet } = await supabase
             .from('wallets')
@@ -351,13 +351,13 @@ async function handleWebhook(req: Request, supabase: any, gatewayName: string): 
 
           if (workerWallet) {
             await supabase
-              .from('ledger_entries')
+              .from('ledger')
               .insert({
                 transaction_id: transactionId,
                 wallet_id: workerWallet.id,
                 account: 'escrow.held',
                 direction: 'credit',
-                amount: order.worker_payout_amount,
+                amount: order.worker_payout,
                 currency: paymentIntent.currency,
                 reference_type: 'escrow',
                 reference_id: paymentIntent.order_id,
@@ -399,7 +399,7 @@ async function handleGetStatus(req: Request, supabase: any): Promise<Response> {
     .select('*')
 
   if (paymentId) {
-    query = query.eq('gateway_payment_id', paymentId)
+    query = query.eq('gateway_txn_id', paymentId)
   } else {
     query = query.eq('order_id', orderId)
   }
@@ -411,7 +411,7 @@ async function handleGetStatus(req: Request, supabase: any): Promise<Response> {
   }
 
   return jsonResponse({
-    payment_id: payment.gateway_payment_id,
+    payment_id: payment.gateway_txn_id,
     status: payment.status,
     amount: payment.amount,
     currency: payment.currency,
@@ -444,7 +444,7 @@ async function handleRefund(req: Request, supabase: any): Promise<Response> {
   const { data: payment } = await supabase
     .from('payment_intents')
     .select('*, gateway_configs(*)')
-    .eq('gateway_payment_id', payment_id)
+    .eq('gateway_txn_id', payment_id)
     .single()
 
   if (!payment) {

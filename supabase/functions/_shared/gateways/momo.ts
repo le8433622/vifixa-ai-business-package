@@ -71,7 +71,7 @@ export class MoMoGateway implements PaymentGateway {
     return {
       id: paymentId,
       status: 'pending',
-      gateway_payment_id: paymentId,
+      gateway_txn_id: paymentId,
     }
   }
 
@@ -88,7 +88,7 @@ export class MoMoGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(payload: string, signature: string): boolean {
+  async verifyWebhook(payload: string, signature: string): Promise<boolean> {
     // MoMo sends signature in headers
     // Verify using HMAC-SHA256
     try {

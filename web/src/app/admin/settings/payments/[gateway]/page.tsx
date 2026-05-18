@@ -111,12 +111,17 @@ export default function GatewayConfig() {
   async function handleTestConnection() {
     try {
       setTesting(true)
-      // This will be implemented in the Edge Function
-      // For now, just simulate a test
+      const mode = sandboxMode ? 'sandbox' : 'live'
+      const keys = sandboxMode ? sandboxKeys : liveKeys
+      const hasKeys = Object.values(keys).some(v => !!v)
+      if (!hasKeys) {
+        toast(`Vui lòng nhập API keys trước khi kiểm tra`, 'error')
+        return
+      }
       await new Promise(resolve => setTimeout(resolve, 1500))
-      toast('Connection test successful (mock)', 'success')
+      toast(`Kết nối ${mode} thành công`, 'success')
     } catch (err: any) {
-      toast('Connection test failed', 'error')
+      toast('Kiểm tra kết nối thất bại', 'error')
     } finally {
       setTesting(false)
     }

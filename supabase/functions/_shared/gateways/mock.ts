@@ -61,7 +61,7 @@ export class MockGateway implements PaymentGateway {
     return {
       id: paymentId,
       status: 'succeeded',
-      gateway_payment_id: paymentId,
+      gateway_txn_id: paymentId,
     }
   }
 
@@ -80,7 +80,7 @@ export class MockGateway implements PaymentGateway {
     }
   }
 
-  verifyWebhook(_payload: string, _signature: string): boolean {
+  async verifyWebhook(_payload: string, _signature: string): Promise<boolean> {
     // Mock always returns true for webhook verification
     return true
   }

@@ -30,7 +30,7 @@ export function useLanguage() {
 export default function LanguageToggle() {
   const { locale, setLocale } = useLanguage()
   return (
-    <button onClick={() => setLocale(locale === 'vi' ? 'en' : 'vi')}
+    <button data-testid="language-toggle" onClick={() => setLocale(locale === 'vi' ? 'en' : 'vi')}
       className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition flex items-center gap-1">
       <span className="text-base">{locale === 'vi' ? '🇻🇳' : '🇬🇧'}</span>
       <span>{locale === 'vi' ? 'VI' : 'EN'}</span>

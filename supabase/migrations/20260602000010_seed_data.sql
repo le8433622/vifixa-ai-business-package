@@ -2,6 +2,16 @@
 -- Profiles (50), Orders (100), Transactions (50), Conversations (20), Service areas (10 HCMC poly), Disputes (5)
 -- Uses actual schema column names from migrations
 
+-- === PRODUCTION GUARD ===
+-- This migration is DESTRUCTIVE. Only run in dev/staging.
+DO $$
+BEGIN
+  IF current_setting('app.env', true) = 'production' THEN
+    RAISE EXCEPTION 'seed_data migration cannot run in production. Set app.env = ''development'' to proceed.';
+  END IF;
+END;
+$$;
+
 -- === 0. Clean up before insert (dev only) ===
 DELETE FROM disputes;
 DELETE FROM messages;

@@ -107,7 +107,7 @@ export interface PaymentGateway {
   refundPayment(paymentId: string, amount?: Money): Promise<RefundResult>
 
   // Webhook handling
-  verifyWebhook(payload: string, signature: string): boolean
+  verifyWebhook(payload: string, signature: string): Promise<boolean>
   normalizeWebhook(payload: any, headers: Record<string, string>): NormalizedEvent
 
   // Health check (for admin monitoring)
