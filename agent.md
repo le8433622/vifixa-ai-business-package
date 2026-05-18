@@ -73,7 +73,10 @@ agent.md (file này)                           ← HIẾN PHÁP — đọc đầ
   ├── docs/ARCHITECTURE.md                     ← Kiến trúc hệ thống tổng thể
   ├── docs/FLOWCHART.md                        ← Luồng thủ công + tự động
   ├── docs/ROADMAP.md                          ← Lộ trình phát triển
+  ├── docs/TASK_PLAN.md                        ← Production-perfect task checklist
   ├── docs/GAP_ANALYSIS.md                     ← Gap registry live
+  ├── docs/PROMPT_PROTOCOL.md                  ← Prompt chuẩn cho AI/Product/QA/Release
+  ├── docs/CHECKPOINT_SYSTEM_STATE.md          ← Checkpoint trạng thái hệ thống
   ├── docs/SECURITY.md                         ← Security checklist
   ├── docs/BUSINESS.md                         ← Mô hình kinh doanh
   └── docs/PRODUCT_BLUEPRINT.md                ← Product vision 8-layer
@@ -81,21 +84,25 @@ agent.md (file này)                           ← HIẾN PHÁP — đọc đầ
 
 ---
 
-## 5. System State (2026-05-17)
+## 5. System State (2026-05-18)
 
 | Check | Status |
 |---|---|
-| Next.js build (67 routes) | ✅ 0 errors |
+| Next.js build (72 routes) | ✅ 0 errors |
 | Deno tests (71 tests) | ✅ 71/71 pass |
-| SQL migrations | 27 committed |
-| RLS | ✅ `is_admin_from_jwt()` all tables |
-| Edge Functions deployed | 24+ |
+| Web unit tests | ✅ 33/33 pass |
+| Mobile unit tests | ✅ 14/14 pass |
+| SQL migrations | 37 committed |
+| RLS | ✅ All production tables covered by RLS policies |
+| Edge Functions | 50+ implemented |
 | CI/CD | ✅ GitHub Actions 3 pipelines |
-| P0 bugs resolved | 18/21 |
+| P0 bugs resolved | ✅ 21/21 |
 | SECURITY DEFINER audit | ✅ All functions verified |
 | VNPay key naming | ✅ Unified camelCase |
 | OSRM proxy | ✅ Auth + rate limit |
 | AI unification | ✅ companion/chat canonical |
+| Current product state | Production-ready candidate, not production-proven |
+| Remaining launch gates | Staging/prod verification, payment sandbox, Sentry, device STT, full E2E business flow |
 
 ---
 
@@ -246,54 +253,126 @@ interface ServiceDefinition {
 
 ---
 
-## 11. Build Order
+## 11. Product-Perfect Definition of Done
 
-```
-Phase 17: Agent OS Foundation     ← HIỆN TẠI
-  ├── docs rewrite (agent.md + AGENT_OS + ACTION_REGISTRY + AUTO_MODE)
-  ├── DB: agent_goals, agent_runs, agent_steps, agent_actions, agent_policies, agent_approvals
-  └── Edge Function: agent-orchestrator
+Không được gọi sản phẩm là "hoàn hảo" nếu thiếu evidence từ checklist bên dưới. Trạng thái đúng hiện tại là **production-ready candidate** cho đến khi tất cả launch gates có bằng chứng thật.
 
-Phase 18: Action Registry Implementation
-  ├── account.* actions (update_phone, update_address, verify_otp)
-  ├── memory.* actions (save_fact, update_preference)
-  └── Action audit UI
+### P0 Launch Gate - bắt buộc trước production
 
-Phase 19: Customer Auto Mode
-  ├── Goal Planner: tạo plan từ hội thoại
-  ├── Account auto actions: đổi địa chỉ, số điện thoại, profile
-  └── Service auto flow: detect → diagnose → quote → match
+| Gate | Evidence bắt buộc |
+|---|---|
+| Build web | `npm run build` pass trên CI hoặc staging |
+| Unit tests web | `npx vitest run` pass |
+| Unit tests mobile | `npx jest --no-coverage` pass |
+| Edge Function tests | `deno test --allow-all` pass |
+| SQL migrations | Chạy thành công trên staging/prod Supabase |
+| RLS | Verify bằng query thật trên staging/prod, không chỉ đọc migration |
+| Full E2E business flow | Login -> đặt đơn -> thợ nhận -> hoàn tất -> thanh toán |
+| Payment sandbox | VNPay + Stripe chạy sandbox với key thật |
+| Observability | Sentry nhận event thật từ deployment |
+| Mobile device | STT test trên thiết bị iOS/Android thật |
+| Security scan | Không secret trong frontend/mobile, không mock data production |
+| Rollback | Có migration rollback hoặc recovery plan cho release |
 
-Phase 20: Worker Auto Mode
-  ├── Job ranking: best job theo skill + khoảng cách + thu nhập
-  ├── Route optimization: multi-job ETA
-  └── Income dashboard: auto-generated
+### P1 Product Polish
 
-Phase 21: Admin Auto Mode
-  ├── Daily brief: tóm tắt KPI + anomalies
-  ├── Auto suggestions: lock/unlock, KYC approve, workforce
-  └── Fraud detection auto-alerts
+| Gate | Evidence bắt buộc |
+|---|---|
+| UI language | Không English string trong UI tiếng Việt |
+| Loading/empty/error | Critical pages có state đầy đủ |
+| Page transitions | Navigation chính có page transition thật |
+| Mode switch | Auto/manual mode có animation và feedback rõ |
+| Voice-first | Người dùng có thể nói -> gửi -> AI xử lý mà không cần gõ |
+| Accessibility | Form, button, dialog có label và keyboard path |
 
-Phase 22: Multi-service Expansion
-  ├── cleaning, delivery, moving, care, pet, tutoring, beauty
-  └── Service Registry dynamic loading từ DB
+### P2 Operations
 
-Phase 23: Monetization
-  ├── Commission engine
-  ├── Membership plans
-  └── B2B subscriptions
+| Gate | Evidence bắt buộc |
+|---|---|
+| Load test | 1000 concurrent users hoặc target được Product duyệt |
+| Backup/restore | Có drill restore staging |
+| Payment reconciliation | Có runbook đối soát VNPay/Stripe/wallet |
+| Incident response | Có owner, severity, rollback, communication template |
+| Admin audit | AI action/admin action có timeline review được |
+
+---
+
+## 12. Strict Product Workflow
+
+Mọi task mới phải đi theo quy trình này, kể cả task nhỏ nếu chạm kiến trúc, payment, AI action, DB, security hoặc launch readiness.
+
+1. **Discover**: Đọc `agent.md`, `docs/GAP_ANALYSIS.md`, file liên quan.
+2. **Gap Check**: Nếu phát hiện gap mới, cập nhật `docs/GAP_ANALYSIS.md` trước khi code.
+3. **Plan**: Đưa task plan + checklist + file sẽ sửa.
+4. **Approve**: Chờ user approve rõ ràng.
+5. **Implement**: Sửa đúng phạm vi đã duyệt, không tự mở scope.
+6. **Verify**: Chạy test/build/check phù hợp, ghi rõ lệnh và kết quả.
+7. **Docs**: Update docs source-of-truth nếu thay đổi behavior, phase, action, DB, release status.
+8. **Evidence**: Mọi claim "done", "ready", "perfect" phải có evidence.
+9. **Commit**: Chỉ commit khi user yêu cầu rõ.
+10. **Release Gate**: Không production deploy nếu P0 Launch Gate chưa đủ.
+
+---
+
+## 13. Prompt Contract
+
+Mọi prompt cho AI agent trong repo phải dùng contract này. Prompt đầy đủ nằm ở `docs/PROMPT_PROTOCOL.md`.
+
+```text
+ROLE: Bạn là [AI Engineer / QA Reviewer / Release Manager / Product Owner / Security Auditor].
+CONTEXT: Đọc agent.md trước, sau đó đọc docs/GAP_ANALYSIS.md và file liên quan.
+MISSION: Hoàn thành task theo manual-first, action-gated, policy-audited Agent OS.
+CONSTRAINTS: Không secret frontend/mobile. Không mock data production. UI tiếng Việt. Không AI direct DB/UI.
+PROCESS: Discover -> Gap -> Plan -> Approve -> Implement -> Verify -> Docs -> Evidence.
+DONE MEANS: Có test/build/check pass, docs cập nhật, risk còn lại được ghi rõ.
+NEVER CLAIM PERFECT: Nếu chưa có production evidence thật.
 ```
 
 ---
 
-## 12. Verification Protocol
+## 14. Build Order
 
-Sau mỗi phase phải verify:
+```
+Phase 17-23: Completed foundation
+  ├── Agent OS runtime, actions, policies, audit
+  ├── Customer/Worker/Admin auto mode
+  ├── Multi-service registry, monetization, B2B, MCP, dark mode
+  └── Payment hardening, Sentry, E2E, mobile STT, service area polygon
+
+Phase 24: Product Hardening     ← HIỆN TẠI
+  ├── GAP-P1-10: page transitions + mode switch animations
+  ├── GAP-P2-03: voice-first auto mode
+  ├── Full business E2E: login -> book -> accept -> complete -> pay
+  └── Production docs sync: task plan, roadmap, prompt protocol, checkpoint
+
+Phase 25: Production Verification
+  ├── Staging deployment smoke test
+  ├── Supabase migrations/RLS verification on real DB
+  ├── VNPay + Stripe sandbox/live-key audit
+  ├── Sentry event verification
+  └── Mobile iOS/Android device verification
+
+Phase 26: Launch Operations
+  ├── Load test + performance budget
+  ├── Backup/restore drill
+  ├── Incident runbook + rollback plan
+  ├── Payment reconciliation runbook
+  └── Launch sign-off by Product/Engineering/Ops
+```
+
+---
+
+## 15. Verification Protocol
+
+Sau mỗi phase phải verify theo phạm vi thay đổi. Không cần chạy mọi thứ cho docs-only, nhưng phải ghi rõ vì sao không chạy.
 
 ```bash
-next build        # 0 errors
-deno test         # all pass
-deno check */*.ts # no type errors
+cd web && npm run build                  # 0 errors
+cd web && npx vitest run                 # all pass
+cd mobile && npx jest --no-coverage      # all pass
+cd mobile && npx tsc --noEmit            # 0 TS errors
+cd supabase && deno test --allow-all     # all pass
+cd supabase && deno check functions/*/index.ts
 ```
 
 Checklist:
@@ -304,10 +383,11 @@ Checklist:
 - [ ] Zod schema trên mọi input
 - [ ] Audit log cho mọi AI action
 - [ ] Ledger double-entry cho mọi financial action
+- [ ] Không gọi "hoàn hảo" nếu thiếu evidence P0 Launch Gate
 
 ---
 
-## 13. Gap Detection Protocol
+## 16. Gap Detection Protocol
 
 Mỗi khi phát hiện vấn đề mới:
 1. Check `docs/GAP_ANALYSIS.md` xem đã có gap này chưa
@@ -317,7 +397,7 @@ Mỗi khi phát hiện vấn đề mới:
 
 ---
 
-## 14. Docs Update Protocol
+## 17. Docs Update Protocol
 
 Mỗi khi thay đổi code ảnh hưởng kiến trúc:
 1. Cập nhật `agent.md` nếu thay đổi rule/nguyên lý
@@ -326,10 +406,13 @@ Mỗi khi thay đổi code ảnh hưởng kiến trúc:
 4. Cập nhật `docs/ARCHITECTURE.md` nếu thêm layer/function
 5. Cập nhật `docs/GAP_ANALYSIS.md` khi gap thay đổi trạng thái
 6. Cập nhật `docs/ROADMAP.md` khi hoàn thành phase
+7. Cập nhật `docs/TASK_PLAN.md` khi launch checklist thay đổi
+8. Cập nhật `docs/CHECKPOINT_SYSTEM_STATE.md` khi state/build/test/commit thay đổi
+9. Cập nhật `docs/PROMPT_PROTOCOL.md` khi đổi prompt hoặc agent workflow
 
 ---
 
-## 15. Stack Reference
+## 18. Stack Reference
 
 | Layer | Technology |
 |---|---|
@@ -343,7 +426,15 @@ Mỗi khi thay đổi code ảnh hưởng kiến trúc:
 
 ---
 
-## 16. CHANGELOG
+## 19. CHANGELOG
+
+### 2026-05-18 — v3.1: Production-Perfect Protocol
+- Cập nhật system state: 72 routes, 37 migrations, web/mobile/deno tests green
+- Thêm Product-Perfect Definition of Done với P0/P1/P2 launch gates
+- Thêm Strict Product Workflow: Discover -> Gap -> Plan -> Approve -> Implement -> Verify -> Docs -> Evidence
+- Thêm Prompt Contract và link `docs/PROMPT_PROTOCOL.md`
+- Cập nhật Build Order Phase 24-26: hardening, production verification, launch operations
+- Quy định không được gọi "hoàn hảo" nếu chưa có production evidence thật
 
 ### 2026-05-17 — v3.0: Agent OS Constitution
 - Chuyển từ blueprint bugfix → Agent Operating System constitution

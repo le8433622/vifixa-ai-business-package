@@ -1,192 +1,92 @@
-# Vifixa AI — System State Checkpoint
+# Vifixa AI - System State Checkpoint
 
-> Tag: `v0.1.0-payment-smart-system`  
-> Date: 2026-05-09 (Updated: 2026-05-09)  
-> Commit: `2cea968`
-
----
-
-## 1. Deployments
-
-### Production
-
-| Component | URL / Ref | Status |
-|-----------|-----------|--------|
-| Web App | https://web-eta-ochre-99.vercel.app | ✅ Active (47 routes) |
-| Supabase | lipjakzhzosrhttsltwo | ✅ Active |
-| GitHub | le8433622/vifixa-ai-business-package | ✅ main + staging |
-| Staging Web | https://vifixa-ai-staging.vercel.app | ✅ Active |
-| Staging Supabase | drapjraegrygkakzalog | ✅ Active, all functions deployed |
-
-### Supabase Edge Functions (16 active)
-
-| Function | Notes |
-|----------|-------|
-| ai-diagnose | ✅ |
-| ai-estimate-price | ✅ |
-| ai-fraud-check | ✅ |
-| notify | ✅ |
-| upload-complete | ✅ |
-| ai-dispute | ✅ |
-| ai-matching | ✅ |
-| auth-login | ✅ |
-| auth-register | ✅ Public registration |
-| ai-quality | ✅ |
-| customer-requests | ✅ |
-| worker-jobs | ✅ |
-| admin-dashboard | ✅ |
-| ai-coach | ✅ |
-| stripe-connect | ✅ |
-| ai-warranty | ✅ |
-| stripe-payment-intent | ✅ |
-| stripe-webhook | ✅ |
-| ai-chat | ✅ Orchestrator |
-| ai-predict | ✅ |
-| ai-care-agent | ✅ |
-| subscription-manage | ✅ |
-| stripe-checkout | ✅ |
-| **feature-flag** | ✅ New - v3 |
-| **payment-process** | ✅ New - v3 |
-| **user-preferences** | ✅ New - v3 |
-| **behavioral-analytics** | ✅ New - v3 |
-| **smart-suggestions** | ✅ New - v5 |
-| **wallet-manager** | ✅ New - v5 |
+> Date: 2026-05-18
+> Status: production-ready candidate, not production-proven
+> Last functional commit before docs sync: `2041c5c`
 
 ---
 
-## 2. Database Migrations (31 total)
+## 1. Verification Snapshot
 
-| # | Migration | Status |
-|---|-----------|--------|
-| 001 | 001_init.sql | ✅ |
-| 002 | 002_trust_scores.sql | ✅ |
-| 003 | 003_payments.sql | ✅ |
-| 004 | 004_fix_rls_recursion.sql | ✅ |
-| 5-23 | AI Chat migrations (19 files) | ✅ |
-| 24 | 20260508000000_subscription_plans.sql | ✅ |
-| 25 | 20260508001000_fix_admin_profile_and_auth_trigger.sql | ✅ |
-| 26-28 | Stripe + Realtime (3 files) | ✅ |
-| 29-33 | Payment/Smart/AB Testing (5 files) | ✅ |
-| 34 | **20260511000000_add_customer_update_orders.sql** | ✅ NEW |
-| 35 | **20260511000001_add_rating_to_orders.sql** | ✅ NEW |
+| Check | Status | Evidence |
+|---|---|---|
+| Next.js build | Pass | 72 routes, 0 errors |
+| Web unit tests | Pass | 33/33 |
+| Mobile unit tests | Pass | 14/14 |
+| Deno tests | Pass | 71/71 |
+| Mobile TypeScript | Pass | 0 errors |
+| Pre-commit quality gates | Pass | E2E route checks, no `@ts-nocheck`, no API `console.log` |
+| English UI audit | Pass for scanned scope | Admin settings translated, web/mobile scan clean |
+| Working tree | Clean at checkpoint | Before production-perfect docs update |
 
 ---
 
-## 3. Git History
+## 2. Product Capabilities
 
-```
-11a8c6f Add customer UPDATE RLS policy for orders
-ab9f148 Fix: Customer cannot cancel orders (RLS + rating column)
-b751bfa Feat: Payment gateway abstraction + wallet + smart system
-401e868 Step 10: Final Verification
-a23d810 Step1: Project initialization
-3d66e51 Merge PR #7: AI Chat Service Closer
-...
-```
-
----
-
-## 4. Known Issues
-
-### Critical
-- None currently
-
-### Medium
-- `worker_id` = NULL for all existing orders (no worker assignments)
-- Wallets and payouts tables empty (no wallet created for any user)
-- Mobile app needs `npm install` + `.env` before running
-
-### Low
-- `20260510000006_add_ab_test_id_to_suggestions.sql` migration file missing (not critical — smart-suggestions function was fixed to not depend on `ab_test_id` column)
-- `review` page on mobile missing cancel button for customers
-- `cancel_order` action type defined in `ai_action_requests` table but never used
-- **RESOLVED** VERCEL_TOKEN — now set with real value
-
----
-
-## 5. Key Configuration
-
-### Environment Variables (Vercel Production)
-| Variable | Set |
-|----------|-----|
-| NEXT_PUBLIC_SUPABASE_URL | ✅ |
-| NEXT_PUBLIC_SUPABASE_ANON_KEY | ✅ |
-| NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY | ✅ |
-| STRIPE_SECRET_KEY | ✅ |
-| AI_PROVIDER | nvidia |
-| NEXT_PUBLIC_APP_URL | ✅ |
-
-### Environment Variables (Mobile)
-| Variable | Set |
-|----------|-----|
-| EXPO_PUBLIC_SUPABASE_URL | ✅ (in .env) |
-| EXPO_PUBLIC_SUPABASE_ANON_KEY | ✅ (in .env) |
-
----
-
-## 6. Web Routes (47 total)
-
-### Public (4)
-`/`, `/login`, `/register`, `/for-workers`
-
-### Customer (14)
-Dashboard, Chat AI, Care Hub, Service Request, Orders list/detail,
-Profile, Complaint, Settings, Devices list/detail, Warranty, Review
-
-### Worker (10)
-Dashboard, Jobs list/detail, History, **Earnings**, **AI Coach**,
-Trust, Verify, Profile, **Settings**
-
-### Admin (9)
-Dashboard, Users, Workers, Orders, Complaints, Disputes, AI Logs,
-Approvals, Chat KPIs, Price Accuracy
-
-### Admin Settings (8)
-General, **Features**, **Payments**, **Wallet**, Notifications,
-AI Config, Security, Gateway config dynamic
-
----
-
-## 7. CI/CD Pipeline
-
-| Workflow | Trigger | Environment | Action |
-|---|---|---|---|
-| `ci.yml` | Push/PR main, staging | — | Lint, typecheck, quality gates, build, integration tests |
-| `deploy-vercel.yml` | Push main/staging, PR | Preview/staging/Production | Vercel auto-deploy |
-| `deploy-supabase.yml` | Push supabase/ changes | staging/Production | Edge functions + migrations |
-| `ai-tests.yml` | AI function changes | — | Deno check + integration tests |
-
-## 8. GitHub Configuration
-
-| Item | Status |
+| Capability | Status |
 |---|---|
-| Environments | ✅ Production, staging, Preview |
-| Branch protection (main) | ✅ PR + 1 review, status checks, linear history |
-| Branch protection (staging) | ✅ Same as main, admins bypass |
-| Secrets (repo) | ✅ SUPABASE_ACCESS_TOKEN, ANON_KEY, SERVICE_ROLE_KEY, TEST_USER/PASS, VERCEL_TOKEN |
-| Secrets (Production env) | ✅ VERCEL, SUPABASE_PROJECT_REF, URL, ANON_KEY |
-| Secrets (staging env) | ✅ VERCEL, SUPABASE_PROJECT_REF, URL, ANON_KEY |
-| Secrets (Preview env) | ✅ VERCEL_ORG_ID, PROJECT_ID, TOKEN |
-| Quality gates | Deno check, `auth.user.` prohibition, cors import validation |
+| Customer AI Companion | Implemented |
+| Worker AI Co-pilot | Implemented |
+| Admin AI Analyst | Implemented |
+| Agent OS actions/policies/audit | Implemented |
+| Manual + Auto mode | Implemented |
+| Multi-service registry | Implemented |
+| Map discovery and worker tracking | Implemented |
+| Service area polygon containment | Implemented and wired to DB |
+| VNPay + Stripe payment handlers | Implemented in code |
+| Membership and worker boost | Implemented |
+| B2B pages | Implemented |
+| MCP server | Implemented |
+| Dark mode | Implemented |
+| Invoice generation | Implemented |
+| Surge pricing | Implemented |
 
-## 9. Quick Commands
+---
 
-```bash
-# Supabase Production
-supabase functions deploy <name> --project-ref lipjakzhzosrhttsltwo
-supabase db push
+## 3. Repository State
 
-# Supabase Staging
-supabase functions deploy <name> --project-ref drapjraegrygkakzalog
-supabase db push --linked
+| Item | Value |
+|---|---|
+| Web routes | 72 |
+| SQL migrations | 37 committed |
+| Edge Functions | 50+ implemented |
+| Docs source-of-truth | `agent.md`, `docs/TASK_PLAN.md`, `docs/GAP_ANALYSIS.md`, `docs/ROADMAP.md` |
+| Prompt source-of-truth | `docs/PROMPT_PROTOCOL.md` |
 
-# Vercel Production (from web/)
-vercel deploy --prod --token <token>
+---
 
-# Vercel Staging (from web/ on staging branch)
-vercel deploy --token <token>
+## 4. Remaining Launch Gates
 
-# Git
-git tag v0.1.0-payment-smart-system
-git push origin v0.1.0-payment-smart-system
-```
+| Gate | Status | Notes |
+|---|---|---|
+| Staging deployment smoke test | Pending | Needs real Vercel URL verification |
+| Supabase migrations on staging/prod | Pending | Needs migration logs |
+| RLS verification on real DB | Pending | Needs per-persona query evidence |
+| Full E2E business flow | Pending | Login -> book -> match -> accept -> complete -> pay |
+| VNPay sandbox | Pending | Needs transaction ID and IPN result |
+| Stripe sandbox | Pending | Needs PaymentIntent ID and webhook result |
+| Sentry dashboard event | Pending | Needs event link |
+| Mobile STT device test | Pending | Needs physical iOS/Android test |
+| Production env/security audit | Pending | Needs no-secret/no-mock evidence |
+| Rollback/recovery plan | Pending | Needs documented owner and steps |
+
+---
+
+## 5. Known Product Gaps
+
+| Gap | Status | Source |
+|---|---|---|
+| Full page transitions + mode switch animations | Open | `docs/GAP_ANALYSIS.md` GAP-P1-10 |
+| Voice-first auto mode | Open | `docs/GAP_ANALYSIS.md` GAP-P2-03 |
+
+---
+
+## 6. Release Decision
+
+Current decision: **No-Go for production-proven claim**.
+
+Reason: local/code verification is strong, but real infrastructure evidence is incomplete.
+
+Correct external wording: **production-ready candidate**.
+
+Required next action: execute Phase 25 Production Verification from `docs/ROADMAP.md` and close P0 Launch Gates from `docs/TASK_PLAN.md`.
