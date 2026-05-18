@@ -4,6 +4,9 @@ import "./globals.css";
 import QueryProvider from "@/components/QueryProvider";
 import { ToastProvider } from "@/components/Toast";
 import { FeatureFlagProvider } from "@/components/FeatureFlagProvider";
+import { ThemeProvider } from "@/components/common/ThemeProvider";
+import { CurrencyProvider } from "@/components/common/CurrencyProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,15 +29,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
-        <QueryProvider>
-          <ToastProvider>
-            <FeatureFlagProvider>
-              {children}
-            </FeatureFlagProvider>
-          </ToastProvider>
-        </QueryProvider>
+        <ThemeProvider>
+          <CurrencyProvider>
+            <QueryProvider>
+              <ToastProvider>
+                <FeatureFlagProvider>
+                  <ErrorBoundary>
+                    {children}
+                  </ErrorBoundary>
+                </FeatureFlagProvider>
+              </ToastProvider>
+            </QueryProvider>
+          </CurrencyProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

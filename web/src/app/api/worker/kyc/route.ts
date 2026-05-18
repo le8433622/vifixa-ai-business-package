@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     if (updateError) throw new Error(`Update worker failed: ${updateError.message}`);
 
     // Record each document in kyc_documents table
-    const docsToInsert = [];
+    const docsToInsert: { worker_id: string; doc_type: string; file_url: string; file_path: string }[] = [];
     if (idFrontResult) docsToInsert.push({ worker_id, doc_type: 'cccd_front', file_url: idFrontResult.url, file_path: idFrontResult.path });
     if (idBackResult) docsToInsert.push({ worker_id, doc_type: 'cccd_back', file_url: idBackResult.url, file_path: idBackResult.path });
     if (selfieResult) docsToInsert.push({ worker_id, doc_type: 'selfie', file_url: selfieResult.url, file_path: selfieResult.path });

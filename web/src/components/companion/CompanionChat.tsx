@@ -23,11 +23,15 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 function useQuickActions() {
   const { t } = useLanguage()
   return [
-    { emoji: '❄️', label: t('ai.quick.ac'), query: 'Máy lạnh nhà tôi không mát, giúp tôi kiểm tra' },
-    { emoji: '💡', label: t('ai.quick.electric'), query: 'Nhà tôi bị mất điện, cần thợ gấp' },
-    { emoji: '🚿', label: t('ai.quick.plumbing'), query: 'Vòi nước bị rò rỉ, giúp tôi sửa' },
-    { emoji: '📷', label: t('ai.quick.camera'), query: 'Tôi muốn lắp camera an ninh' },
-    { emoji: '💰', label: 'Báo giá', query: 'Báo giá cho tôi dịch vụ sửa máy lạnh' },
+    { emoji: '❄️', label: 'Sửa máy lạnh', query: 'Máy lạnh nhà tôi không mát, giúp tôi kiểm tra' },
+    { emoji: '🧹', label: 'Dọn dẹp', query: 'Tôi cần dọn dẹp nhà cửa, giúp tôi' },
+    { emoji: '📦', label: 'Giao hàng', query: 'Tôi cần giao một món đồ gấp' },
+    { emoji: '🚚', label: 'Chuyển nhà', query: 'Tôi muốn chuyển nhà sang quận mới' },
+    { emoji: '💆', label: 'Massage', query: 'Tôi muốn đặt massage tại nhà' },
+    { emoji: '📚', label: 'Gia sư', query: 'Tôi cần gia sư dạy Toán cho con' },
+    { emoji: '🐾', label: 'Thú cưng', query: 'Tôi cần tắm cho chó của mình' },
+    { emoji: '👴', label: 'Chăm sóc', query: 'Tôi cần người chăm sóc bố mẹ già' },
+    { emoji: '👶', label: 'Trông trẻ', query: 'Tôi cần người trông bé 2 tiếng' },
     { emoji: '📋', label: 'Đơn hàng', query: 'Xem đơn hàng của tôi' },
   ]
 }
@@ -303,7 +307,7 @@ export default function CompanionChat({ persona = 'customer', onAction }: {
               if (!files?.length) return
               for (const f of Array.from(files)) {
                 const reader = new FileReader()
-                reader.onload = ev => ev.target?.result && setImageUrls(prev => [...prev, ev.target.result as string])
+                reader.onload = ev => { const t = ev?.target; if (!t?.result) return; setImageUrls(prev => [...prev, t.result as string]) }
                 reader.readAsDataURL(f)
               }
             }} />
@@ -339,7 +343,7 @@ export default function CompanionChat({ persona = 'customer', onAction }: {
       {/* Quick actions (only on first message) */}
       {messages.length <= 1 && (
         <div className="px-3 pt-0 pb-3 bg-white border-t border-gray-50">
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5">
             {quickActions.map(q => (
               <button key={q.label} onClick={() => sendMessage(q.query)}
                 className="flex items-center gap-1.5 px-2 py-2.5 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 border border-transparent rounded-xl transition text-xs font-medium text-gray-600 hover:text-blue-700">

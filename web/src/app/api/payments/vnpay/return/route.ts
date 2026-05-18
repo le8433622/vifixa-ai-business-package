@@ -21,14 +21,14 @@ export async function GET(req: Request) {
     const { data: config } = await supabase
       .from('gateway_configs').select('sandbox_keys').eq('key', 'vnpay').single()
     
-    const hashSecret = (config as any)?.sandbox_keys?.hash_secret
-    if (hashSecret) {
+    const secretKey = (config as any)?.sandbox_keys?.secretKey
+    if (secretKey) {
       const signData = Object.keys(params)
         .filter(k => k !== 'vnp_SecureHash' && k !== 'vnp_SecureHashType')
         .sort()
         .map(k => `${k}=${params[k]}`)
         .join('&')
-      const computedHash = createHmac('sha512', hashSecret).update(signData).digest('hex')
+      const computedHash = createHmac('sha512', secretKey).update(signData).digest('hex')
       if (computedHash !== vnp_SecureHash) {
         return NextResponse.redirect(new URL('/customer/orders?payment=fail', req.url))
       }

@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { LanguageProvider } from '@/components/common/LanguageToggle'
 import LanguageToggle from '@/components/common/LanguageToggle'
+import ThemeToggle from '@/components/common/ThemeProvider'
+import CurrencyToggle from '@/components/common/CurrencyToggle'
 import { NotificationsProvider } from '@/components/notifications/NotificationsContext'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import { NotificationProvider } from '@/components/NotificationProvider'
@@ -22,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/admin/analytics', label: '📈 Analytics' },
   { href: '/admin/notifications', label: '🔔 Notifications' },
   { href: '/admin/integrations', label: '🔌 Integrations' },
+  { href: '/admin/agent-audit', label: '🤖 Agent Audit' },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -75,6 +78,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <span className="text-xs text-gray-500 hidden md:block">{email}</span>
               <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
                 className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-700">Đăng xuất</button>
+              <CurrencyToggle /><ThemeToggle />
               <button className="md:hidden p-1.5 rounded text-gray-400 hover:bg-gray-700" onClick={() => setMobileOpen(!mobileOpen)}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
               </button>

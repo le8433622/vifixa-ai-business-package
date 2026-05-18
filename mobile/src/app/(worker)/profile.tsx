@@ -21,10 +21,9 @@ export default function WorkerProfile() {
   async function load() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push('/login'); return; }
-    const [pRes, wRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', session.user.id),
-      supabase.from('workers').select('*').eq('id', session.user.id).single().catch(() => ({ data: null })),
-    ]);
+    let wRes;
+    try { wRes = await supabase.from('workers').select('*').eq('id', session.user.id).single(); } catch { wRes = { data: null }; }
+    const pRes = await supabase.from('profiles').select('*').eq('id', session.user.id);
     const p = pRes.data?.[0];
     const w = wRes.data;
     if (p) { setName(p.full_name || ''); setPhone(p.phone || ''); }

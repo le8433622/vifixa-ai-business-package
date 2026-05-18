@@ -15,6 +15,8 @@ import { logChatEvents } from './event-service.ts';
 import { createApprovalRequest, evaluateAutonomy, resolveAutonomyPolicy } from './autonomy-service.ts';
 
 Deno.serve(async (req: Request) => {
+  console.warn('[DEPRECATED] ai-chat is deprecated, use companion/chat instead');
+
   const opt = handleOptions(req);
   if (opt) return opt;
 

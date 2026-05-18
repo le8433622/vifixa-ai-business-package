@@ -1,10 +1,6 @@
 // Admin Dashboard Edge Function
 // Per 21_API_SPECIFICATION.md - Dashboard, users, workers, disputes
-// TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
-// Per 05_PRODUCT_SOLUTION.md - Admin flow
-
-import { corsHeaders } from '../_shared/cors.ts';
-
+import { verifyAuth, jsonResponse, handleOptions, corsHeaders } from '../_shared/auth-helper.ts';
 
 type ApprovalStatus = 'approved' | 'rejected' | 'executed';
 
@@ -31,13 +27,6 @@ type AIActionRequest = {
   decision_reason: string;
   metadata?: Record<string, unknown>;
 };
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(
-    JSON.stringify(body),
-    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  );
-}
 
 async function restJson(supabaseUrl: string, serviceRoleKey: string, path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers || {});
@@ -133,41 +122,17 @@ async function createOrderFromApprovalRequest(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const user = await verifyAuth(req, { maxRequests: 10, windowMs: 60000 });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify admin role
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': authHeader,
-        'apikey': serviceRoleKey,
-      },
-    });
-
-    if (!userResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userData = await userResponse.json();
-
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${userData.id}&select=role`,
+    const profileRes = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?id=eq.${user.id}&select=role`,
       {
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
@@ -176,24 +141,12 @@ Deno.serve(async (req) => {
         },
       }
     );
-
-    if (!profileResponse.ok) {
-      const errText = await profileResponse.text();
-      return new Response(
-        JSON.stringify({ error: `Failed to verify admin role: ${profileResponse.status}`, detail: errText.slice(0, 200) }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const profile = await profileResponse.json();
-
+    const profile = await profileRes.json();
     if (!profile[0] || profile[0].role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized: Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Unauthorized: Admin access required' }, 403);
     }
 
+    const adminId = user.id;
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
 
@@ -479,7 +432,7 @@ Deno.serve(async (req) => {
           {
             method: 'PATCH',
             headers: { Prefer: 'return=representation' },
-            body: JSON.stringify(buildApprovalPatch(userData.id, 'rejected', approvalRequest.metadata, note)),
+            body: JSON.stringify(buildApprovalPatch(adminId, 'rejected', approvalRequest.metadata, note)),
           },
         );
         return jsonResponse({ request: rejected?.[0] });
@@ -493,7 +446,7 @@ Deno.serve(async (req) => {
           {
             method: 'PATCH',
             headers: { Prefer: 'return=representation' },
-            body: JSON.stringify(buildApprovalPatch(userData.id, 'approved', approvalRequest.metadata, note)),
+            body: JSON.stringify(buildApprovalPatch(adminId, 'approved', approvalRequest.metadata, note)),
           },
         );
         return jsonResponse({ request: approved?.[0] });
@@ -508,7 +461,7 @@ Deno.serve(async (req) => {
           method: 'PATCH',
           headers: { Prefer: 'return=representation' },
           body: JSON.stringify({
-            ...buildApprovalPatch(userData.id, 'executed', approvalRequest.metadata, note),
+            ...buildApprovalPatch(adminId, 'executed', approvalRequest.metadata, note),
             order_id: orderId,
           }),
         },

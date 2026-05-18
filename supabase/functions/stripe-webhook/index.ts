@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 import { logVifixa } from '../_shared/logger.ts'
 
-function verifyStripeSignature(payload: string, signature: string, webhookSecret: string): boolean {
+async function verifyStripeSignature(payload: string, signature: string, webhookSecret: string): Promise<boolean> {
   try {
     const parts = signature.split(',')
     const timePart = parts.find(p => p.startsWith('t='))
@@ -16,10 +16,14 @@ function verifyStripeSignature(payload: string, signature: string, webhookSecret
     const sig = sigPart.slice(3)
     const signedPayload = `${timestamp}.${payload}`
 
-    const key = new TextEncoder().encode(webhookSecret)
-    const algo = { name: 'HMAC', hash: 'SHA-256' }
-    // Simplified verification—production uses SubtleCrypto
-    return sig.length > 0
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(webhookSecret)
+    const key = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    const expectedSigBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(signedPayload))
+    const expectedSig = Array.from(new Uint8Array(expectedSigBytes)).map(b => b.toString(16).padStart(2, '0')).join('')
+
+    if (expectedSig.length !== sig.length) return false
+    return crypto.subtle.timingSafeEqual(encoder.encode(expectedSig), encoder.encode(sig))
   } catch {
     return false
   }
@@ -34,7 +38,7 @@ Deno.serve(async (req: Request) => {
     const signature = req.headers.get('stripe-signature') || ''
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 
-    if (!verifyStripeSignature(payload, signature, webhookSecret)) {
+    if (!await verifyStripeSignature(payload, signature, webhookSecret)) {
       logVifixa('stripe-webhook', 'invalid_signature', {})
       return jsonResponse({ error: 'Invalid signature' }, 401)
     }

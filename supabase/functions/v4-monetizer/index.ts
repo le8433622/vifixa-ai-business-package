@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { createAICore } from '../_shared/ai-core.ts'
-import { jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { jsonResponse, handleOptions, checkRateLimit } from '../_shared/auth-helper.ts'
 import type { DauVaoMonetizer, DauRaMonetizer } from '../v4-core/index.ts'
 
 Deno.serve(async (req) => {
@@ -14,6 +14,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    checkRateLimit('v4-monetizer', ip, { maxRequests: 15, windowMs: 60000 })
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return jsonResponse({ loi: 'Thiếu xác thực' }, 401)

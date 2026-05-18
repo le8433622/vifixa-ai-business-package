@@ -24,13 +24,13 @@ export default function FeaturesSettings() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
   const categories = [
-    { value: 'all', label: 'All' },
-    { value: 'payment', label: 'Payment' },
-    { value: 'wallet', label: 'Wallet' },
+    { value: 'all', label: 'Tất cả' },
+    { value: 'payment', label: 'Thanh toán' },
+    { value: 'wallet', label: 'Ví' },
     { value: 'ai', label: 'AI' },
-    { value: 'notification', label: 'Notification' },
-    { value: 'security', label: 'Security' },
-    { value: 'system', label: 'System' },
+    { value: 'notification', label: 'Thông báo' },
+    { value: 'security', label: 'Bảo mật' },
+    { value: 'system', label: 'Hệ thống' },
   ]
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function FeaturesSettings() {
       setFlags(data || [])
     } catch (err: any) {
       console.error('Error fetching flags:', err)
-      toast('Failed to load feature flags', 'error')
+      toast('Không thể tải danh sách tính năng', 'error')
     } finally {
       setLoading(false)
     }
@@ -82,7 +82,7 @@ export default function FeaturesSettings() {
         throw new Error(errorData.error || 'Failed to toggle flag')
       }
 
-      toast(`Feature ${!currentState ? 'enabled' : 'disabled'} successfully`, 'success')
+      toast(`${!currentState ? 'Đã bật' : 'Đã tắt'} tính năng thành công`, 'success')
       fetchFlags()
     } catch (err: any) {
       console.error('Error toggling flag:', err)
@@ -106,7 +106,7 @@ export default function FeaturesSettings() {
     return (
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">Feature Flags</h1>
+          <h1 className="text-3xl font-bold">Quản lý Tính năng</h1>
         </div>
         <div className="space-y-4">
           {[1, 2, 3, 4].map(i => (
@@ -121,16 +121,16 @@ export default function FeaturesSettings() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Feature Flags</h1>
+          <h1 className="text-3xl font-bold">Quản lý Tính năng</h1>
           <p className="text-gray-600 mt-1">
-            Toggle features ON/OFF without code deployment. Safe for production.
+            Bật/tắt tính năng mà không cần triển khai code. An toàn cho production.
           </p>
         </div>
         <Link
           href="/admin/settings"
           className="text-sm text-blue-600 hover:underline"
         >
-          ← Back to Settings
+          ← Quay lại Cài đặt
         </Link>
       </div>
 
@@ -156,7 +156,7 @@ export default function FeaturesSettings() {
         {Object.entries(groupedFlags).map(([category, categoryFlags]) => (
           <div key={category}>
             <h2 className="text-lg font-semibold text-gray-700 mb-3 capitalize">
-              {category} Features ({categoryFlags.length})
+              Tính năng {category} ({categoryFlags.length})
             </h2>
             <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
               {(categoryFlags as FeatureFlagWithToggle[]).map(flag => (
@@ -171,19 +171,19 @@ export default function FeaturesSettings() {
                               ? 'bg-green-100 text-green-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {flag.config_completed ? 'Configured' : 'Needs Config'}
+                            {flag.config_completed ? 'Đã cấu hình' : 'Cần cấu hình'}
                           </span>
                         )}
                         {flag.enabled && (
                           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                            Active
+                            Đang hoạt động
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-600">{flag.description}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                        <span>Key: <code className="bg-gray-100 px-1 rounded">{flag.key}</code></span>
-                        <span>Category: {flag.category}</span>
+                        <span>Khóa: <code className="bg-gray-100 px-1 rounded">{flag.key}</code></span>
+                        <span>Danh mục: {flag.category}</span>
                       </div>
                     </div>
 
@@ -213,10 +213,10 @@ export default function FeaturesSettings() {
                   {flag.requires_config && !flag.config_completed && !flag.enabled && (
                     <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                       <p className="text-sm text-yellow-800">
-                        ⚠️ This feature requires configuration before it can be enabled.
+                        ⚠️ Tính năng này cần được cấu hình trước khi bật.
                         {' '}
                         <Link href={`/admin/settings/${flag.category}`} className="underline font-medium">
-                          Configure now
+                          Cấu hình ngay
                         </Link>
                       </p>
                     </div>
@@ -230,12 +230,12 @@ export default function FeaturesSettings() {
 
       {/* Info Box */}
       <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">💡 How it works</h3>
+        <h3 className="font-semibold text-blue-900 mb-2">💡 Cách hoạt động</h3>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Features default to OFF for safety</li>
-          <li>• Toggle ON when ready for production</li>
-          <li>• Features with "Needs Config" require setup first</li>
-          <li>• Changes take effect immediately (no deployment needed)</li>
+          <li>• Tính năng mặc định TẮT để đảm bảo an toàn</li>
+          <li>• Bật khi sẵn sàng sử dụng</li>
+          <li>• Tính năng "Cần cấu hình" phải được thiết lập trước</li>
+          <li>• Thay đổi có hiệu lực ngay (không cần triển khai)</li>
         </ul>
       </div>
     </div>

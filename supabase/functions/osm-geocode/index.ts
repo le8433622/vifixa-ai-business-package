@@ -2,10 +2,12 @@
 // Tích hợp cache, rate limit 1 req/s cho Nominatim
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { jsonResponse, handleOptions, checkRateLimit } from '../_shared/auth-helper.ts'
 
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org'
 const USER_AGENT = 'VifixaAI/2.0'
+
+const RATE_LIMIT = { maxRequests: 60, windowMs: 60000 }
 
 interface GeocodeRequest {
   query?: string
@@ -21,6 +23,9 @@ Deno.serve(async (req) => {
   if (opt) return opt
 
   try {
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    checkRateLimit('geocode', ip, RATE_LIMIT)
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)

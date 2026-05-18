@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import DynamicMapView from '@/components/map/DynamicMapView'
 import { haversineDistance, formatDistance } from '@/lib/haversine'
 import DistanceBadge from '@/components/map/DistanceBadge'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 interface NearbyOrder {
   id: string
@@ -98,15 +99,20 @@ export default function WorkerMapPage() {
     const order = orders.find(o => o.id === selectedOrder)
     if (!order) return
 
-    const from = `${workerPos.lng},${workerPos.lat}`
-    const to = `${order.location_lng},${order.location_lat}`
-    fetch(`https://router.project-osrm.org/route/v1/driving/${from};${to}?overview=full&geometries=geojson`)
+    fetch(`${SUPABASE_URL}/functions/v1/osrm-route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origin_lat: workerPos.lat,
+        origin_lng: workerPos.lng,
+        dest_lat: order.location_lat,
+        dest_lng: order.location_lng,
+      }),
+    })
       .then(r => r.json())
       .then(data => {
-        const route = data?.routes?.[0]
-        const coords = route?.geometry?.coordinates
-        if (coords) setRouteCoords(coords.map((c: number[]) => [c[1], c[0]] as [number, number]))
-        if (route) setRouteEta({ distance: route.distance, duration: route.duration })
+        if (data.route) setRouteCoords(data.route.map((p: { latitude: number; longitude: number }) => [p.latitude, p.longitude] as [number, number]))
+        if (data.distance) setRouteEta({ distance: data.distance, duration: data.duration })
       })
       .catch(() => {})
   }, [selectedOrder, workerPos])

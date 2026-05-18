@@ -1,1338 +1,358 @@
-# 🧬 Vifixa AI — Agent Coding Directive
+# Vifixa AI — Agent Operating System Constitution
 
-> **3 screens · 2 modes · 1 AI heart**
-> *Phục vụ con người → Kiếm tiền là tự nhiên*
-> *Khởi đầu bằng thợ sửa chữa — Tầm nhìn: Tất cả sản phẩm & dịch vụ trong cuộc sống*
+> **1 AI Companion cho mỗi người dùng. Mở rộng vô hạn. Không bao giờ lạc.**
+> *3 persona · 2 modes · 1 Agent OS · Plugin services*
 
 ---
 
-## 🧭 North Star
+## 1. North Star
 
 **1 AI Companion cho mỗi người dùng** (khách · thợ · admin).
 3 trụ cột: **AI · Map · Payment** — tất cả phục vụ con người.
 
-AI có **trái tim thánh nhân** (8 đức tính: Mettā · Karunā · Muditā · Upekkhā · Agape · Humilitas · Patientia · Veritas).
+Không phải chatbot. Không phải app gọi thợ.  
+Là **Agent Operating System cho mọi dịch vụ đời sống**.
 
 ---
 
-## 📚 Source of Truth
+## 2. Agent OS Principle — The Golden Rule
 
-Đọc các docs này trước khi code (theo thứ tự):
+```
+KHÔNG BAO GIỜ cho AI trực tiếp thao tác UI hoặc DB.
+AI chỉ được phép gọi ACTION đã đăng ký, qua POLICY đã định nghĩa.
+Manual flow là xương sống. Auto mode là AI gọi lại chính manual actions.
+```
 
-| # | Doc | Nội dung |
-|---|-----|----------|
-| 1 | `docs/VISION.md` | Tầm nhìn — "1 AI Companion per person" |
-| 2 | `docs/ARCHITECTURE.md` | 4-layer system design |
-| 3 | `docs/SCREENS.md` | **3 màn hình + 2 chế độ** |
-| 4 | `docs/AI_HEART.md` | Trái tim AI — 8 đức tính |
-| 5 | `docs/BRAIN.md` | **5-layer AI brain + service plugin** |
-| 6 | `docs/COMPANION.md` | Companion spec (Memory · Personality · Actions) |
-| 7 | `docs/ROADMAP.md` | 5 phases to global scale |
+| Nguyên lý | Ý nghĩa |
+|---|---|
+| **Manual-first** | Mọi flow phải làm thủ công hoàn hảo trước khi AI tự động |
+| **Auto mirrors manual** | Auto mode không có luồng riêng. AI chỉ gọi action của manual mode |
+| **Action-as-contract** | Mọi thao tác phải là Action có: schema input, schema output, policy, audit |
+| **Policy-gated** | Không action nào tự chạy nếu chưa khai báo mức tự trị |
+| **Audit-everything** | Mọi AI action đều log: ai gọi, input gì, output gì, lúc nào |
+| **Service-plugin** | Thêm dịch vụ mới = thêm 1 block trong Service Registry. Không sửa core |
+| **Persona-specific** | AI cho khách khác AI cho thợ khác AI cho admin |
+| **Memory-driven** | AI nhớ và cá nhân hóa cho từng tài khoản |
 
 ---
 
-## 🧠 KIẾN TRÚC BẤT DI BẤT DỊCH
+## 3. Non-Negotiable Rules (Vi phạm → Revert)
 
-### 3 Modules Cốt Lõi
-
-```
-🧠 AI CORE (trái tim siêu thông minh)
-├── Personality Engine (8 virtues)
-├── Personalization Engine (mỗi user 1 AI khác)
-├── Reasoning Engine (Chain-of-Thought + ReAct)
-├── Learning Engine (feedback → cập nhật memory)
-├── Web Search (internet real-time)
-└── Memory (working + episodic + semantic + procedural)
-
-🗺️ MAP CORE (siêu vật lý)
-├── Proximity — ai gần tôi
-├── Matching — route tối ưu
-├── Tracking — real-time location
-└── Coverage — khu vực có dịch vụ
-
-💳 PAYMENT CORE (siêu thanh toán)
-├── VNPay (VND) + Stripe (USD)
-├── Wallet + Ledger (double-entry)
-└── Payout
-
-📐 SERVICE REGISTRY (plugin — mở rộng ra mọi nền tảng)
-├── 🔧 Sửa chữa (built-in — khởi đầu)
-├── 🛒 E-commerce (Shopee, Lazada, Tiki...)
-├── 💼 Tuyển dụng (VietnamWorks, TopCV...)
-└── ... VÔ HẠN — mọi service trong cuộc sống
-```
-
-### 3 Màn Hình · 2 Chế Độ · 1 Trái Tim
-
-| Màn hình | Vai trò AI | Chế độ Auto | Chế độ Manual |
-|----------|-------------|-------------|---------------|
-| **👤 Khách hàng** | "Người bạn gia đình" | AI chẩn đoán → báo giá → match thợ → track | Menu: chọn dịch vụ, xem đơn, thiết bị |
-| **🔧 Người kỹ năng** | "AI Co-pilot" | AI gợi ý việc → dẫn đường → hướng dẫn | Menu: xem việc, earnings, hồ sơ |
-| **🛡️ Quản trị** | "AI Analyst" | AI phát hiện anomalies → dự báo → đề xuất | Menu: users, orders, integrations |
-
-### Workflow Đồng Bộ (Bất di bất dịch)
-
-```
-CUSTOMER tạo nhu cầu              WORKER đáp ứng                  ADMIN giám sát
-─────────────────────             ──────────────                  ──────────────
-🤖 Chat với AI                    🤖 Chat với AI                  🤖 Chat với AI
-🔍 Chẩn đoán sự cố                📋 Xem việc mới                 📈 Xem KPIs
-💰 Nhận báo giá                   💰 Xem giá                      🔔 Anomalies
-✅ Xác nhận tạo đơn                                                   
-🔧 Match thợ ─────────────►     🔧 Nhận việc                       
-🗺️ Track thợ ─────────────►     🗺️ Đến nhà khách                  
-✔️ Hoàn thành ────────────►     🔧 Làm xong                        
-💳 Thanh toán ────────────►     💰 Nhận tiền                       
-⭐ Đánh giá ───────────────►     ⭐ Được đánh giá                   
-                                                                   ⚖️ Dispute (nếu có)
-```
-
-**Luật Workflow:**
-1. 3 màn hình KHÔNG ĐƯỢC mâu thuẫn — đồng bộ qua order lifecycle
-2. Customer tạo đơn = Worker thấy job = Admin thấy transaction
-3. Admin CHỈ giám sát + dispute, KHÔNG can thiệp trực tiếp workflow
-4. Mọi action trên 1 màn hình đều ảnh hưởng đến màn hình khác — phải kiểm tra consistency
+| # | Rule |
+|---|---|
+| 1 | **Manual-first**: Không tạo auto flow nếu chưa có manual flow hoàn chỉnh |
+| 2 | **Action uniqueness**: Không tạo action mới nếu action tương đương đã tồn tại trong Registry |
+| 3 | **No raw DB from UI**: AI không được viết SQL/DB từ frontend, phải qua Edge Function hoặc RPC có policy |
+| 4 | **Financial idempotency**: Mọi action tài chính phải có idempotency key + ledger double-entry |
+| 5 | **Risk approval**: Mọi action rủi ro (thanh toán, khóa TK, xóa TK, hoàn tiền) phải có approval |
+| 6 | **Service contract**: Mọi dịch vụ mới phải implement `ServiceDefinition` interface |
+| 7 | **UI = Vietnamese**: English strings trên UI là bug |
+| 8 | **No mock data production**: Seed chỉ cho dev |
+| 9 | **No secret frontend/mobile**: Mọi key/secret qua `Deno.env.get()` hoặc Supabase Vault |
+| 10 | **Gap detection**: Phát hiện gap mới → cập nhật `docs/GAP_ANALYSIS.md` trước khi code |
+| 11 | **Verify auth everywhere**: Mọi Edge Function phải gọi `verifyAuth()` |
+| 12 | **Zod validation**: Mọi input/output Edge Function phải có Zod schema |
+| 13 | **RLS on every table**: Không bảng nào thiếu RLS |
+| 14 | **Read before edit**: Không sửa file chưa đọc trong phiên hiện tại |
+| 15 | **Propose before execute**: Plan → Approve → Code. Không làm ngoài plan |
 
 ---
 
-## 📁 Cấu Trúc Thư Mục
+## 4. Source-of-Truth Hierarchy
 
 ```
-web/src/app/
-├── customer/          🏠 Home · 📋 Orders · 🔧 Devices · 👤 Profile
-├── worker/            🏠 Home · 📋 Jobs · 💰 Earnings · 👤 Profile
-├── admin/             🏠 Home · 👥 Users · 📋 Orders · 🔌 Integrations
-└── api/               Proxy, webhooks
-
-web/src/components/
-├── companion/     CompanionChat (3 persona)
-├── common/        ModeToggle, PriceDisplay
-├── map/           DynamicMapView, AvailableWorkersMap
-├── modals/        Review, Complaint, Warranty
-└── wallet/        TransactionList
-
-supabase/functions/
-├── companion/chat/      AI Companion (tích hợp tất cả)
-├── _shared/
-│   ├── ai-core.ts       NVIDIA NIM orchestration
-│   ├── personality.ts   8 virtues engine
-│   ├── personalization-engine.ts  Mỗi user 1 AI
-│   ├── service-registry.ts        Plugin architecture
-│   ├── reasoning-engine.ts        CoT + ReAct
-│   ├── learning-engine.ts         Feedback → cập nhật
-│   └── web-search.ts              Internet real-time
-├── payment-*/           VNPay, Stripe, Wallet
-├── ai-*/                diagnose, match, quality, dispute
-└── admin/               Dashboard, stats
+agent.md (file này)                           ← HIẾN PHÁP — đọc đầu tiên
+  ├── docs/AGENT_OS.md                         ← Kiến trúc Agent Operating System
+  ├── docs/ACTION_REGISTRY.md                  ← Danh sách action chuẩn + schema
+  ├── docs/AUTO_MODE.md                        ← Manual/Auto mode + autonomy levels
+  ├── docs/PERSONA_PLAYBOOK.md                 ← AI behavior cho 3 persona
+  ├── docs/SERVICE_REGISTRY.md                 ← Plugin system cho dịch vụ
+  ├── docs/PRICING_SEED.md                     ← Giá khởi điểm từng dịch vụ
+  ├── docs/VISION.md                           ← Tầm nhìn dài hạn
+  ├── docs/COMPANION.md                        ← Companion design (chat → goal → execute)
+  ├── docs/ARCHITECTURE.md                     ← Kiến trúc hệ thống tổng thể
+  ├── docs/FLOWCHART.md                        ← Luồng thủ công + tự động
+  ├── docs/ROADMAP.md                          ← Lộ trình phát triển
+  ├── docs/GAP_ANALYSIS.md                     ← Gap registry live
+  ├── docs/SECURITY.md                         ← Security checklist
+  ├── docs/BUSINESS.md                         ← Mô hình kinh doanh
+  └── docs/PRODUCT_BLUEPRINT.md                ← Product vision 8-layer
 ```
 
 ---
 
-## 🔨 Build Order (Tuần tự tuyệt đối — Zero deviation)
+## 5. System State (2026-05-17)
 
-```
-Phase 1: AI BRAIN            ✅ AI Brain modules (21 shared, 37 functions, 33 tests)
-Phase 2: CUSTOMER SCREEN     ✅ Web + Mobile + Auto/Manual + Payment + Wallet
-Phase 3: WORKER SCREEN       ✅ Web + Mobile + Job flow + Earnings + Stake
-Phase 4: ADMIN SCREEN        ✅ Web + Mobile + Disputes + Analytics + Fraud
-Phase 5: TEST & SECURITY     ✅ OWASP + Zero Tolerance + CI/CD + Husky
-Phase 6: WALLET & PAYMENT    ✅ 4-Wallet + VNPay + Stripe + Escrow + Invoice
-Phase 7: MANUAL WORKFLOWS    ✅ Customer (3-step) + Worker (checklist+photos) + Admin (dispute)
-Phase 8: MOBILE SYNC         ✅ 3 CompanionChats + i18n + Notifications
-Phase 9: PAIN POINTS FIXED   ✅ 6/6 customer + 5/5 admin pain points solved
-Phase 10: EXTERNAL PLATFORMS 📅 Tương lai (Shopee, Lazada, VietnamWorks...)
-```
-
-### Phase chi tiết:
-
-**Phase 1 — AI BRAIN** (tất cả shared modules):
-- `personality.ts` — 8 virtues + 3 persona + agent prompts
-- `personalization-engine.ts` — Build system prompt riêng cho mỗi user
-- `web-search.ts` — DuckDuckGo + Brave real-time
-- `service-registry.ts` — Plugin system cho mọi service
-- `reasoning-engine.ts` — Chain-of-Thought + ReAct
-- `learning-engine.ts` — Feedback loop + memory consolidation
-- `ai-core.ts` — NVIDIA NIM orchestration (tích hợp tất cả ở trên)
-
-**Phase 2 — CUSTOMER SCREEN**:
-- HOME: AI Companion state machine (auto/manual) + Map contextual + Payment inline
-- Nav: Home | Orders | Devices | Account
-- Orders: list + detail + 3 modals (Review/Warranty/Complaint)
-- Devices: list + detail + add
-- Profile: info + preferences
-
-**Phase 3 — WORKER SCREEN**:
-- HOME: AI Co-pilot state machine (auto/manual) + on-job tracking
-- Nav: Home | Jobs | Earnings | Profile
-- Jobs: pending (nhận việc) + my jobs (theo dõi)
-- Earnings: wallet + stats + giao dịch
-- Profile: skills + areas + trust + settings
-
-**Phase 4 — ADMIN SCREEN**:
-- HOME: AI Analyst state machine (auto/manual) + stats
-- Nav: Home | Users | Orders | Integrations
-- Users: customer + worker management
-- Orders: oversight + dispute resolution
-- Integrations: plugin management (kết nối nền tảng ngoài)
+| Check | Status |
+|---|---|
+| Next.js build (67 routes) | ✅ 0 errors |
+| Deno tests (71 tests) | ✅ 71/71 pass |
+| SQL migrations | 27 committed |
+| RLS | ✅ `is_admin_from_jwt()` all tables |
+| Edge Functions deployed | 24+ |
+| CI/CD | ✅ GitHub Actions 3 pipelines |
+| P0 bugs resolved | 18/21 |
+| SECURITY DEFINER audit | ✅ All functions verified |
+| VNPay key naming | ✅ Unified camelCase |
+| OSRM proxy | ✅ Auth + rate limit |
+| AI unification | ✅ companion/chat canonical |
 
 ---
 
-## 📐 Service Abstraction Layer (Plugin System)
+## 6. Agent OS Mental Model
 
-Mọi external platform là 1 plugin. Cách thêm:
+```
+USER REQUEST (text/voice/image)
+        │
+        ▼
+┌──────────────────────────────────────┐
+│  PERSONA CONTEXT                     │  ← Customer / Worker / Admin
+│  MEMORY RETRIEVAL                    │  ← episodic + semantic + procedural
+│  INTENT DETECTION                    │  ← classifyIntent() + Service.detect()
+└────────────────┬─────────────────────┘
+                 ▼
+┌──────────────────────────────────────┐
+│  GOAL PLANNER                        │
+│  • Tạo goal từ intent + context      │
+│  • Tạo plan các bước                 │
+│  • Chọn actions từ Registry          │
+└────────────────┬─────────────────────┘
+                 ▼
+┌──────────────────────────────────────┐
+│  POLICY ENGINE                       │
+│  • Kiểm tra action có được auto?     │
+│  • Nếu cần confirm → tạo approval    │
+│  • Nếu admin-only → reject + gợi ý   │
+└────────────────┬─────────────────────┘
+                 ▼
+┌──────────────────────────────────────┐
+│  ACTION EXECUTOR                     │
+│  • Gọi Edge Function / RPC           │
+│  • Log audit: agent_run + agent_step │
+│  • Xử lý lỗi + retry                │
+└────────────────┬─────────────────────┘
+                 ▼
+┌──────────────────────────────────────┐
+│  OBSERVE + UPDATE                    │
+│  • Cập nhật workflow state           │
+│  • Gửi notification                  │
+│  • Lưu memory mới                    │
+│  • Đề xuất next best action          │
+└──────────────────────────────────────┘
+```
+
+---
+
+## 7. Action Registry Contract
+
+Mỗi Action phải khai báo đầy đủ:
 
 ```typescript
-// Trong service-registry.ts hoặc file riêng
-serviceRegistry.register({
-  id: 'shopee-return',
-  name: 'Trả hàng Shopee',
-  icon: '🛒',
-  keywords: ['shopee', 'đơn hàng sai', 'trả lại'],
-  onDiagnose: async (input) => shopeeAPI.getOrder(input.orderId),
-  onResolve: async (diag) => shopeeAPI.createReturn(diag),
-})
-// → AI Brain tự động xử lý — KHÔNG cần sửa code core
-```
-
-**Luật Plugin:**
-- Plugin chỉ implement interface `ServiceDefinition`
-- Plugin KHÔNG sửa code core (AI Brain, Companion Chat)
-- Plugin có thể có UI riêng (web component) nhưng không bắt buộc
-- Plugin quản lý qua Admin Screen → Integrations tab
-
----
-
-## 🔬 QUY TẮC TEST & LOG (Bắt buộc sau mỗi Phase)
-
-### Test Flow (4 bước tuần tự)
-```
-Step A: Unit Test (từng module)
-  → deno test supabase/functions/_shared/*.test.ts
-  → Coverage ≥ 80%
-
-Step B: Edge Function Test
-  → deno test supabase/functions/**/*.test.ts  
-  → Test success + error + auth + validation
-
-Step C: E2E Workflow Test
-  → Customer tạo đơn → Worker nhận → Admin thấy
-  → Log mọi bước: [VIFIXA_TEST] prefix
-
-Step D: Log Analysis
-  → Đọc logs từ Supabase dashboard
-  → Phân tích errors, warnings, slow queries  
-  → Ghi vào docs/ERROR_ANALYSIS.md
-```
-
-### Log Format Thống Nhất
-
-**⚠️ BẮT BUỘC — MỌI LOG PHẢI CÓ PREFIX [VIFIXA]:**
-
-```typescript
-// Utility function (dùng trong tất cả Edge Functions) — đã có sẵn:
-// supabase/functions/_shared/logger.ts
-
-import { logVifixa, logAuth, logApi, logAi } from '../_shared/logger.ts'
-
-// Usage:
-logVifixa('companion-chat', 'chat_request', {
-  user_id: user.id,
-  message_length: message.length,
-  mode: state.mode,
-})
-
-// Shorthands:
-logAuth(userId, 'unauthorized', role)
-logApi(fnName, 200, userId, elapsed)
-logAi('diagnosis', 1234, 500, 100)
-
-// Output: [VIFIXA][companion-chat] chat_request | user_id="xxx" | message_length=45 | mode="auto"
-```
-
-**❌ AUTO REJECT nếu log không có prefix [VIFIXA].**
-**❌ AUTO REJECT nếu dùng `console.log` trực tiếp trong Edge Function thay vì `logVifixa()`.**
-**✅ `console.log` trong code frontend (`web/src/app/`) bị CẤM — dùng `console.error` cho error tracking.**
-
-### Error Analysis (tự động ghi khi test fail)
-```markdown
-## Bug #NNN: yyyy-mm-dd
-### Module: tên file
-### Error: lỗi gì
-### Root Cause: nguyên nhân gốc
-### Fix: cách sửa
-### Prevention: cách ngăn tái phát
-```
-
----
-
-## 🧪 KỊCH BẢN TEST BẮT BUỘC (Chạy sau mỗi Phase)
-
-### Scenario A: Customer Flow
-```
-1. User mở app → thấy AI Companion → auto/manual toggle
-2. User nói "Máy lạnh không mát" → AI chẩn đoán → báo giá
-3. User confirm → Order created → status pending
-4. Worker nhận → User thấy "matched" + map thợ gần
-5. Worker bắt đầu → User thấy "in_progress" + tracking
-6. Worker hoàn thành → User thấy "completed" + payment card
-7. User pay (VNPay/Stripe) → status paid → review prompt
-8. User review ⭐ → done
-```
-
-### Scenario B: Worker Flow
-```
-1. Worker mở app → thấy AI Co-pilot + pending jobs count
-2. Worker xem jobs → click "Nhận việc" → status matched
-3. Worker bắt đầu → status in_progress → customer sees tracking
-4. Worker hoàn thành → upload ảnh → status completed
-5. Worker nhận tiền → wallet balance tăng → earnings update
-```
-
-### Scenario C: Admin Flow
-```
-1. Admin mở app → thấy AI Analyst + KPIs (users, orders, revenue, disputes)
-2. Auto mode: AI phát hiện anomalies → cảnh báo dispute
-3. Manual mode: Admin xem users → filter by role
-4. Admin xem orders → filter by status → click detail
-5. Admin xem integrations → thấy plugin list
-```
-
-### Scenario D: Cross-Platform Consistency
-```
-1. Customer tạo order → Worker thấy job → Admin thấy transaction
-2. Worker accept → Customer thấy matched → Admin thấy status change
-3. Worker complete → Customer thấy payment → Admin thấy revenue+1
-4. Mọi state transition log: [VIFIXA_TEST][flow] step=X | order=Y | status=Z
-5. Verify: không có order bị orphan, không worker double-assign
-```
-
-### Scenario E: Error & Edge Cases
-```
-1. Auth fail (hết hạn token) → redirect login
-2. Network fail → retry 3 lần → user message "Vui lòng thử lại"
-3. Invalid input → Zod validation error → clear user feedback
-4. Empty state (no orders, no jobs) → friendly empty message + CTA
-5. Rate limit exceeded → queue request + notify user
-6. Concurrent access → optimistic lock → conflict resolution
-```
-
----
-
-## ⚡ TỐI ƯU (Performance & Code Quality Gates)
-
-### Performance Budgets
-| Metric | Target | Công cụ đo |
-|--------|--------|-----------|
-| AI response time | < 3s | Edge Function latency log |
-| Page load (web) | < 2s | Lighthouse |
-| Page load (mobile) | < 3s | React Native Profiler |
-| Bundle size (web) | < 200KB | next-bundle-analyzer |
-| Edge Function cold start | < 500ms | Supabase logs |
-| DB query (list) | < 100ms | EXPLAIN ANALYZE |
-| API response (p95) | < 1s | CloudWatch / Grafana |
-
-### Code Quality Gates
-- **Không `any` type** trong shared modules — dùng Zod schema
-- **Mọi Edge Function** có error boundary + retry logic
-- **Mọi component** có loading state + empty state + error state
-- **Mọi form** có validation + disabled during submit
-- **Mọi list** có pagination hoặc infinite scroll
-- **Mọi mutation** có optimistic update + rollback
-
-### Caching Strategy
-| Layer | Cache | TTL |
-|-------|-------|-----|
-| TanStack Query | client cache | staleTime 30s, gcTime 5min |
-| Supabase queries | .maybeSingle() | per request |
-| AI diagnosis | hash-based dedup | 1 hour |
-| Static assets | CDN | 1 year |
-| User profile | TanStack Query | staleTime 60s |
-
----
-
-## 🛡️ BẢO MẬT (Security — Ưu tiên tuyệt đối)
-
-### 🔴 ZERO TOLERANCE POLICY (Các lỗi AUTO REJECT)
-
-| Mã | Lỗi | Prevention | Detection |
-|----|-----|------------|-----------|
-| SEC-001 | API key/secret trong frontend code | Mọi secret qua Edge Function `Deno.env.get()` | Pre-commit grep: `.env\|API_KEY\|SECRET` trong `web/src/app/` |
-| SEC-002 | Edge Function thiếu `verifyAuth()` | Copy auth template từ section dưới | Code review + test auth fail case |
-| SEC-003 | Admin routes trong customer/worker code | Kiểm tra URL trước khi hardcode | Pre-commit grep: `/admin/` trong customer/worker |
-| QUAL-001 | `@ts-nocheck` hoặc `@ts-ignore` | Fix type đúng, không tắt type check | Pre-commit grep `@ts-nocheck\|@ts-ignore` |
-| QUAL-002 | `console.log` trong frontend code | Dùng `logVifixa()` utility trong Edge Functions | Pre-commit grep `console.log` trong `web/src/app/` |
-| LOG-001 | Log không có prefix `[VIFIXA]` | Dùng `logVifixa()` utility — tự động thêm prefix | Pre-commit grep `console.log` không có `[VIFIXA]` |
-| ARCH-001 | AI logic không qua `ai-core.ts` tập trung | Mọi AI call CHỈ qua Supabase Edge Functions | Import path linting |
-| ARCH-002 | Service không qua Service Registry | Dùng `serviceRegistry.get()` cho mọi service | Code review checklist |
-
-### Secret Management (Không bao giờ vi phạm)
-- ❌ **KHÔNG** có API key trong frontend code (.env.local, .env)
-- ❌ **KHÔNG** có service_role key trong browser
-- ❌ **KHÔNG** commit .env files
-- ✅ Mọi secret qua `Deno.env.get()` trong Edge Function
-- ✅ Mọi third-party key trong Supabase Secrets
-
-### Authentication & Authorization (Kiểm tra TRƯỚC mọi action)
-
-**⚠️ BẮT BUỘC — MỌI EDGE FUNCTION PHẢI CÓ verifyAuth() Ở DÒNG ĐẦU:**
-
-```typescript
-// Template chuẩn cho mọi Edge Function:
-import { verifyAuth, jsonResponse } from '../_shared/auth-helper.ts'
-import { logAuth } from '../_shared/logger.ts'
-
-// 1. Verify auth — DÒNG ĐẦU TIÊN sau try
-const user = await verifyAuth(req)
-if (!user) {
-  logAuth('unknown', 'unauthorized')
-  return jsonResponse({ error: 'Unauthorized' }, 401)
-}
-
-// 2. Role check — nếu cần
-const { data: profile } = await supabase
-  .from('profiles').select('role').eq('id', user.id).single()
-
-if (!profile || profile.role !== 'expected_role') {
-  logAuth(user.id, 'forbidden', profile?.role)
-  return jsonResponse({ error: 'Forbidden' }, 403)
+interface AgentAction {
+  id: string                    // "account.update_phone"
+  domain: ActionDomain          // account | memory | customer | service | map | payment | worker | admin
+  name: string                  // tên hiển thị tiếng Việt
+  description: string           // mô tả cho AI hiểu khi nào dùng
+  input_schema: ZodSchema       // schema input
+  output_schema: ZodSchema      // schema output
+  handler: string               // Edge Function hoặc RPC name
+  autonomy_level: 0 | 1 | 2 | 3 | 4 | 5
+  risk_level: 'safe' | 'medium' | 'high' | 'critical'
+  confirm_message?: string      // message xin xác nhận nếu cần
+  persona: ('customer' | 'worker' | 'admin')[]
+  rollback_action?: string      // action để undo nếu có
 }
 ```
 
-**❌ AUTO REJECT nếu Edge Function không có `verifyAuth()` ở dòng đầu tiên.**
+Danh sách đầy đủ: `docs/ACTION_REGISTRY.md`
 
-### RLS (Row Level Security) — Bảng nào cũng phải có
-- **profiles**: user thấy của mình, admin thấy tất cả
-- **orders**: customer thấy của mình, worker thấy assigned, admin thấy all
-- **wallets**: user thấy của mình
-- **companion_memories**: user thấy của mình
-- **complaints**: customer thấy của mình, worker thấy assigned
-- **ai_logs**: admin-only
+---
 
-### Input Validation (Chống injection)
+## 8. Autonomy Levels
 
-**⚠️ BẮT BUỘC — MỌI EDGE FUNCTION PHẢI CÓ ZOD VALIDATION:**
+| Level | Tên | AI được phép |
+|---|---|---|
+| **L0** | Tư vấn | Chỉ trả lời, gợi ý, không làm gì |
+| **L1** | Chuẩn bị | Điền form, tạo draft, chuẩn bị data |
+| **L2** | Tự làm an toàn | Đổi địa chỉ, lưu memory, nhắc lịch, cập nhật profile |
+| **L3** | Tự làm có xác nhận | Tạo đơn, match thợ, đổi lịch hẹn |
+| **L4** | Tự tối ưu | Đề xuất bảo trì, route optimization, job suggestions, anomaly alerts |
+| **L5** | Auto-pilot | Full auto — chỉ khi user bật, có giới hạn tiền + rủi ro |
+
+**Default policy:**
+- Account actions: L2 (có OTP cho phone/password)
+- Service requests: L1 (draft), L3 (create order)
+- Payment: L3 (luôn xác nhận)
+- Admin operations: L4 (lock/unlock), L3 (refund)
+- Chưa bật L5 đại trà
+
+---
+
+## 9. Persona Playbooks
+
+### Customer AI Companion — "Người bạn gia đình"
+
+| Nỗi đau của khách | AI phải làm |
+|---|---|
+| Không biết gọi ai sửa | Tự chẩn đoán + gợi ý thợ phù hợp |
+| Sợ bị chặt chém | Báo giá minh bạch, lưu lịch sử giá |
+| Không nhớ bảo trì | Tự nhắc định kỳ theo thiết bị |
+| Không theo dõi được thợ | Real-time map tracking |
+| Ngại thao tác nhiều | Nói 1 câu, AI lo hết |
+
+### Worker AI Companion — "AI Co-pilot"
+
+| Nỗi đau của thợ | AI phải làm |
+|---|---|
+| Thiếu đơn ổn định | Gợi ý đơn phù hợp skill + khoảng cách |
+| Chạy xa, tốn xăng | Tối ưu tuyến nhiều đơn |
+| Không chuyên nghiệp | Coaching checklist, nhắc chụp ảnh trước/sau |
+| Thu nhập không rõ | Dashboard thu nhập theo ngày/tuần/tháng |
+| Khó rút tiền | Auto payout qua Stripe Connect |
+
+### Admin AI Companion — "AI Analyst"
+
+| Nỗi đau của admin | AI phải làm |
+|---|---|
+| Quá nhiều dữ liệu | Tóm tắt KPI hàng ngày |
+| Không biết có vấn đề | Phát hiện anomaly: fraud, dispute, payment fail |
+| Vận hành thủ công mệt | Đề xuất action: khóa/mở TK, approve KYC rủi ro thấp |
+| Không biết thiếu thợ ở đâu | Dự báo workforce theo khu vực |
+| Ra quyết định chậm | Tạo daily brief + evidence cho mỗi đề xuất |
+
+---
+
+## 10. Service Plugin Rules
+
+Mỗi dịch vụ mới = 1 block trong `service_registry`, implement `ServiceDefinition`:
 
 ```typescript
-import { z } from 'zod'
-import { logVifixa } from '../_shared/logger.ts'
-
-// 1. Định nghĩa schema ở ĐẦU function
-const RequestSchema = z.object({
-  message: z.string().min(1).max(5000),
-  category: z.enum(['electricity', 'plumbing', 'appliance', 'camera']),
-})
-
-// 2. Parse và validate — KHÔNG dùng JSON.parse trực tiếp
-const parsed = RequestSchema.safeParse(body)
-if (!parsed.success) {
-  logVifixa('validation', 'invalid_input', {
-    errors: parsed.error.errors,
-  })
-  return jsonResponse({ error: 'Invalid input', details: parsed.error.errors }, 400)
+interface ServiceDefinition {
+  id: string; name: string; icon: string; category: string; description: string;
+  keywords: string[];
+  requiredSkills: string[];
+  typicalPricing: PriceRange;
+  questions: string[];
+  quickActions: ServiceAction[];
+  diagnosisFields: DiagnosisField[];
+  onDiagnose?: (input: any) => Promise<any>;
+  onQuote?: (diagnosis: any) => Promise<any>;
+  onMatch?: (quote: any, providers: ServiceProvider[]) => Promise<any>;
+  onComplete?: (order: any) => Promise<any>;
 }
 ```
 
-### Prompt Injection Protection
-- `sanitizeSystemPrompt()` block các cụm: "ignore instructions", "you are now", "system prompt"
-- System prompt KHÔNG chứa raw user input — chỉ qua placeholders
-- Rate limit: 30 requests/min/user trên AI endpoints
-- Audit log: mọi AI call → `ai_logs` table (user_id, prompt, response, latency)
+**Không sửa core workflow khi thêm dịch vụ.** Core workflow (state machine) chỉ biết `order.status`.
 
-### Payment Security
-- **VNPay**: HMAC-SHA512 verify signature (bắt buộc)
-- **Stripe**: webhook signature verify (bắt buộc)
-- ❌ Không lưu raw card number anywhere
-- ✅ Ledger double-entry: mọi giao dịch = 1 debit + 1 credit
+---
 
-### CORS & Headers
-- CORS: chỉ cho phép domain đã đăng ký (Vercel, custom domain)
-- CSP: strict Content-Security-Policy
-- HTTPS: redirect all HTTP → HTTPS
-- CSRF: token-based protection cho mutation endpoints
+## 11. Build Order
 
-### Audit Trail
 ```
-Mọi action quan trọng → log:
-[VIFIXA][module] action | user=X | status=X | latency=Xms
-Giữ log tối thiểu 90 ngày
-Security incident → alert admin real-time
-```
+Phase 17: Agent OS Foundation     ← HIỆN TẠI
+  ├── docs rewrite (agent.md + AGENT_OS + ACTION_REGISTRY + AUTO_MODE)
+  ├── DB: agent_goals, agent_runs, agent_steps, agent_actions, agent_policies, agent_approvals
+  └── Edge Function: agent-orchestrator
 
-### OWASP Top 10 Integration (Kiểm tra mọi code path)
-| # | OWASP Risk | Codebase Check | Status |
-|---|-----------|----------------|--------|
-| 1 | Broken Access Control | Admin routes trong customer? Role check mọi Edge Function? | ✅ Fixed |
-| 2 | Cryptographic Failures | HTTPS forced? Passwords bcrypt/hash? | ✅ Default |
-| 3 | Injection (SQL/NoSQL/XSS) | Zod validation mọi input? Parameterized queries? | ✅ Zod + Supabase |
-| 4 | Insecure Design | AI state machine? Service registry pattern? | ✅ Designed |
-| 5 | Security Misconfiguration | @ts-nocheck? console.log? Verbose error messages? | ⚠️ Bugs #002,#006 fixed |
-| 6 | Vulnerable Components | npm audit? Deno deps scan? Snyk? | 🔄 Run monthly |
-| 7 | Auth Failures | verifyAuth() mọi Edge Function? Session timeout? | ✅ Implemented |
-| 8 | Data Integrity | RLS trên mọi bảng? Ledger double-entry? | ✅ RLS + Ledger |
-| 9 | Logging & Monitoring | [VIFIXA] log format? ai_logs table? | ✅ Standardized |
-| 10 | SSRF (Server-Side Request Forgery) | fetch URLs có validate? User không tự chọn URL? | ⚠️ Cần audit |
+Phase 18: Action Registry Implementation
+  ├── account.* actions (update_phone, update_address, verify_otp)
+  ├── memory.* actions (save_fact, update_preference)
+  └── Action audit UI
 
-### OWASP LLM Top 10 (AI-specific Security)
-| # | LLM Risk | Mitigation in Vifixa |
-|---|----------|---------------------|
-| 1 | **Prompt Injection** | `sanitizeSystemPrompt()` + input validation + context isolation |
-| 2 | Sensitive Info Disclosure | No secrets in prompts + audit logging + output filtering |
-| 3 | Supply Chain Vulnerabilities | NVIDIA NIM + Supabase — trusted providers only |
-| 4 | Data & Model Poisoning | User feedback loop + learning engine garbage-in guard |
-| 5 | Improper Output Handling | Zod schema validation on ALL AI output |
-| 6 | Excessive Agency | AI actions always user-confirmed (manual mode fallback) |
-| 7 | System Prompt Leakage | Sanitize blocks "reveal system prompt", "ignore instructions" |
-| 8 | Vector & Embedding Weaknesses | Not using vectors yet — future concern |
-| 9 | Misinformation | Web search grounding + confidence scores + source citation |
-| 10 | Unbounded Consumption | Rate limiting 30 req/min/user + token budgets |
+Phase 19: Customer Auto Mode
+  ├── Goal Planner: tạo plan từ hội thoại
+  ├── Account auto actions: đổi địa chỉ, số điện thoại, profile
+  └── Service auto flow: detect → diagnose → quote → match
 
-### Supabase RLS Policy Pattern (Bắt buộc cho mọi bảng mới)
-```sql
--- Mọi bảng public PHẢI có RLS:
-ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
+Phase 20: Worker Auto Mode
+  ├── Job ranking: best job theo skill + khoảng cách + thu nhập
+  ├── Route optimization: multi-job ETA
+  └── Income dashboard: auto-generated
 
--- 4 policies chuẩn (SELECT/INSERT/UPDATE/DELETE):
-CREATE POLICY "user_select_own" ON table_name
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "user_insert_own" ON table_name
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "user_update_own" ON table_name
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "user_delete_own" ON table_name
-  FOR DELETE USING (auth.uid() = user_id);
+Phase 21: Admin Auto Mode
+  ├── Daily brief: tóm tắt KPI + anomalies
+  ├── Auto suggestions: lock/unlock, KYC approve, workforce
+  └── Fraud detection auto-alerts
+
+Phase 22: Multi-service Expansion
+  ├── cleaning, delivery, moving, care, pet, tutoring, beauty
+  └── Service Registry dynamic loading từ DB
+
+Phase 23: Monetization
+  ├── Commission engine
+  ├── Membership plans
+  └── B2B subscriptions
 ```
 
 ---
 
-## 🚨 CẢNH BÁO TỪ LỖI BẢO MẬT THỰC TẾ (Found in Production Code)
+## 12. Verification Protocol
 
-### Bug #1: Admin Routes trong Customer Chat
-```typescript
-// ❌ ĐÃ TÌM THẤY trong web/src/app/customer/chat/page.tsx:
-if (action.type === 'view_alerts') router.push('/admin/alerts')  // Customer → Admin page!
-if (action.type === 'view_stats') router.push('/admin/stats')    // Customer → Admin page!
-
-// ✅ FIX: Navigation actions phải kiểm tra user role
-// 👉 Rule: KHÔNG hardcode admin URL trong customer/worker code
-```
-
-### Bug #2: @ts-nocheck — Tắt TypeScript = Tắt bảo mật
-```typescript
-// ❌ ĐÃ TÌM THẤY ở đầu orders/[id]/page.tsx và profile/page.tsx:
-// @ts-nocheck  — cái này tắt TOÀN BỘ kiểm tra type!
-
-// ✅ FIX: KHÔNG bao giờ dùng @ts-nocheck. Lỗi type → sửa type đúng.
-// 👉 Rule: ⛔ @ts-nocheck và @ts-ignore BỊ CẤM trong toàn bộ codebase
-```
-
-### Bug #3: API Endpoint Không Đồng Bộ — 2 đường AI call
-```typescript
-// ❌ ĐÃ TÌM THẤY — 2 cách gọi AI khác nhau:
-// Cách 1: fetch('/api/companion/chat')           // Next.js API route (CompanionChat.tsx)
-// Cách 2: fetch(`${SUPABASE_URL}/functions/v1/...`) // Edge Function (chat/page.tsx)
-
-// ✅ FIX: Chỉ 1 cách — qua Supabase Edge Functions
-// 👉 Rule: Mọi AI call CHỈ qua Supabase Edge Functions
-```
-
-### Bug #4: Query Không Filter User
-```typescript
-// ❌ ĐÃ TÌM THẤY (devices/page.tsx):
-const { data } = await supabase.from('device_profiles').select('*')
-// KHÔNG có .eq('user_id', session.user.id) — dù có RLS vẫn PHẢI filter
-
-// ✅ FIX: Luôn filter theo user_id
-// 👉 Rule: Mọi query PHẢI filter user_id — không rely chỉ vào RLS
-```
-
-### Bug #5: Rate Limiting Không Có
-```typescript
-// ❌ Companion chat Edge Function: không có rate limit
-// → User spam 1000 requests/phút → tốn $$$
-
-// ✅ FIX: Thêm rate limit trên mọi public endpoint
-// 👉 Rule: Mọi Edge Function public: 30 req/min/user
-```
-
-### Bug #6: Error Messages Lộ Internal Details
-```typescript
-// ❌ ĐÃ TÌM THẤY:
-alert('Error: ' + error.message)  // User thấy internal error!
-
-// ✅ FIX: User message ≠ Internal log
-console.error('[VIFIXA] Lỗi chi tiết:', error)  // Internal
-toast('Không thể thực hiện. Vui lòng thử lại.', 'error')  // User
-```
-
-### Bug #7: Console.log trong Production Code
-```typescript
-// ❌ ĐÃ TÌM THẤY — nhiều console.log trong customer pages:
-console.log('[order-details] Fetching order:', orderId)
-console.log('[order-details] session.user.id:', session.user.id)
-
-// ✅ FIX: Xoá console.log trước deploy. Dùng console.error cho error tracking
-```
-
-### Bug #8: Duplicate `export default function` — Build sẽ fail
-```typescript
-// ❌ ĐÃ TÌM THẤY (chat/page.tsx):
-// Dòng 8:  export default function CustomerChatPage()  {...}
-// Dòng 83: export default function CustomerChatPage()  {...}  // DUPLICATE!
-
-// ✅ FIX: Chỉ 1 export default per file
-// 👉 Rule: kiểm tra duplicate export TRƯỚC khi commit
-```
-
-### Bug #9: Settings Page Ghi localStorage Thay Vì DB
-```typescript
-// ❌ ĐÃ TÌM THẤY (settings/page.tsx):
-localStorage.setItem('cust_ai_level', aiLevel)  // Dùng localStorage!
-// Cạnh đó là code gọi Edge Function — code chết nằm cạnh code sống
-
-// ✅ FIX: Xoá localStorage, CHỈ dùng Supabase/Edge Function
-```
-
-### Bug #10: Service Request Price Format Sai
-```typescript
-// ❌ ĐÃ TÌM THẤY (service-request/page.tsx):
-<p>{$estimatedPrice}</p>  // Dùng $ thay vì VND!
-
-// ✅ FIX: formatPrice(estimatedPrice) dùng VND format
-```
-
----
-
-## 🌐 AUTO SECURITY RESEARCH (Trước mỗi Phase mới)
-
-Trước khi bắt đầu bất kỳ Phase nào, **tự động fetch các nguồn bảo mật** để cập nhật:
-
-### Nguồn bắt buộc (theo thứ tự ưu tiên)
-```
-1. OWASP Top 10 Web        → https://owasp.org/www-project-top-ten/
-2. OWASP Top 10 LLM        → https://genai.owasp.org/
-3. OWASP API Security      → https://owasp.org/www-project-api-security/
-4. Supabase Security Docs  → https://supabase.com/docs/guides/security
-5. CVE Database            → https://cve.mitre.org/ (CVE mới liên quan đến stack)
-```
-
-### Output bắt buộc
-```markdown
-## Security Research: yyyy-mm-dd (Phase X)
-### Sources checked:
-  - OWASP Top 10: không có risk mới ảnh hưởng đến codebase
-  - OWASP LLM Top 10: prompt injection vẫn là #1 — sanitize đã implement
-  - CVE: [CVE-YYYY-NNNN] ảnh hưởng đến [dependency] → cần update
-### Action items:
-  - [ ] CVE đã fix? → npm update / deno update
-  - [ ] OWASP risk mới? → tạo bug trong ERROR_ANALYSIS.md
-  - [ ] Checklist cập nhật? → sửa Security Checklist
-```
-
-### Pre-Phase OWASP Scan
-```bash
-# Trước mỗi Phase, chạy 4 OWASP-based checks:
-echo "🔍 OWASP-1: Broken Access Control"
-grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ && echo "⚠️" || echo "✅"
-
-echo "🔍 OWASP-5: Security Misconfiguration"
-grep -rn "@ts-nocheck" web/src/ supabase/functions/ && echo "⚠️" || echo "✅"
-grep -rn "console.log" web/src/app/ supabase/functions/ | grep -v ".test.ts" && echo "⚠️" || echo "✅"
-
-echo "🔍 OWASP LLM-1: Prompt Injection Surface"
-grep -rn "system.*prompt\|SYSTEM" supabase/functions/ --include="*.ts" | head -3
-
-echo "🔍 OWASP LLM-7: System Prompt Leakage"
-grep -rn "user.*input\|\`\$\{message\}\`" supabase/functions/ --include="*.ts" | head -3
-```
-
----
-
-## 🔐 SECURITY CHECKLIST (Bắt buộc trước mỗi deploy)
-
-### Auth & Authorization
-- [ ] Mọi page có auth guard (session check trong layout)
-- [ ] Mọi Edge Function có `verifyAuth()` + role check
-- [ ] Mọi query filter theo `user_id`
-- [ ] KHÔNG có admin routes trong customer/worker code
-- [ ] KHÔNG có role bypass (customer không truy cập worker/admin pages)
-
-### Code Quality
-- [ ] KHÔNG có `// @ts-nocheck` hoặc `// @ts-ignore` 
-- [ ] KHÔNG có `any` type trong shared modules
-- [ ] Zod schema validation trên mọi API input
-- [ ] KHÔNG có `console.log` trong production code (chỉ console.error)
-
-### API Security
-- [ ] Rate limiting trên mọi public endpoint (30 req/min/user)
-- [ ] CORS chỉ cho phép domain đã đăng ký
-- [ ] Input sanitization (chống XSS, SQL injection)
-- [ ] File upload: validate type + size
-
-### Data Protection
-- [ ] RLS enabled trên MỌI bảng
-- [ ] `service_role` key chỉ dùng trong Edge Functions
-- [ ] KHÔNG localStorage cho sensitive data
-- [ ] Payment: VNPay HMAC-SHA512 verify + Stripe webhook verify
-
-### AI Safety
-- [ ] System prompt sanitization (chống prompt injection)
-- [ ] Rate limit AI calls
-- [ ] Audit log mọi AI interaction
-- [ ] User message friendly — không lộ internal error
-
-### Build Verification
-- [ ] `npm run build` — 0 errors
-- [ ] `npm run lint` — 0 warnings
-- [ ] Zero Tolerance: SEC-001 — `grep -rn "API_KEY\|SECRET" web/src/app/` — 0 matches
-- [ ] Zero Tolerance: QUAL-001 — `grep -rn "@ts-nocheck\|@ts-ignore" web/src/ supabase/functions/` — 0 matches
-- [ ] Zero Tolerance: QUAL-002 — `grep -rn "console.log" web/src/app/` — 0 matches
-- [ ] Zero Tolerance: SEC-003 — `grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/` — 0 matches
-- [ ] Zero Tolerance: LOG-001 — `grep -rn "console.log" supabase/functions/` — mỗi cái phải có `[VIFIXA]`
-- [ ] Zero Tolerance: SEC-002 — kiểm tra Edge Functions mới có `verifyAuth()`
-
----
-
-## 🏃 CHẠY THỬ (Run Book — Thực thi tuần tự)
-
-### Pre-Flight Check (trước mỗi Phase mới)
-```bash
-./scripts/test-all.sh           # 27+ tests — tất cả phải pass
-supabase functions serve        # Edge Functions local — không lỗi
-npm run build --prefix web      # Web build — 0 error, 0 warning
-
-# Security scan
-grep -rn "@ts-nocheck" web/src/ supabase/functions/ && echo "⚠️ Found @ts-nocheck!" || echo "✅ No @ts-nocheck"
-grep -rn "service_role" web/src/ mobile/src/ && echo "⚠️ Service role in frontend!" || echo "✅ No service_role in frontend"
-grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ && echo "⚠️ Admin routes in customer/worker!" || echo "✅ No admin routes in customer/worker"
-```
-
-### Phase Execution (7 bước bắt buộc)
-```
-Step 0: Security Research      → Fetch OWASP + Supabase docs → cập nhật checklist
-Step 1: Viết DB schema         → supabase migration + RLS policies
-Step 2: Viết Edge Function     → deno test + security scan (auth, input, rate limit)
-Step 3: Viết Web page          → npm run lint && npm run build
-Step 4: Viết Mobile screen     → npx expo export
-Step 5: OWASP Scan             → Chạy 4 grep commands (từ Auto Security Scan)
-Step 6: E2E + Log Analysis     → ghi vào ERROR_ANALYSIS.md
-```
-
-### Post-Phase Checklist (tất cả phải ✅ mới move next)
-- [ ] `./scripts/test-all.sh` — 0 failed
-- [ ] Web build — 0 error
-- [ ] Security scan — 0 warning
-- [ ] Mobile export — 0 error
-- [ ] E2E flow: Customer → Worker → Admin — đồng bộ
-- [ ] ERROR_ANALYSIS.md cập nhật (nếu có bug mới)
-- [ ] Security checklist pass
-- [ ] Performance budget pass
-- [ ] agent.md Phase updated (đánh dấu ✅)
-
----
-
-## 🤖 AI SELF-ENFORCEMENT MECHANISM
-
-### Tôi (AI) cam kết — nếu vi phạm bất kỳ rule nào dưới đây:
-
-```
-LẦN 1: Fix lỗi + ghi vào ERROR_ANALYSIS.md (Bug #NNN) + sửa agent.md
-LẦN 2: Fix lỗi + ghi vào ERROR_ANALYSIS.md + thêm rule mới để ngăn tái phát
-LẦN 3: Rollback Phase về uncompleted + làm lại từ đầu + proof công khai
-```
-
-### Pre-Commit Self-Check (BẮT BUỘC chạy trước mỗi lần mark complete)
+Sau mỗi phase phải verify:
 
 ```bash
-#!/bin/bash
-# Tôi PHẢI chạy script này trước khi mark bất kỳ Phase nào là complete.
-# Nếu bất kỳ check nào FAIL → tôi KHÔNG được mark complete → phải sửa.
-
-echo "🔍 SELF-CHECK 1: E2E Workflow đồng bộ?"
-grep -n "pending\|matched\|in_progress\|completed" web/src/app/customer/page.tsx | head -1 > /dev/null && echo "✅" || echo "❌ FAIL"
-grep -n "pending\|matched\|in_progress\|completed" web/src/app/worker/jobs/page.tsx | head -1 > /dev/null && echo "✅" || echo "❌ FAIL"
-grep -n "pending\|matched\|in_progress\|completed" web/src/app/admin/orders/page.tsx | head -1 > /dev/null && echo "✅" || echo "❌ FAIL"
-
-echo "🔍 SELF-CHECK 2: Không @ts-nocheck mới?"
-grep -rn "@ts-nocheck" web/src/app/ | grep -v "TODO" | wc -l | xargs -I{} test {} -eq 0 && echo "✅" || echo "❌ FAIL"
-
-echo "🔍 SELF-CHECK 3: Không admin routes trong customer/worker?"
-grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ | wc -l | xargs -I{} test {} -eq 0 && echo "✅" || echo "❌ FAIL"
-
-echo "🔍 SELF-CHECK 4: Tests pass?"
-cd /Users/lha/Documents/vifixa-ai-business-package && deno test --no-check --allow-read --allow-env supabase/functions/_shared/personality.test.ts supabase/functions/_shared/service-registry.test.ts supabase/functions/_shared/reasoning-engine.test.ts supabase/functions/_shared/learning-engine.test.ts supabase/functions/_shared/personalization-engine.test.ts supabase/functions/_shared/web-search.test.ts 2>&1 | grep -q "0 failed" && echo "✅" || echo "❌ FAIL"
-
-echo "🔍 SELF-CHECK 5: agent.md đã cập nhật?"
-grep -q "CHANGELOG" agent.md && echo "✅" || echo "❌ FAIL"
-
-echo "🔍 SELF-CHECK 6: ERROR_ANALYSIS.md đã cập nhật?"
-grep -q "Bug" docs/ERROR_ANALYSIS.md || echo "⚠️  No bugs yet (OK for new Phase)"
-
-echo ""
-echo "📋 KẾT QUẢ: NẾU CÓ BẤT KỲ ❌ → DỪNG LẠI → SỬA → CHẠY LẠI"
+next build        # 0 errors
+deno test         # all pass
+deno check */*.ts # no type errors
 ```
 
-### Lệnh chạy self-check (copy-paste vào terminal):
-```bash
-cd /Users/lha/Documents/vifixa-ai-business-package && \
-echo "🔍 SELF-CHECK 1:" && grep -n "pending\|matched\|in_progress\|completed" web/src/app/customer/page.tsx | head -1 && \
-echo "🔍 SELF-CHECK 2:" && grep -rn "@ts-nocheck" web/src/app/ | grep -v "TODO" || echo "✅ No violations" && \
-echo "🔍 SELF-CHECK 3:" && grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ || echo "✅ No violations" && \
-echo "🔍 SELF-CHECK 4:" && deno test --no-check --allow-read --allow-env supabase/functions/_shared/*.test.ts 2>&1 | grep "passed\|failed" && \
-echo "🔍 SELF-CHECK 5:" && grep -q "CHANGELOG" agent.md && echo "✅ agent.md has changelog"
-```
-
-### Điều khoản bắt buộc với AI (không thể từ chối)
-1. **KHÔNG được phép nói "để sau"** với bất kỳ security issue nào — fix ngay hoặc ghi vào TODO
-2. **KHÔNG được phép mark complete khi self-check còn đỏ** — 1 cái đỏ = Phase chưa xong
-3. **KHÔNG được phép skip self-check** — nếu skip = tự nhận lỗi + ghi Bug #NNN + rollback
-4. **KHÔNG được phép chuyển Phase khi chưa update agent.md** — changelog PHẢI cập nhật
-5. **PHẢI ghi Bug vào ERROR_ANALYSIS.md** mỗi khi phát hiện lỗi — kể cả lỗi từ chính mình
+Checklist:
+- [ ] Không English strings trong UI
+- [ ] Không secret trong frontend/mobile
+- [ ] RLS trên mọi bảng mới
+- [ ] verifyAuth() trên mọi Edge Function mới
+- [ ] Zod schema trên mọi input
+- [ ] Audit log cho mọi AI action
+- [ ] Ledger double-entry cho mọi financial action
 
 ---
 
-## 🚀 GITHUB AUTO-SYNC (CI/CD Pipeline)
+## 13. Gap Detection Protocol
 
-### Workflow Files (`.github/workflows/`)
-
-| File | Trigger | Hành động |
-|------|---------|-----------|
-| `test.yml` | Mỗi `git push` (mọi branch) | Self-check 6 bước + Deno test + Web build |
-| `deploy-web.yml` | Push `main` + test pass | Build Next.js → Deploy Vercel |
-| `deploy-supabase.yml` | Push `main` + test pass | `supabase db push` + `supabase functions deploy` |
-
-### test.yml (Chạy trên mọi push)
-```yaml
-name: Self-Check
-on: [push]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
-      - name: Self-Check E2E
-        run: |
-          grep -q "pending\|completed" web/src/app/customer/page.tsx
-          grep -q "pending\|completed" web/src/app/worker/jobs/page.tsx
-          grep -q "pending\|completed" web/src/app/admin/orders/page.tsx
-      - name: Security Scan
-        run: |
-          ! grep -rn "@ts-nocheck" web/src/app/ | grep -v "TODO" | grep .
-          ! grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ | grep .
-      - name: Deno Test
-        run: deno test --no-check --allow-read --allow-env supabase/functions/_shared/*.test.ts
-      - name: Web Build
-        run: cd web && npm ci && npm run build
-```
-
-### deploy-web.yml (Chỉ main + test pass)
-```yaml
-name: Deploy Web
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
-      - run: deno test --no-check --allow-read --allow-env supabase/functions/_shared/*.test.ts
-      - run: cd web && npm ci && npm run build
-      - uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-```
-
-### Pre-commit Hook (Tự động chặn commit fail)
-
-File `.husky/pre-commit`:
-```bash
-#!/bin/bash
-echo "🔍 AI Self-Check trước commit..."
-cd /Users/lha/Documents/vifixa-ai-business-package
-
-# 1. E2E Workflow
-grep -q "pending\|in_progress\|completed" web/src/app/customer/page.tsx || exit 1
-grep -q "pending\|in_progress\|completed" web/src/app/worker/jobs/page.tsx || exit 1
-grep -q "pending\|in_progress\|completed" web/src/app/admin/orders/page.tsx || exit 1
-
-# 2. Security
-grep -rn "@ts-nocheck" web/src/app/ | grep -v "TODO" | grep . && exit 1 || true
-grep -rn "/admin/" web/src/app/customer/ web/src/app/worker/ | grep . && exit 1 || true
-
-# 3. Tests
-deno test --no-check --allow-read --allow-env supabase/functions/_shared/*.test.ts 2>&1 | grep -q "0 failed" || exit 1
-
-echo "✅ Self-check pass → commit allowed"
-```
-
-### Rule mới
-```
-20. **GitHub Actions là GATE cuối cùng** — Nếu CI fail → commit bị từ chối → không deploy
-    - Pre-commit hook chạy self-check trước mỗi commit
-    - GitHub Actions chạy lại self-check + build
-    - Chỉ khi cả 2 pass mới được merge vào main
-    - Nếu CI fail trên main → tự động tạo issue + notify admin
-21. **`.env.example` phải tồn tại và cập nhật** — mỗi khi thêm biến môi trường mới
-    - `.env` và `.env.local` trong `.gitignore` — KHÔNG BAO GIỜ commit
-    - `.env.example` là documentation cho dev: biến nào cần, giá trị mẫu là gì
-22. **Đồng bộ đa nền tảng sau mỗi Phase** — Code xong → Web build → Supabase verify → Commit → Push → CI pass → Deploy
-    - Không deploy khi build còn đỏ
-    - Không push khi test còn fail
-    - Không merge khi CI chưa xanh
-23. **Pre-commit hook kiểm tra 6 mục** — E2E workflow + @ts-nocheck + Admin routes + console.log trong API + Deno tests + Web build (CI)
-    - console.log trong `web/src/app/api/` = ⚠️ cảnh báo (server-side logging là được phép, cần xem xét từng cái)
-    - Web build check chạy trong CI (không trong pre-commit vì chậm)
-24. **PR Workflow — Quy trình Pull Request**
-    - Mỗi coding session tạo 1 branch mới: `feat/tên-ngắn-gọn`
-    - Commit message theo chuẩn: `type: message` (fix:, feat:, docs:, refactor:)
-    - Trước khi tạo PR: chạy `./scripts/test-all.sh` — 0 failed
-    - Trước khi merge: rebase lên main + resolve conflicts
-    - PR cũ từ session trước → đóng và note lý do (không để tồn đọng)
-    - Review bắt buộc: tự kiểm tra file conflicts với codebase hiện tại
-
-### Lưu ý Husky
-- Sau `npx husky init`, pre-commit hook BỊ GHI ĐÈ — phải restore lại từ `.husky/pre-commit` (bản custom)
-- Hook mặc định chỉ chạy `npm test` — không đủ cho Vifixa (cần E2E + Security + Deno tests)
-```
-
-### 🌐 Language Standardization Rules
-- **UI text PHẢI là Tiếng Việt** — mọi label, button, message, notification, menu item
-- **English CHỈ được dùng** trong: code comments, technical documentation, variable names, API responses
-- **Nav labels** phải VI: "Home" → "Trang chủ", "Orders" → "Đơn hàng", "Users" → "Người dùng"
-- **KPI labels** phải VI: "Revenue" → "Doanh thu", "Disputes" → "Khiếu nại", "Analytics" → "Phân tích"
-- **Nếu phát hiện EN trong UI → fix ngay** — pre-commit hook sẽ check nhưng không block
-- **Lý do:** Người dùng cuối là người Việt — EN làm giảm trust và UX
-
-### Cấu trúc gitignore chuẩn
-```gitignore
-# Bảo vệ secrets
-.env
-.env.local
-.env.production
-*.pem
-
-# Node
-node_modules/
-.next/
-dist/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# Logs
-*.log
-```
+Mỗi khi phát hiện vấn đề mới:
+1. Check `docs/GAP_ANALYSIS.md` xem đã có gap này chưa
+2. Nếu chưa → thêm gap mới với ID, mô tả, file ảnh hưởng, fix plan
+3. Nếu đã có → cập nhật trạng thái
+4. Sau khi fix → chuyển sang Gap History
 
 ---
 
----
+## 14. Docs Update Protocol
 
-## 🧠 PRE-CODE PROTOCOL (Bắt buộc — Không được bỏ qua bước nào)
-
-### 7 bước bắt buộc TRƯỚC KHI viết dòng code nào:
-
-```
-Step 0: PROPOSE PLAN
-  └── Tạo todo list với từng task cụ thể
-  └── Gửi cho user → chờ approval (Workflow Protocol)
-  └── KHÔNG tự ý làm ngoài plan — mọi deviation phải báo user
-
-Step 1: READ CONTEXT
-  └── Đọc file hiện tại cần sửa (bắt buộc dùng Read tool)
-  └── Đọc file liên quan (imports, dependencies, styles)
-  └── Tìm files tương tự trong codebase (Glob + Grep)
-  └── NẾU chưa đọc → KHÔNG được sửa (Auto Reject)
-
-Step 2: CHECK GAPS
-  └── Mở docs/GAP_ANALYSIS.md — so sánh task với gap đã biết
-  └── Nếu task overlap với gap đã biết → không tạo code mới
-  └── Nếu phát hiện gap mới → cập nhật GAP_ANALYSIS.md TRƯỚC
-
-Step 3: VERIFY EXISTING CODE
-  └── Check git status — có file nào đang modified không?
-  └── Kiểm tra có file tương tự đã tồn tại không (dùng Glob)
-  └── Kiểm tra có component/dependency sẵn dùng không (dùng Grep)
-  └── Nguyên tắc: KHÔNG tạo mới nếu đã có — REUSE > REWRITE
-
-Step 4: CHECK DEPENDENCIES
-  └── File này phụ thuộc vào gì? (imports, types, APIs)
-  └── Dependency đã tồn tại chưa? (table, function, component)
-  └── Nếu cần dependency mới → báo user + thêm vào plan
-
-Step 5: CHECK CONSISTENCY
-  └── Web có, Mobile có? (if applicable)
-  └── Customer có, Worker có, Admin có? (nếu cross-role)
-  └── UI language: đã là Tiếng Việt chưa?
-  └── Màn hình này ảnh hưởng đến màn hình khác không?
-
-Step 6: THINK BEFORE WRITE
-  └── Viết ra kế hoạch thay đổi (file nào, sửa gì)
-  └── Ước lượng tác động: files changed, lines added
-  └── Có thể break build không? Có test không?
-```
-
-**❌ AUTO REJECT nếu bỏ qua bất kỳ bước nào.**
-**❌ AUTO REJECT nếu chưa Read file mà đã Edit.**
-**❌ AUTO REJECT nếu chưa Propose plan mà đã Execute.**
+Mỗi khi thay đổi code ảnh hưởng kiến trúc:
+1. Cập nhật `agent.md` nếu thay đổi rule/nguyên lý
+2. Cập nhật `docs/ACTION_REGISTRY.md` nếu thêm/sửa action
+3. Cập nhật `docs/FLOWCHART.md` nếu thay đổi luồng
+4. Cập nhật `docs/ARCHITECTURE.md` nếu thêm layer/function
+5. Cập nhật `docs/GAP_ANALYSIS.md` khi gap thay đổi trạng thái
+6. Cập nhật `docs/ROADMAP.md` khi hoàn thành phase
 
 ---
 
-## ⚠️ Rules (Tuyệt đối tuân thủ)
+## 15. Stack Reference
 
-1. **Đọc 7 docs bắt buộc** trước khi code: VISION → ARCHITECTURE → SCREENS → AI_HEART → BRAIN → COMPANION → ROADMAP
-2. **Test & Log sau mỗi Phase** — không skip, không report mà không có data
-3. **Nếu test fail → phải sửa → test lại → mới move next**
-4. **Tuần tự, không skip, không reorder**: AI Brain → Customer → Worker → Admin → Mobile → External
-5. **Cùng DB schema → Edge Function → Web → Mobile** (cho mỗi module mới)
-6. **Mỗi external platform = 1 plugin** trong service-registry.ts — không hardcode
-7. **Customer + Worker workflow LUÔN đồng bộ** — kiểm tra consistency trước khi code
-8. **AI calls CHỈ qua Supabase Edge Functions** — không gọi trực tiếp từ frontend
-9. **3 CompanionChat RIÊNG BIỆT** — Customer (ấm áp, quick actions dịch vụ), Worker (chuyên nghiệp, stats panel), Admin (KPI cards, alerts) — không dùng chung 1 component
-10. **Auto + Manual mode TRÊN CẢ 3 màn hình** — không thiếu cái nào
-11. **Không secrets trong frontend** — không mock data trong production
-12. **Mỗi dòng code phục vụ con người** — kiếm tiền là hệ quả tự nhiên
-13. **Sau mỗi coding session → cập nhật agent.md**: bug mới → ERROR_ANALYSIS.md, quy tắc mới vào Rules, cập nhật Build Order
-14. **Mỗi khi mở file cũ → kiểm tra**: có `@ts-nocheck`? có `console.log`? có query ko filter? → fix ngay
-15. **Security scan bắt buộc** trước mỗi commit: `grep -rn "@ts-nocheck\|console.log" web/src/app/` — 0 matches mới
-16. **Auto Security Research trước mỗi Phase** — fetch OWASP Top 10 + LLM Top 10 + Supabase security docs → cập nhật checklist trước khi code
-17. **OWASP Pre-Phase Scan bắt buộc** — chạy 4 grep commands (Broken Access Control, Misconfiguration, Prompt Injection Surface, System Prompt Leakage)
-18. **KHÔNG được tắt/bỏ qua Todo workflow** — Mọi task trong todolist phải được:
-    - Đánh dấu `in_progress` khi bắt đầu
-    - Đánh dấu `completed` khi hoàn thành (kèm proof: test pass, scan pass, link commit)
-    - Nếu task bị skipped/cancelled → phải ghi lý do vào ERROR_ANALYSIS.md
-    - Không chuyển sang task tiếp theo khi task hiện tại chưa hoàn thành
-    - Todo list là SOURCE OF TRUTH cho tiến độ — không làm ngoài todo
-19. **E2E Workflow Verification bắt buộc sau mỗi Phase** — Trước khi mark Phase complete:
-20. **Mobile Sync Rule — Web có gì, Mobile phải có đó**:
-    - Mọi module xây trên Web → PHẢI có Mobile version tương ứng
-    - Mobile version gọi CÙNG Edge Function (không viết API riêng)
-    - UI khác platform (React Native ≠ React DOM) nhưng logic giống
-    - Checklist bắt buộc: [ ] AI Chat [ ] Payment [ ] Wallet [ ] Map [ ] i18n
-21. **Mobile 3-Core Audit Checklist (chạy sau mỗi Phase)**:
-    ```
-    [🤖 AI] Companion Chat + Auto/Manual modes
-    [🗺️ Map] Contextual tracking + worker navigation
-    [💳 Payment] Wallet 4-ví + Deposit/Withdraw + Transaction History
-    [🔗 Flow] Orders → Jobs → Complete → Review → Pay
-    [🌐 i18n] EN + VI support
-    ```
-    - Chạy `grep` trace: kiểm tra state transition tồn tại ở CẢ Customer + Worker + Admin
-    - Chứng minh: `pending → matched → in_progress → completed` đồng bộ 3 màn hình
-    - Nếu thiếu bất kỳ transition nào → Phase chưa hoàn thành
-    - Ghi proof vào ERROR_ANALYSIS.md: "E2E Verification: 10/10 steps passed"
-22. **Gap Detection bắt buộc trước mỗi task** — Check `docs/GAP_ANALYSIS.md` trước khi code:
-    - Nếu task trùng với gap đã biết → KHÔNG code (gap đã có solution hoặc đang tracking)
-    - Nếu phát hiện gap mới trong quá trình code → UPDATE GAP_ANALYSIS.MD ngay
-    - Nếu không có gap → ghi chú "No new gap detected" trong task log
-23. **Propose Gap Improvements định kỳ** — Sau mỗi 3-5 tasks hoàn thành:
-    - Dừng lại, review codebase, đề xuất gaps chưa ai thấy
-    - Phân loại: P0 (blocking) / P1 (major) / P2 (minor)
-    - Ghi vào GAP_ANALYSIS.md hoặc báo user
-24. **Read-before-Edit bắt buộc** — KHÔNG edit file chưa đọc trong session này:
-    - Dùng Read tool đọc ít nhất 1 lần trước khi Edit
-    - Nếu file lớn → đọc section cần sửa (offset + limit)
-    - Ngoại lệ: Write file mới (không tồn tại) — không cần Read
-25. **Context-Gathering bắt buộc** — Trước khi tạo file mới, phải:
-    - Glob tìm file tương tự (+ import patterns)
-    - Grep tìm component đã tồn tại
-    - Đọc file liên quan cùng thư mục
-    - Ghi rõ: "Đã kiểm tra [list files], [N] file tương tự tồn tại"
+| Layer | Technology |
+|---|---|
+| Web | Next.js 16, React 19, Tailwind v4, Vercel |
+| Mobile | Expo SDK 54, React Native 0.81 |
+| Backend | Supabase (Postgres 17 + Auth + Realtime + Edge Functions) |
+| AI | NVIDIA NIM (Llama 3.1 · Mixtral · Llama 3.2 Vision) |
+| Maps | OpenStreetMap + Leaflet + OSRM |
+| Payments | VNPay (HMAC-SHA512, VND) + Stripe Connect (USD) |
+| CI/CD | GitHub Actions (3 pipelines) |
 
 ---
 
-## 📝 AGENT.md CHANGELOG
+## 16. CHANGELOG
 
-### 2026-05-15 — v1.0: Initial Architecture
-- North Star + 3 cores + 3 screens · 2 modes · 1 heart
-- AI Brain: 15 shared modules (personality → web-search)
-- Customer · Worker · Admin screens (web + mobile)
+### 2026-05-17 — v3.0: Agent OS Constitution
+- Chuyển từ blueprint bugfix → Agent Operating System constitution
+- Thêm Agent OS mental model + Action Registry contract + Policy Engine
+- Thêm Autonomy Levels (L0-L5) + Persona Playbooks
+- Thêm Service Plugin Rules để mở rộng vô hạn
+- Docs hierarchy: agent.md → docs/AGENT_OS.md → docs/ACTION_REGISTRY.md → ...
+- Build Order cập nhật: Phase 17-23
+- Verification + Gap Detection + Docs Update protocols
 
-### 2026-05-15 — v1.1: Security & Test Rules
-- 5 kịch bản test bắt buộc (Customer → Worker → Admin → Cross → Error)
-- Performance budgets + Code quality gates + Caching strategy
-- 🚨 10 lỗi bảo mật thực tế (từ code thật) + Security checklist
-- Run Book: Pre-flight → 5-step execution → Post-phase checklist
-- Pre-deploy security scan (6 grep commands)
-- **Mỗi lần code → cập nhật agent.md**
-
-### 2026-05-15 — v1.2: OWASP + LLM Security Integration
-
-### 2026-05-15 — v1.3: Todo Workflow Rule
-- Rule #18: KHÔNG skip/bỏ qua todo — mọi task phải có proof hoàn thành
-- Todo list = Source of Truth — không làm ngoài todo
-
-### 2026-05-15 — v1.4: E2E Workflow Verification + Bug #008 (tự nhận lỗi)
-- 🐛 **Bug #008**: Tôi (AI) đã không verify E2E workflow sau full loop
-- 🔍 **Đã fix**: Chạy 10 grep commands trace qua Customer + Worker + Admin
-- ✅ **Kết luận**: All 10/10 steps đồng bộ — 3 màn hình kết nối đúng
-- 📋 **Rule #19**: E2E Workflow Verification bắt buộc sau mỗi Phase
-- 📝 **Lesson**: Code xong từng screen ≠ hệ thống hoạt động — phải verify chúng kết nối với nhau
-- 🌐 **Auto Security Research** — fetch OWASP + LLM + Supabase docs trước mỗi Phase
-- ✅ **OWASP Top 10 Integration** — 10 risks mapped to codebase (4 verified, 2 fixed, 4 default)
-- ✅ **OWASP LLM Top 10 Integration** — 10 AI-specific risks with mitigations
-- 📐 **Supabase RLS Policy Pattern** — 4-policy template cho mọi bảng mới
-- 🔍 **Pre-Phase OWASP Scan** — 4 grep commands tự động (Access Control, Misconfig, Prompt Injection, Prompt Leakage)
-- 🏃 **Run Book mở rộng** — từ 5 → 7 bước (thêm Step 0 Security Research + Step 5 OWASP Scan)
-- 📋 **Rules #16, #17** — Security Research + OWASP Scan bắt buộc
-- 🧪 **Customer screen** — security scan: 0 @ts-nocheck, 0 console.log, 0 admin routes, query filter fixed
-
-### 2026-05-15 — v1.5: AI Self-Enforcement Mechanism
-
-### 2026-05-15 — v1.6: GitHub Auto-Sync CI/CD
-- 🚀 **3 GitHub Actions workflows** — test.yml (mọi push) + deploy-web.yml + deploy-supabase.yml (main)
-- 🔗 **Pre-commit hook** — `.husky/pre-commit` chặn commit nếu self-check fail
-- 🤖 **CI = GATE cuối cùng** — test + security + build phải pass mới deploy
-- 📋 **Rule #20** — GitHub Actions là gate, CI fail → commit bị từ chối
-
-### 2026-05-15 — v1.7: Full Sync + .env.example + Rule #21
-- 🔍 **Full system check** — 6/6 checks pass: E2E ✅ Security ✅ Tests ✅ Workflows ✅
-- 📄 **`.env.example`** — tạo file mẫu, thêm Rule #21
-- 🧹 **Clean duplicate** — xoá 6 dòng duplicate trong agent.md
-- 🛡️ **Gitignore chuẩn** — thêm section gitignore vào agent.md
-
-### 2026-05-15 — v1.8: Full Platform Sync
-- 🏗️ **Web build** ✅ — 0 errors, all routes compiled
-- 🗄️ **Supabase** ✅ — 35+ functions active, companion chat deployed
-- 🔗 **Husky init** — cảnh báo: hook bị ghi đè, restore custom hook
-- 🚀 **Git commit + push** — đồng bộ toàn bộ lên GitHub
-- 📋 **Rule #22** — Đồng bộ đa nền tảng sau mỗi Phase
-- 📝 **Lưu ý Husky** — thêm vào agent.md để không bị ghi đè lần sau
-
-### 2026-05-15 — v1.9: Build Cleanup & TypeScript Fixes
-
-### 2026-05-15 — v1.10: Pre-commit + Turbopack + Rule #23
-
-### 2026-05-15 — v1.11: PR Workflow + Dọn dẹp PR cũ
-
-### 2026-05-15 — v1.12: Zero Tolerance Policy + logVifixa Utility
-- 🚨 **Zero Tolerance Policy Table** — 8 error codes (SEC-001→003, QUAL-001→002, LOG-001, ARCH-001→002)
-- 🔧 **`logVifixa()` utility** — `supabase/functions/_shared/logger.ts` với structured logging + shorthands
-- 🛡️ **Auth template nâng cấp** — import path, error logging, auto-reject rule
-- 📐 **Validation template nâng cấp** — safeParse + structured error response
-- ✅ **Prevention + Detection columns** — mọi rule có cách phòng + phát hiện cụ thể
-- 🎓 **Lesson từ PR #12** — Zero Tolerance > "khuyến nghị"
-- 🔍 **Phát hiện PR #12** — từ session cũ, 21 files, conflict với codebase mới
-- 🗑️ **Đã đóng PR #12** — kèm lý do: "conflicts with restructured codebase"
-- 📋 **Rule #24** — PR workflow: branch naming, commit format, pre-merge checks
-- 🧹 **Bài học**: Không để PR tồn đọng từ session trước — kiểm tra và dọn dẹp ngay
-- 🔧 **Turbopack root config** — thêm `turbopack.root` vào next.config.ts, hết warning
-- 🛡️ **Pre-commit hook** — thêm check `console.log` trong API routes
-- 🤖 **GitHub Actions** — thêm `setup-node` + check console.log trong API
-- 📋 **Rule #23** — Pre-commit kiểm tra 6 mục, web build trong CI
-- 🚀 **Web build** — 0 warnings, 0 errors
-- 🔧 **Removed `typescript.ignoreBuildErrors`** — build giờ kiểm tra type thật
-- 🧹 **Fixed 15+ type errors** — forwardRef, Supabase types, missing modules, L globals
-- 📦 **Created `src/lib/haversine.ts`** — missing import cho DistanceBadge
-- 🏗️ **Deleted `playwright.config.ts`** — stale e2e config (tests deleted)
-- 🚀 **Pushed to GitHub** — 905c30a, 29 files changed
-- 📋 **Lesson**: `typescript.ignoreBuildErrors: true` che giấu lỗi thật — không bao giờ dùng
-- 🤖 **Self-Enforcement section** — 6 pre-commit self-checks (E2E, @ts-nocheck, admin routes, tests, agent.md, ERROR_ANALYSIS)
-- ✅ **Script chạy 1 lệnh** — copy-paste terminal, check tất cả rules
-- ⛔ **5 điều khoản bắt buộc** — KHÔNG được từ chối: "để sau", mark complete khi đỏ, skip check, skip changelog
-- 📝 **Penalty system** — Lần 1: ghi Bug. Lần 2: thêm rule. Lần 3: rollback Phase
-- 🔗 **Self-check là GATE** — không pass → không mark complete
-
-### 2026-05-15 — v1.13: Zero Tolerance Compliance Audit
-
-### 2026-05-15 — v1.14: 🏛️ Multi-Ledger Dynamic Wallet Engine
-
-### 2026-05-15 — v1.15: 💳 Payment System — VNPay + Stripe + Deposit/Withdraw + Checkout
-- 📐 **Migration**: `20260525000001_payment_intents.sql` — payment_intents, webhook_events, atomic_payment(), seed VNPay+Stripe config
-- 💳 **Payment Checkout**: `/customer/payment` — chọn gateway (VNPay/Stripe/Wallet) → pay → callback
-- 🏦 **Deposit Modal**: Chọn số tiền + gateway → nạp vào ví giao dịch
-- 💰 **Withdraw Modal**: Chọn ví → nhập số tiền → rút (2% phí)
-- 📋 **Transaction History**: Lịch sử giao dịch phân trang
-- 🔗 **VNPay IPN**: Edge Function xử lý callback từ VNPay (HMAC-SHA512 verify)
-- 🔙 **VNPay Return**: API route nhận redirect sau thanh toán
-- 🔐 **Security**: Secret keys KHÔNG commit — GitHub Push Protection phát hiện và chặn Stripe key
-- 🧪 **33 tests pass + Web build clean**
-
-### ⚠️ Security Lesson: GitHub Secret Scan
-- Migration file chứa Stripe `sk_test_...` key → GitHub Push Protection từ chối push
-- **Fix**: Thay bằng placeholder, lưu real keys trong Supabase Secrets
-- **Rule**: KHÔNG bao giờ commit API keys/secret vào migration files
-- 🏦 **4-Wallet Architecture** — Transaction · Staking · Reward · Treasury
-- 📐 **Migration**: `20260515000003_multi_ledger_wallet.sql` — wallet_type enum, staking, escrow, VFC points, tiers
-- 🔧 **Wallet Core**: `_shared/wallet-core.ts` — atomic transactions, fee calc, dynamic pricing, staking interest, escrow logic
-- ⚡ **Wallet Manager**: `functions/wallet-manager/index.ts` — balance, transfer, escrow hold/release/refund, stake create/claim, auto-split, pricing
-- 🧪 **8 Tests**: fee calculation, staking interest, dynamic rates, tiers, auto split, escrow, money math — all pass
-- 💰 **Monetization**: Transaction fee (3%), float interest (2-8%/year dynamic), gateway fee (2%), VFC points, Treasury
-- 🎯 **Dynamic Pricing**: Base × demand × distance − stake discount − tier discount
-- 🤖 **AI Integration**: dynamicInterestRate(), calculateDynamicPrice(), canReleaseEscrow()
-- ✅ **SEC-001 (API keys)**: 0 violations — CLEAN
-- ⚠️ **SEC-002 (verifyAuth)**: 4 functions patched (TODO), 18 total need audit
-- ✅ **SEC-003 (admin routes)**: 0 violations — CLEAN
-- ⚠️ **QUAL-001 (@ts-nocheck)**: 1 remaining (orders/[id] — has TODO)
-- ✅ **QUAL-002 (console.log frontend)**: 3 fixed (webhooks → [VIFIXA] prefix)
-- ⚠️ **LOG-001 ([VIFIXA] prefix)**: 4 files fixed (ai-provider, service-registry, webhooks)
-- ✅ **ARCH-001 (AI through ai-core)**: Companion Chat đã đúng pattern
-- ✅ **ARCH-002 (Service Registry)**: service-registry.ts active
-
-### Zero Tolerance Compliance Status
-```
-SEC-001: ✅ CLEAN     SEC-002: ⚠️ 4 TODO    SEC-003: ✅ CLEAN
-QUAL-001: ⚠️ 1 TODO   QUAL-002: ✅ CLEAN     LOG-001: ⚠️ 12 files
-ARCH-001: ✅ COMPLIANT ARCH-002: ✅ COMPLIANT
-```
-
-### 2026-05-15 — v1.16: 📱 Mobile Phase — Đồng bộ 3 Core Modules
-- 📋 **Rules #20, #21** — Mobile Sync Rule + 3-Core Audit Checklist
-- 💳 **Payment Mobile**: WalletDashboard + DepositModal + WithdrawModal + TransactionHistory
-- 🔗 **Order Flow Mobile**: Tích hợp escrow + payment status vào order detail
-- 🗺️ **Map Mobile**: Worker tracking + customer location sharing
-- 🌐 **i18n**: Đồng bộ EN + VI lên Mobile
-- 📝 **Task Plan chi tiết** — 6 Phase, 18 Steps, mỗi Step có proof hoàn thành
-
-### Mobile Task Plan (tuần tự)
-```
-Phase 1: Payment Mobile (Wallet + Deposit + Withdraw + History)
-  Step 1: Mobile WalletDashboard — 4 ví + balance + staking
-  Step 2: Mobile Deposit Modal — nạp tiền (chọn gateway)
-  Step 3: Mobile Withdraw Modal — rút tiền (chọn ví)
-  Step 4: Mobile Transaction History — lịch sử + phân trang
-
-Phase 2: Map Mobile (Tracking + Navigation)
-  Step 5: Customer tracking map — real-time worker location
-  Step 6: Worker navigation map — dẫn đường đến khách
-  Step 7: Location picker — chọn vị trí khi đặt dịch vụ
-
-Phase 3: Payment Flow Mobile (Escrow + Complete + Review)
-  Step 8: Order detail mobile — escrow status + pay button
-  Step 9: Worker complete → auto escrow release
-  Step 10: Review flow — ⭐ rating sau khi hoàn thành
-
-Phase 4: Admin Mobile (Payment Monitor)
-  Step 11: Admin payments list — transaction monitoring
-  Step 12: Admin cashflow chart — doanh thu theo thời gian
-
-Phase 5: i18n Mobile (EN + VI)
-  Step 13: Mobile translation hook (dùng chung web i18n keys)
-  Step 14: Language toggle trên tất cả mobile screens
-  Step 15: Nav titles + button labels dịch sang EN
-
-Phase 6: Polish + Test + Deploy
-  Step 16: Test 3-core mobile flow (AI + Map + Payment)
-  Step 17: E2E verification (Customer → Worker → Admin mobile)
-  Step 18: Build + deploy app
-```
-
-### 2026-05-15 — v1.17: 3 Specialized CompanionChats + Manual Workflows
-- 🤖 **3 CompanionChats riêng biệt** — Customer (ấm áp, 6 quick actions), Worker (chuyên nghiệp, stats panel), Admin (KPI cards, alerts)
-- 📋 **Customer Manual Request Form** — 3-step: category → description → time + location
-- 🔧 **Worker Manual Job Flow** — Accept → Checklist → Before/After photos → Final Price → Escrow release
-- 💰 **Worker Earnings Dashboard** — 4-cột stats (today/week/month/total) + AI auto-stake suggestion
-- 💳 **Invoice UI** — Hóa đơn chi tiết (công 60% + vật tư 30% + phụ phí 10%) + cam kết ±20%
-- 🏁 **Status Bar** — 4 bước real-time: 📋→🔧→🔨→✔️
-- 👤 **Worker Info Card** — Avatar + Trust Score + Map Tracking (khi in_progress)
-
-### 2026-05-15 — v1.18: Admin Dispute Resolution + Analytics
-- ⚖️ **Dispute List** — Table + filter (pending/resolved/all) + 4 KPI stats
-- 🛡️ **Dispute Detail** — AI summary + 4 resolve actions (Rework/Refund 100%/Refund 50%/Dismiss)
-- 🤖 **AI Dispute Analysis** — Auto-summary từ complaint description
-- 🚨 **Fraud Detection** — Worker hoàn thành >10 đơn/month → cảnh báo
-- 📈 **Growth Analytics** — Users/Workers/Orders/Revenue KPIs + Conversion Funnel (4 stages)
-- 📉 **Churn Risk** — User không active 30 ngày + reminder actions
-- 💵 **Cashflow Forecast** — 30-day revenue + fee + profit projection
-
-### 2026-05-15 — v1.19: Pain Points Solved (6/6 + Mobile Sync)
-- 🔴 **6 customer pain points solved**: Price transparency, silent worker, no-show, slow payment, unclear invoice, no safety net
-- 🟠 **5 admin pain points solved**: Dispute control, fraud detection, churn, KPI real-time, slow resolution
-- 📱 **Mobile sync**: AI confidence score, invoice, disputes, worker checklist+photos+escrow
-- 🔔 **Notification System**: Supabase Realtime — order status changes → toast notification (auto-dismiss 10s)
-- 🌐 **Mobile i18n**: Translation file (EN+VI) cho mobile
-- 👥 **Mobile 3 CompanionChats**: Customer/Worker/Admin — mỗi persona một component riêng
-
-### 2026-05-15 — v1.20: Full Architecture Final
-
-### 2026-05-17 — v1.22: 🔴 RLS Recursion Fix + Login Working + Comprehensive Gap Analysis
-- 🐛 **Bug #CRITICAL**: Infinite RLS recursion — `profiles` policies → `orders` admin policy → `profiles` → infinite loop
-  - Root cause: "Admins can manage all orders" on `orders` used `EXISTS (SELECT 1 FROM profiles WHERE ...)`
-  - 24+ admin-check policies across 20+ tables (orders, kyc_documents, complaints, workers, wallets, etc.) all referenced `profiles`
-- 🔧 **Fix**: Created `public.is_admin_from_jwt()` — reads role from JWT metadata, zero DB queries
-  - Rewrote ALL 24+ admin policies to use `is_admin_from_jwt()` instead of subquerying `profiles`
-  - Dropped stale `check_is_admin()` SECURITY DEFINER function
-- 🔑 **Test user passwords**: Reset all 3 to `Vifixa@2026!`
-- ✅ **Verification**: All 3 roles login + query profiles successfully
-- 🏗️ **Migrations committed + pushed**: `20260517000004` (profiles fix) + `20260517000005` (comprehensive fix)
-- ✅ **CI/CD**: All 3 pipelines green (Deploy Vercel, Deploy Supabase, Self-Check)
-- 📋 **New Gap Analysis** — 77 pain points identified across Customer (13), Worker (10), Admin (10), AI (8), Map (8), Payment (10), Mobile (13), Cross-cutting (5)
-- 🔴 **P0 critical**: `payment-create` function doesn't exist (all VNPay flows broken), wallet escrow hardcodes `workerId: 'pending'`, mobile worker chat self-navigates
-
-### 2026-05-15 — v1.21: Language Standardization + Gap Analysis
-- 🌐 **Language rules added** — UI text PHẢI là Tiếng Việt, EN chỉ trong code comments
-- 🔍 **Gap Analysis** — 30 features checked across AI (10/10 ✅) + Map (6/8 ⚠️) + Payment (12/12 ✅)
-- 🗺️ **2 Map gaps found**: Geo-fence Check-in + Location Analytics
-- 📋 **Rule #9 updated** — 3 CompanionChat RIÊNG BIỆT (không dùng chung)
-- 🩹 **18 EN→VI fixes** — admin page, analytics, mobile admin
-- 🧪 **33 tests pass + build clean**
-- 🏛️ **Total files**: 56 Web + 37 Mobile + 37 Edge Functions + 24 Shared modules
-- 🧪 **Total tests**: 33 passed — 0 failed
-- ✅ **6/6 core pain points**: Customer + Worker + Admin qua AI + Map + Payment
-- ✅ **18 gaps identified and fixed**: G1-G6 (critical) + G7-G18 (enhancement)
-- 📚 **Docs updated**: agent.md (1154+ lines), SCREENS.md, BRAIN.md, ERROR_ANALYSIS.md, ARCHITECTURE.md
-
-### Gap Analysis: 3 Cores vs 3 Personas
-
-| Core | Persona | Feature | Status | Gap? |
-|------|---------|---------|--------|------|
-| **🤖 AI** | Customer | Diagnosis + Confidence | ✅ | — |
-| | | Price Breakdown | ✅ | — |
-| | | Companion Chat (riêng) | ✅ | — |
-| | Worker | Coach + Checklist | ✅ | — |
-| | | Companion Chat (riêng) | ✅ | — |
-| | | Earnings Prediction + Stake | ✅ | — |
-| | Admin | Dispute Summary | ✅ | — |
-| | | Companion Chat (riêng) | ✅ | — |
-| | | Fraud Detection | ✅ | — |
-| | | Churn Prediction | ✅ | — |
-| **🗺️ Map** | Customer | Location Picker | ✅ | — |
-| | | Worker Tracking | ✅ | — |
-| | | ETA Display | ✅ | — |
-| | Worker | Navigation OSRM | ✅ | — |
-| | | Distance to Customer | ✅ | — |
-| | | **Geo-fence Check-in** | ❌ | **GAP** |
-| | Admin | Worker Heatmap | ✅ | — |
-| | | **Location Analytics** | ❌ | **GAP** |
-| **💳 Payment** | Customer | Price Breakdown | ✅ | — |
-| | | Multi-Gateway | ✅ | — |
-| | | Wallet 4-ví | ✅ | — |
-| | | Deposit/Withdraw | ✅ | — |
-| | | Invoice | ✅ | — |
-| | Worker | Escrow Release | ✅ | — |
-| | | Payout Notification | ✅ | — |
-| | | Earnings Dashboard | ✅ | — |
-| | | AI Auto-Stake | ✅ | — |
-| | Admin | Cashflow Forecast | ✅ | — |
-| | | Revenue Analytics | ✅ | — |
-| | | Fraud Detection | ✅ | — |
-
-**Kết luận: AI (10/10 ✅) + Payment (12/12 ✅) = HOÀN THIỆN**
-**Map (6/8 ⚠️) — 2 gaps cần fix:**
-1. **Geo-fence Check-in** — Worker check-in khi đến nhà khách → trigger escrow release
-2. **Location Analytics** — Admin xem dispute/order theo khu vực địa lý
-
-### 2026-05-17 — v1.23: 🚨 Pre-Code Protocol + Gap Detection + 5 Rules mới
-- 🧠 **Pre-Code Protocol (7 bước)** — Bắt buộc trước mọi dòng code: Propose Plan → Read Context → Check Gaps → Verify Existing → Check Dependencies → Check Consistency → Think Before Write
-- 🚫 **3 Auto-Reject conditions** — Viết code không plan, edit file chưa đọc, execute không propose = AUTO REJECT
-- 📋 **Rule #22 — Gap Detection bắt buộc** — Check GAP_ANALYSIS.md trước mọi task, update gap mới ngay
-- 💡 **Rule #23 — Propose Gap Improvements** — Sau 3-5 tasks, review codebase, đề xuất gaps mới
-- 📖 **Rule #24 — Read-before-Edit** — KHÔNG edit file chưa đọc trong session
-- 🔍 **Rule #25 — Context-Gathering** — Glob + Grep + Read trước khi tạo file mới
-- 🐛 **Bài học từ P0 session (2026-05-17)**: 2 P0 bugs sót (admin disputes route, ai-fraud-check verifyAuth) vì không có Pre-Code Protocol. Worker payout method thiếu `worker_id` vì không đọc Edge Function signature trước khi viết UI.
-- 📋 **Changelog cập nhật** — v1.23 với Pre-Code Protocol + 5 rules mới
-
-### Next Update (sau mỗi Phase mới)
-- Ghi lại bug mới phát hiện
-- Cập nhật quy tắc từ thực tế
-- Cập nhật Build Order status
+### 2026-05-17 — v2.0: Blueprint Rewrite
+- System Map 6 flows, P0/P1 Registry, Build Order Phase 11-16

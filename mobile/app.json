@@ -37,7 +37,8 @@
     "owner": "le8433622",
     "plugins": [
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-location"
     ]
   }
 }

@@ -8,16 +8,19 @@ import { useToast } from '@/components/Toast'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
-type Order = { id: string; category: string; estimated_price: number; final_price?: number; status: string; created_at: string; completed_at?: string }
+type LedgerEntry = { id: string; wallet_id: string; account: string; direction: string; amount: number; reference_type: string; reference_id: string; description: string; created_at: string }
+type OrderBrief = { id: string; category: string }
 
 export default function WorkerEarnings() {
   const router = useRouter()
-  const [orders, setOrders] = useState<Order[]>([])
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
+  const [orderMap, setOrderMap] = useState<Map<string, OrderBrief>>(new Map())
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState('')
   const [statFilter, setStatFilter] = useState<'today' | 'week' | 'month' | 'all'>('today')
   const [stakeSuggestion, setStakeSuggestion] = useState<{ amount: number; reason: string } | null>(null)
   const [showStakeModal, setShowStakeModal] = useState(false)
+  const [stripeInfo, setStripeInfo] = useState<{ stripe_account_id: string | null; stripe_onboarding_complete: boolean }>({ stripe_account_id: null, stripe_onboarding_complete: false })
 
   useEffect(() => { load() }, [])
 
@@ -26,11 +29,37 @@ export default function WorkerEarnings() {
     if (!session) { router.push('/login'); return }
     setUserId(session.user.id)
 
-    const [oRes, sRes] = await Promise.all([
-      supabase.from('orders').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }),
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .eq('wallet_type', 'txn')
+      .single()
+
+    const [lRes, sRes, wRes] = await Promise.all([
+      wallet ? supabase.from('ledger')
+        .select('*')
+        .eq('wallet_id', wallet.id)
+        .eq('direction', 'credit')
+        .in('account', ['escrow.held', 'escrow.released'])
+        .order('created_at', { ascending: false }) : { data: [] },
       supabase.from('wallets').select('balance,wallet_type').eq('user_id', session.user.id),
+      supabase.from('workers').select('stripe_account_id, stripe_onboarding_complete').eq('id', session.user.id).single(),
     ])
-    setOrders((oRes.data || []) as Order[])
+    const entries = (lRes.data || []) as LedgerEntry[]
+    setLedgerEntries(entries)
+
+    if (wRes.data) setStripeInfo(wRes.data)
+
+    // Enrich with order details for display
+    const orderIds = [...new Set(entries.map(e => e.reference_id).filter(Boolean))]
+    if (orderIds.length > 0) {
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, category')
+        .in('id', orderIds)
+      if (orders) setOrderMap(new Map(orders.map((o: any) => [o.id, o])))
+    }
 
     // AI auto-stake suggestion — nếu txn balance > 500k
     const wallets = (sRes.data || []) as any[]
@@ -58,17 +87,20 @@ export default function WorkerEarnings() {
     load()
   }
 
-  const completed = orders.filter(o => o.status === 'completed')
-  const totalEarned = completed.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
+  const pendingEarned = ledgerEntries
+    .filter(e => e.account === 'escrow.held' && e.direction === 'credit')
+    .reduce((s, e) => s + e.amount, 0)
+  const releasedEntries = ledgerEntries.filter(e => e.account === 'escrow.released')
+  const totalEarned = releasedEntries.reduce((s, e) => s + e.amount, 0)
   const now = Date.now()
-  const filtered = completed.filter(o => {
-    const d = new Date(o.completed_at || o.created_at).getTime()
+  const filtered = releasedEntries.filter(e => {
+    const d = new Date(e.created_at).getTime()
     if (statFilter === 'today') return d >= now - 86400000
     if (statFilter === 'week') return d >= now - 7 * 86400000
     if (statFilter === 'month') return d >= now - 30 * 86400000
     return true
   })
-  const filteredTotal = filtered.reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0)
+  const filteredTotal = filtered.reduce((s, e) => s + e.amount, 0)
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" /></div>
 
@@ -94,9 +126,9 @@ export default function WorkerEarnings() {
       {/* Earnings Summary */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Hôm nay', value: completed.filter(o => new Date(o.completed_at || o.created_at).getTime() >= now - 86400000).reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0), color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Tuần này', value: completed.filter(o => new Date(o.completed_at || o.created_at).getTime() >= now - 7 * 86400000).reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0), color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Tháng này', value: completed.filter(o => new Date(o.completed_at || o.created_at).getTime() >= now - 30 * 86400000).reduce((s, o) => s + (o.final_price || o.estimated_price || 0), 0), color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Hôm nay', value: releasedEntries.filter(e => new Date(e.created_at).getTime() >= now - 86400000).reduce((s, e) => s + e.amount, 0), color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Tuần này', value: releasedEntries.filter(e => new Date(e.created_at).getTime() >= now - 7 * 86400000).reduce((s, e) => s + e.amount, 0), color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Đang chờ', value: pendingEarned, color: 'text-amber-600', bg: 'bg-amber-50' },
           { label: 'Tổng thu nhập', value: totalEarned, color: 'text-violet-600', bg: 'bg-violet-50' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center border`}>
@@ -128,24 +160,28 @@ export default function WorkerEarnings() {
               <p className="text-xs text-gray-400 mt-2">Tổng thu nhập: <strong>{filteredTotal.toLocaleString()}₫</strong></p>
             </div>
           ) : (
-            filtered.slice(0, 20).map(o => (
-              <div key={o.id} className="bg-white rounded-xl border p-4 flex items-center justify-between hover:shadow-md transition cursor-pointer"
-                onClick={() => router.push(`/worker/jobs/${o.id}`)}>
+            filtered.slice(0, 20).map(e => {
+              const order = e.reference_id ? orderMap.get(e.reference_id) : null
+              return (
+              <div key={e.id} className="bg-white rounded-xl border p-4 flex items-center justify-between hover:shadow-md transition cursor-pointer"
+                onClick={() => router.push(`/worker/jobs/${e.reference_id}`)}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <span className="text-lg">✅</span>
+                    <span className="text-lg">{e.account === 'escrow.released' ? '✅' : '⏳'}</span>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900 capitalize">{o.category}</p>
-                    <p className="text-xs text-gray-500">{new Date(o.completed_at || o.created_at).toLocaleDateString('vi-VN')}</p>
+                    <p className="font-medium text-gray-900 capitalize">{order?.category || e.description}</p>
+                    <p className="text-xs text-gray-500">{new Date(e.created_at).toLocaleDateString('vi-VN')}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-emerald-600">+{(o.final_price || o.estimated_price || 0).toLocaleString()}₫</p>
-                  <p className="text-xs text-emerald-500 font-medium">Đã nhận</p>
+                  <p className="font-bold text-emerald-600">+{e.amount.toLocaleString()}₫</p>
+                  <p className={`text-xs font-medium ${e.account === 'escrow.released' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    {e.account === 'escrow.released' ? 'Đã nhận' : 'Đang chờ'}
+                  </p>
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
       </div>
@@ -211,7 +247,7 @@ export default function WorkerEarnings() {
           else if (data?.url) window.open(data.url, '_blank')
         }}
           className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition">
-          {worker?.stripe_onboarding_complete ? '🔄 Cập nhật Stripe' : worker?.stripe_account_id ? '✅ Hoàn tất đăng ký Stripe' : '🔗 Kết nối Stripe Express'}
+          {stripeInfo?.stripe_onboarding_complete ? '🔄 Cập nhật Stripe' : stripeInfo?.stripe_account_id ? '✅ Hoàn tất đăng ký Stripe' : '🔗 Kết nối Stripe Express'}
         </button>
       </div>
 

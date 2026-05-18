@@ -2,7 +2,7 @@
 // Mọi thứ về địa lý: tìm gần, route, heatmap, service area
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { jsonResponse, handleOptions, checkRateLimit } from '../_shared/auth-helper.ts'
 import type { DauVaoNavigator, DauRaNavigator } from '../v4-core/index.ts'
 
 const OSRM_BASE = 'https://router.project-osrm.org'
@@ -22,6 +22,9 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    checkRateLimit('v4-navigator', ip, { maxRequests: 30, windowMs: 60000 })
+
     // Auth check
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return jsonResponse({ loi: 'Thiếu xác thực' }, 401)
@@ -29,7 +32,8 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser(token)
     if (!user) return jsonResponse({ loi: 'Không xác thực được' }, 401)
 
-    const input: DauVaoNavigator = await req.json()
+    const bodyText = await req.text()
+    const input: DauVaoNavigator = JSON.parse(bodyText)
     const { hanhDong, viTri, banKinh = 10, danhMuc } = input
 
     switch (hanhDong) {
@@ -82,7 +86,7 @@ Deno.serve(async (req) => {
 
       case 'tinh_duong_di': {
         // OSRM driving route
-        const { diemDen } = await req.json()
+        const { diemDen } = input
         if (!diemDen) return jsonResponse({ loi: 'Thiếu điểm đến' }, 400)
 
         const diem = Array.isArray(diemDen) ? diemDen : [diemDen]

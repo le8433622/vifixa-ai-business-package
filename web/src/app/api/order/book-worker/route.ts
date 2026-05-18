@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing: customer_id, worker_id, category' }, { status: 400 })
     }
 
-    // Create order
+    // Create order with draft status (AI will estimate price)
     const { data: order, error } = await supabase.from('orders').insert({
       customer_id,
       worker_id,
@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
     }).select().single()
 
     if (error) throw error
+
+    // Trigger AI estimate async
+    fetch(`${supabaseUrl}/functions/v1/ai-auto-executor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceRoleKey}` },
+      body: JSON.stringify({ action: 'auto_estimate', data: { order_id: order.id } }),
+    }).catch(() => {})
 
     // Mark worker as busy
     await supabase.from('workers').update({

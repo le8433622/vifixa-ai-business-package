@@ -26,7 +26,7 @@ interface CompanionMemoryStoreRequest {
   expires_at?: string;
 }
 
-Deno.serve(async (req: Request) => {
+export async function handler(req: Request) {
   // Handle CORS preflight
   const opt = handleOptions(req);
   if (opt) return opt;
@@ -157,4 +157,4 @@ Deno.serve(async (req: Request) => {
 
   // Handle unsupported methods
   return jsonResponse({ error: 'Method not allowed' }, 405);
-});
+}

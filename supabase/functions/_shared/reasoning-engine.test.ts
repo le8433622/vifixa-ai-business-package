@@ -40,8 +40,8 @@ Action: quote
 Deno.test('[VIFIXA_TEST] reasoning: formatReasoningForUI returns formatted string', () => {
   const trace = {
     steps: [
-      { id: 's1', type: 'think', content: 'Phân tích vấn đề', timestamp: new Date().toISOString() },
-      { id: 's2', type: 'act', content: 'Chẩn đoán', timestamp: new Date().toISOString() },
+      { id: 's1', type: 'think' as const, content: 'Phân tích vấn đề', timestamp: new Date().toISOString() },
+      { id: 's2', type: 'act' as const, content: 'Chẩn đoán', timestamp: new Date().toISOString() },
     ],
     conclusion: 'Xong',
     confidence: 0.9,

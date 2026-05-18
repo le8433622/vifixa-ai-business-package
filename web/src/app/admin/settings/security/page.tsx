@@ -15,24 +15,24 @@ export default function SecuritySettings() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Security Settings</h1>
-            <p className="text-gray-600 mt-1">Configure security, rate limiting, and maintenance mode</p>
+            <h1 className="text-3xl font-bold">Cài đặt Bảo mật</h1>
+            <p className="text-gray-600 mt-1">Cấu hình bảo mật, giới hạn tốc độ và chế độ bảo trì</p>
           </div>
           <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-            ← Back to Settings
+            ← Quay lại Cài đặt
           </Link>
         </div>
         <FeatureDisabled
-          feature="Security Features"
-          message="All security features are currently disabled. Enable them in Features settings first."
+          feature="Tính năng Bảo mật"
+          message="Tất cả tính năng bảo mật hiện đang tắt. Vui lòng bật trong Cài đặt Tính năng."
         />
         <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">💡 Quick Setup</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">💡 Thiết lập nhanh</h3>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal pl-4">
-            <li>Go to <Link href="/admin/settings/features" className="underline">Features</Link> and enable security flags</li>
-            <li>Configure rate limiting thresholds</li>
-            <li>Set up maintenance mode message</li>
-            <li>Enable debug mode for troubleshooting</li>
+            <li>Vào <Link href="/admin/settings/features" className="underline">Tính năng</Link> và bật các cờ bảo mật</li>
+            <li>Cấu hình ngưỡng giới hạn tốc độ</li>
+            <li>Thiết lập thông báo chế độ bảo trì</li>
+            <li>Bật chế độ debug để khắc phục sự cố</li>
           </ol>
         </div>
       </div>
@@ -43,18 +43,18 @@ export default function SecuritySettings() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Security Settings</h1>
-          <p className="text-gray-600 mt-1">Configure security, rate limiting, and maintenance mode</p>
+          <h1 className="text-3xl font-bold">Cài đặt Bảo mật</h1>
+          <p className="text-gray-600 mt-1">Cấu hình bảo mật, giới hạn tốc độ và chế độ bảo trì</p>
         </div>
         <Link href="/admin/settings" className="text-sm text-blue-600 hover:underline">
-          ← Back to Settings
+          ← Quay lại Cài đặt
         </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Maintenance Mode</h2>
-          <p className="text-gray-600 mb-4">Show maintenance banner to all users.</p>
+          <h2 className="text-xl font-semibold mb-4">Chế độ Bảo trì</h2>
+          <p className="text-gray-600 mb-4">Hiển thị banner bảo trì cho tất cả người dùng.</p>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -62,13 +62,13 @@ export default function SecuritySettings() {
               readOnly
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700">Maintenance Mode {isEnabled('maintenance_mode') ? 'ON' : 'OFF'}</span>
+            <span className="text-sm text-gray-700">Chế độ Bảo trì {isEnabled('maintenance_mode') ? 'BẬT' : 'TẮT'}</span>
           </label>
         </div>
 
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Rate Limiting</h2>
-          <p className="text-gray-600 mb-4">Configure API rate limits to prevent abuse.</p>
+          <h2 className="text-xl font-semibold mb-4">Giới hạn Tốc độ</h2>
+          <p className="text-gray-600 mb-4">Cấu hình giới hạn tốc độ API để ngăn lạm dụng.</p>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -76,13 +76,13 @@ export default function SecuritySettings() {
               readOnly
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700">Strict Rate Limiting {isEnabled('rate_limit_strict') ? 'ON' : 'OFF'}</span>
+            <span className="text-sm text-gray-700">Giới hạn Tốc độ Nghiêm ngặt {isEnabled('rate_limit_strict') ? 'BẬT' : 'TẮT'}</span>
           </label>
         </div>
 
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Debug Mode</h2>
-          <p className="text-gray-600 mb-4">Show debug info to admins only.</p>
+          <h2 className="text-xl font-semibold mb-4">Chế độ Debug</h2>
+          <p className="text-gray-600 mb-4">Hiển thị thông tin debug chỉ cho admin.</p>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -90,7 +90,7 @@ export default function SecuritySettings() {
               readOnly
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700">Debug Mode {isEnabled('debug_mode') ? 'ON' : 'OFF'}</span>
+            <span className="text-sm text-gray-700">Chế độ Debug {isEnabled('debug_mode') ? 'BẬT' : 'TẮT'}</span>
           </label>
         </div>
       </div>

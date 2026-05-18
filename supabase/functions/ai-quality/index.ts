@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createAIProvider } from '../_shared/ai-provider.ts';
-import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
+import { verifyInternalOrUser, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 interface QualityRequest {
   order_id: string;
@@ -25,9 +25,9 @@ Deno.serve(async (req) => {
   if (opt) return opt;
 
   try {
-    const user = await verifyAuth(req);
+    const user = await verifyInternalOrUser(req);
     const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-    checkRateLimit(user.id, clientIp, { maxRequests: 15 });
+    if (user?.id !== 'system') checkRateLimit(user.id, clientIp, { maxRequests: 15 });
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

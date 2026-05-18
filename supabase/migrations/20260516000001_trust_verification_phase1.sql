@@ -140,6 +140,10 @@ DECLARE
   v_disputed_count INTEGER;
   v_new_score INTEGER;
 BEGIN
+  IF auth.uid() != worker_uuid AND NOT public.is_admin_from_jwt() THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
   -- Get worker stats
   SELECT
     COUNT(*) FILTER (WHERE status = 'completed'),
@@ -216,10 +220,16 @@ CREATE TRIGGER trg_order_trust_score
 -- ========== 9. RPC wrapper for Edge Functions ==========
 CREATE OR REPLACE FUNCTION recalculate_trust_score(worker_uuid UUID)
 RETURNS INTEGER
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-  SELECT calculate_trust_score(worker_uuid);
+BEGIN
+  IF auth.uid() != worker_uuid AND NOT public.is_admin_from_jwt() THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  RETURN calculate_trust_score(worker_uuid);
+END;
 $$;
 
 -- Grant execute permissions

@@ -7,6 +7,8 @@ import { ToastProvider } from '@/components/Toast'
 import Link from 'next/link'
 import { LanguageProvider } from '@/components/common/LanguageToggle'
 import LanguageToggle from '@/components/common/LanguageToggle'
+import ThemeToggle from '@/components/common/ThemeProvider'
+import CurrencyToggle from '@/components/common/CurrencyToggle'
 import { NotificationProvider } from '@/components/NotificationProvider'
 import { NotificationsProvider } from '@/components/notifications/NotificationsContext'
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -23,6 +25,7 @@ const NAV_ITEMS = [
   { href: '/customer/map', label: '🗺️ Bản đồ', short: 'Map' },
   { href: '/customer/orders', label: '📋 Đơn hàng', short: 'Orders' },
   { href: '/customer/devices', label: '🔧 Thiết bị', short: 'Devices' },
+  { href: '/customer/membership', label: '💎 Membership', short: 'Membership' },
   { href: '/customer/profile', label: '👤 Tài khoản', short: 'Account' },
 ]
 
@@ -118,8 +121,8 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
               </div>
               <div className="flex items-center gap-3">
                 <NotificationBell />
-                <span className="text-xs text-gray-500 hidden md:block">{userEmail}</span>
-                <LanguageToggle /><button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Đăng xuất</button>
+                  <span className="text-xs text-gray-500 hidden md:block">{userEmail}</span>
+                  <LanguageToggle /><CurrencyToggle /><ThemeToggle /><button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Đăng xuất</button>
                 <button className="md:hidden p-1.5 rounded text-gray-600 hover:bg-gray-100" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>

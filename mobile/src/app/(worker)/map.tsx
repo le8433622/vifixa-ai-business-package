@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, FlatList, Dimensions } from 'react-native'
 import { useRouter } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import MapView, { Marker, Callout } from 'react-native-maps'
+import MapView, { Marker, Callout, Polyline } from 'react-native-maps'
 import * as Location from 'expo-location'
 
 const { width } = Dimensions.get('window')
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL
 
 const CATEGORY_LABELS: Record<string, string> = {
   air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
@@ -37,10 +38,14 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export default function WorkerMapScreen() {
   const router = useRouter()
+  const mapRef = useRef<MapView>(null)
   const [loading, setLoading] = useState(true)
   const [orders, setOrders] = useState<NearbyOrder[]>([])
   const [workerPos, setWorkerPos] = useState<{ latitude: number; longitude: number } | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<NearbyOrder | null>(null)
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[] | null>(null)
+  const [routeEta, setRouteEta] = useState<{ distance: number; duration: number } | null>(null)
+  const [routeLoading, setRouteLoading] = useState(false)
 
   useEffect(() => {
     init()
@@ -49,6 +54,9 @@ export default function WorkerMapScreen() {
   async function init() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
+
+    const { status } = await Location.requestForegroundPermissionsAsync()
+    if (status !== 'granted') { return }
 
     const pos = await Location.getCurrentPositionAsync({})
     setWorkerPos({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
@@ -86,6 +94,52 @@ export default function WorkerMapScreen() {
     router.push(`/(worker)/jobs/${orderId}`)
   }
 
+  // Fetch OSRM route when order selected
+  useEffect(() => {
+    if (!selectedOrder || !workerPos) {
+      setRouteCoords(null)
+      setRouteEta(null)
+      return
+    }
+    setRouteLoading(true)
+    const from = `${workerPos.longitude},${workerPos.latitude}`
+    const to = `${selectedOrder.location_lng},${selectedOrder.location_lat}`
+
+    fetch(`${SUPABASE_URL}/functions/v1/osrm-route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origin_lat: workerPos.latitude,
+        origin_lng: workerPos.longitude,
+        dest_lat: selectedOrder.location_lat,
+        dest_lng: selectedOrder.location_lng,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.route) setRouteCoords(data.route)
+        if (data.distance) setRouteEta({ distance: data.distance, duration: data.duration })
+      })
+      .catch(() => {
+        const dist = haversineDistance(
+          workerPos.latitude, workerPos.longitude,
+          selectedOrder.location_lat, selectedOrder.location_lng
+        )
+        setRouteEta({ distance: dist * 1000, duration: (dist / 25) * 3600 })
+      })
+      .finally(() => setRouteLoading(false))
+  }, [selectedOrder, workerPos])
+
+  // Fit map to show route
+  useEffect(() => {
+    if (routeCoords && routeCoords.length > 1) {
+      mapRef.current?.fitToCoordinates(routeCoords, {
+        edgePadding: { top: 60, right: 60, bottom: 300, left: 60 },
+        animated: true,
+      })
+    }
+  }, [routeCoords])
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#059669" /></View>
   }
@@ -95,6 +149,7 @@ export default function WorkerMapScreen() {
       {/* Map */}
       <View style={styles.mapContainer}>
         <MapView
+          ref={mapRef}
           style={StyleSheet.absoluteFill}
           initialRegion={{
             latitude: workerPos?.latitude || 10.77,
@@ -108,6 +163,14 @@ export default function WorkerMapScreen() {
               coordinate={{ latitude: workerPos.latitude, longitude: workerPos.longitude }}
               title="📍 Vị trí của tôi"
               pinColor="#059669"
+            />
+          )}
+          {routeCoords && (
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor="#3b82f6"
+              strokeWidth={4}
+              lineDashPattern={[10, 10]}
             />
           )}
           {orders.map(o => (
@@ -142,6 +205,19 @@ export default function WorkerMapScreen() {
             {selectedOrder.address && <Text style={styles.detailAddr}>📍 {selectedOrder.address}</Text>}
             {selectedOrder.distance_km != null && (
               <Text style={styles.detailDist}>Khoảng cách: {selectedOrder.distance_km < 1 ? `${Math.round(selectedOrder.distance_km * 1000)}m` : `${selectedOrder.distance_km.toFixed(1)}km`}</Text>
+            )}
+            {routeLoading && (
+              <View style={styles.etaRow}>
+                <ActivityIndicator size="small" color="#3b82f6" />
+                <Text style={styles.etaText}> Đang tính đường...</Text>
+              </View>
+            )}
+            {routeEta && !routeLoading && (
+              <View style={styles.etaRow}>
+                <Text style={styles.etaText}>
+                  🚗 {Math.round(routeEta.duration / 60)} phút ({routeEta.distance < 1000 ? `${Math.round(routeEta.distance)}m` : `${(routeEta.distance / 1000).toFixed(1)}km`})
+                </Text>
+              </View>
             )}
             <View style={styles.detailActions}>
               <TouchableOpacity style={styles.acceptBtn} onPress={() => acceptOrder(selectedOrder.id)}>
@@ -219,7 +295,9 @@ const styles = StyleSheet.create({
   detailPrice: { fontSize: 16, fontWeight: 'bold', color: '#059669' },
   detailDesc: { fontSize: 13, color: '#666', marginBottom: 6 },
   detailAddr: { fontSize: 12, color: '#3b82f6', marginBottom: 4 },
-  detailDist: { fontSize: 12, color: '#666', marginBottom: 12 },
+  detailDist: { fontSize: 12, color: '#666', marginBottom: 4 },
+  etaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 6 },
+  etaText: { fontSize: 13, color: '#3b82f6', fontWeight: '500' },
   detailActions: { flexDirection: 'row', gap: 10 },
   acceptBtn: { flex: 1, backgroundColor: '#059669', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   acceptBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },

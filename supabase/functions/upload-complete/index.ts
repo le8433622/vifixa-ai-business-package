@@ -1,40 +1,20 @@
-// Upload Complete Edge Function
-// Marks uploaded file as completed and triggers next workflow
+import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
-  }
+  const opt = handleOptions(req)
+  if (opt) return opt
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { file_path, bucket_name, order_id, media_type } = await req.json();
+    const user = await verifyAuth(req, { maxRequests: 20, windowMs: 60000 })
+    const { file_path, bucket_name, order_id, media_type } = await req.json()
 
     if (!file_path || !bucket_name) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: file_path, bucket_name' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Missing required fields: file_path, bucket_name' }, 400)
     }
 
-    // Log upload completion
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Update order with media URL if order_id provided
     if (order_id) {
       await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${order_id}`, {
         method: 'PATCH',
@@ -46,29 +26,15 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           media_urls: [`${supabaseUrl}/storage/v1/object/public/${bucket_name}/${file_path}`],
         }),
-      });
+      })
     }
 
-    return new Response(
-      JSON.stringify({ success: true, file_path, bucket_name }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    return jsonResponse({ success: true, file_path, bucket_name, user_id: user.id })
   } catch (error: unknown) {
-    console.error('Upload complete error:', error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      }
-    );
+    console.error('Upload complete error:', error)
+    if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+      return jsonResponse({ error: error.message }, 401)
+    }
+    return jsonResponse({ error: (error as Error).message }, 500)
   }
-});
+})

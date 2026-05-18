@@ -123,7 +123,7 @@ export default function WorkerJobDetail() {
     const setter = type === 'before' ? setBeforePhotos : setAfterPhotos
     for (const f of Array.from(files)) {
       const reader = new FileReader()
-      reader.onload = ev => ev.target?.result && setter(prev => [...prev, ev.target.result as string])
+      reader.onload = ev => { const t = ev?.target; if (!t?.result) return; setter(prev => [...prev, t.result as string]) }
       reader.readAsDataURL(f)
     }
   }

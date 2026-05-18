@@ -1,7 +1,9 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useBackgroundLocation } from '@/hooks/useBackgroundLocation';
 
 export default function WorkerLayout() {
+  useBackgroundLocation();
   return (
     <Tabs screenOptions={{
       tabBarActiveTintColor: '#059669',

@@ -70,7 +70,7 @@ export default function WorkerTracker({ orderId, workerId, customerLocation }: P
     )
   }
 
-  const markers = []
+  const markers: { position: [number, number]; title: string }[] = []
   markers.push({
     position: [workerPos.lat, workerPos.lng] as [number, number],
     title: '📍 Thợ',

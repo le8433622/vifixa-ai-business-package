@@ -32,7 +32,7 @@ interface CompanionChatResponse {
 
 
 
-Deno.serve(async (req: Request) => {
+export async function handler(req: Request) {
   // Handle CORS preflight
   const opt = handleOptions(req);
   if (opt) return opt;
@@ -54,6 +54,21 @@ Deno.serve(async (req: Request) => {
       body = await req.json();
     } catch {
       return jsonResponse({ error: 'Invalid request body' }, 400);
+    }
+
+    // Backward compatibility: handle old ai-chat request format (session_id at top level)
+    if ('session_id' in body && !(body as any).context?.user_id) {
+      console.warn('[Companion] Received legacy ai-chat format, mapping to companion format');
+      const oldBody = body as any;
+      body = {
+        message: oldBody.message,
+        context: {
+          user_id: user.id,
+          persona: oldBody.context?.persona || 'customer',
+          session_id: oldBody.session_id || undefined,
+          ...(oldBody.context || {}),
+        },
+      } as CompanionChatRequest;
     }
 
     const { message, context } = body;
@@ -561,7 +576,7 @@ Deno.serve(async (req: Request) => {
         role: 'user',
         content: message,
         intent: intent,
-        sentiment: 0.7, // Placeholder
+        sentiment: 0.7,
         metadata: { persona: context.persona }
       },
       {
@@ -570,7 +585,7 @@ Deno.serve(async (req: Request) => {
         role: 'assistant',
         content: reply,
         intent: `${intent}_response`,
-        sentiment: 0.8, // Placeholder
+        sentiment: 0.8,
         metadata: { persona: context.persona }
       }
     ]);
@@ -604,6 +619,44 @@ Deno.serve(async (req: Request) => {
       .eq('id', sessionId);
 
     // Build and return response
+    // Route to orchestrator for actionable intents
+    const actionableIntents = [
+      'diagnose', 'estimate_price', 'create_order', 'match_worker',
+      'repair_device', 'cleaning', 'delivery', 'moving', 'massage',
+      'tutoring', 'pet_care', 'elder_care', 'child_care',
+    ]
+
+    if (actionableIntents.includes(intent) || actions.some(a => ['create_order', 'confirmation_order'].includes(a.type))) {
+      try {
+        const orchestratorRes = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/agent-orchestrator`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${Deno.env.get('CRON_SECRET')}`,
+            },
+            body: JSON.stringify({ message, persona: context.persona, session_id: sessionId }),
+          }
+        )
+
+        if (orchestratorRes.ok) {
+          const plan = await orchestratorRes.json()
+          if (plan.plan && plan.plan.length > 0) {
+            reply += '\n\n---\n\n🤖 **Kế hoạch tự động**\n'
+            plan.plan.forEach((s: any, i: number) => {
+              reply += `\n${i + 1}. ${s.description || s.action_id}`
+            })
+            if (plan.needs_approval) {
+              reply += '\n\n⚠️ Kế hoạch cần bạn xác nhận.'
+            }
+          }
+        }
+      } catch (orchErr) {
+        console.warn('[Companion] Orchestrator bridge failed:', orchErr)
+      }
+    }
+
     const response: CompanionChatResponse = {
       reply,
       session_id: sessionId
@@ -622,4 +675,4 @@ Deno.serve(async (req: Request) => {
     console.error('Companion chat error:', error);
     return jsonResponse({ error: 'Internal server error' }, 500);
   }
-});
+}

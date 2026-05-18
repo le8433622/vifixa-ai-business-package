@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, PermissionsAndroid, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, PermissionsAndroid, Platform, Alert } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
@@ -106,7 +106,7 @@ export default function AvailableWorkersMap({ onWorkerSelect, requiredSkills = [
         if (requiredSkills && requiredSkills.length > 0) {
           filteredWorkers = processedWorkers.filter(worker => 
             requiredSkills.some(skill => 
-              worker.skills.some(workerSkill => 
+              worker.skills.some((workerSkill: string) => 
                 workerSkill.toLowerCase().includes(skill.toLowerCase())
               )
             )
@@ -174,7 +174,6 @@ export default function AvailableWorkersMap({ onWorkerSelect, requiredSkills = [
             coordinate={{ latitude: worker.location_lat, longitude: worker.location_lng }}
             title={worker.full_name}
             description={`${worker.skills.join(', ')} • ${worker.rating}★ (${worker.completed_jobs} việc)`}
-            markerSelected={selectedWorkerId === worker.id}
           >
             <Callout>
               <View style={styles.calloutContainer}>
@@ -407,9 +406,9 @@ export default function AvailableWorkersMap({ onWorkerSelect, requiredSkills = [
                  
                  setSelectedWorkerId(null);
                }}
-               style={styles.confirmButton}
-             >
-               <Text style={styles.confirmButtonText}>Xác nhận và lưu lựa chọn</Text>
+                style={styles.panelConfirmButton}
+              >
+                <Text style={styles.panelConfirmButtonText}>Xác nhận và lưu lựa chọn</Text>
              </TouchableOpacity>
            </View>
          </View>
@@ -505,14 +504,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  confirmButton: {
+  panelConfirmButton: {
     marginTop: 8,
     paddingVertical: 8,
     backgroundColor: '#10b981',
     borderRadius: 6,
     alignItems: 'center',
   },
-  confirmButtonText: {
+  panelConfirmButtonText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '600',

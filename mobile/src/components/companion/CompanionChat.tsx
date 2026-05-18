@@ -178,7 +178,7 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
         return;
       }
 
-      setIsLoading(true);
+      setLoading(true);
       const mediaUrls: string[] = [];
       for (const asset of result.assets) {
         const response = await fetch(asset.uri);
@@ -201,7 +201,7 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
     } catch (error: any) {
       Alert.alert('Lỗi upload', error.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }
 
@@ -215,6 +215,43 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
       default:
         return 'Xin chào! 🏠 Tôi là AI Companion của bạn.\n\nTôi có thể:\n• 🔍 Chẩn đoán sự cố (gửi ảnh hoặc mô tả)\n• 💰 Báo giá dịch vụ\n• 🔧 Tìm thợ gần bạn\n• 📋 Theo dõi đơn hàng\n\nHãy thử nói: "Máy lạnh không lạnh"';
     }
+  }
+
+  function renderMessage({ item }: { item: Message }) {
+    const isUser = item.role === 'user';
+    return (
+      <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.assistantMessage]}>
+        <View style={styles.messageHeader}>
+          <Text style={styles.messageIcon}>
+            {item.role === 'assistant' ? (persona === 'customer' ? '🤖' : persona === 'worker' ? '🔧' : '🛡️') : '👤'}
+          </Text>
+          <Text style={[styles.messageTime, isUser ? styles.userTime : styles.assistantTime]}>
+            {item.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
+        <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
+          {item.content}
+        </Text>
+        {item.actions && item.actions.length > 0 && (
+          <View style={styles.actionsContainer}>
+            {item.actions.map((action: Action, idx: number) => renderAction(action, idx))}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function renderAction(action: Action, index: number) {
+    return (
+      <TouchableOpacity 
+        key={index} 
+        style={styles.actionBadge}
+        onPress={() => handleAction(action)}
+        disabled={loading}
+      >
+        <Text style={styles.actionText}>{action.label}</Text>
+      </TouchableOpacity>
+    );
   }
 
   return (
@@ -324,7 +361,7 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
             onSubmitEditing={() => sendMessage()}
           />
           <TouchableOpacity
-            onPress={sendMessage}
+            onPress={() => sendMessage()}
             style={styles.sendButton}
             disabled={loading || !input.trim()}
           >
@@ -332,45 +369,7 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
           </TouchableOpacity>
         </View>
       </View>
-    </React.Fragment>
-  );
-}
-
-function renderMessage({ item }: { item: Message }) {
-  const isUser = item.role === 'user';
-  
-  return (
-    <View style={[styles.messageContainer, isUser ? styles.userMessage : styles.assistantMessage]}>
-      <View style={styles.messageHeader}>
-        <Text style={styles.messageIcon}>
-          {item.role === 'assistant' ? (persona === 'customer' ? '🤖' : persona === 'worker' ? '🔧' : '🛡️') : '👤'}
-        </Text>
-        <Text style={[styles.messageTime, isUser ? styles.userTime : styles.assistantTime]}>
-          {item.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
-        {item.content}
-      </Text>
-      {item.actions && item.actions.length > 0 && (
-        <View style={styles.actionsContainer}>
-          {item.actions.map((action: any, idx: number) => renderAction(action, idx))}
-        </View>
-      )}
-    </View>
-  );
-}
-
-function renderAction(action: Action, index: number) {
-  return (
-    <TouchableOpacity 
-      key={index} 
-      style={styles.actionBadge}
-      onPress={() => handleAction(action)}
-      disabled={loading}
-    >
-      <Text style={styles.actionText}>{action.label}</Text>
-    </TouchableOpacity>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -418,6 +417,69 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
     paddingBottom: 20,
+  },
+  messageContainer: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    maxWidth: '85%',
+  },
+  userMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#2563eb',
+  },
+  assistantMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  messageIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  messageTime: {
+    fontSize: 10,
+  },
+  userTime: {
+    color: '#93c5fd',
+  },
+  assistantTime: {
+    color: '#9ca3af',
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  userText: {
+    color: 'white',
+  },
+  assistantText: {
+    color: '#1f2937',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 6,
+  },
+  actionBadge: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  actionText: {
+    fontSize: 13,
+    color: '#2563eb',
+    fontWeight: '500',
   },
   loadingContainer: {
     flexDirection: 'row',

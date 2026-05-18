@@ -1,127 +1,176 @@
-// Subscription Management Edge Function
-// Care Plan: subscribe, cancel, list plans
+// Subscription & Membership Edge Function
+// Handles: plans list, subscribe, cancel, boost purchase
+// POST /functions/v1/subscription-manage
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { verifyAuth, checkRateLimit, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-};
+import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts';
 
 Deno.serve(async (req: Request) => {
   const opt = handleOptions(req);
   if (opt) return opt;
 
   try {
-    const user = await verifyAuth(req);
-    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-    checkRateLimit(user.id, clientIp, { maxRequests: 30 });
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const action = url.pathname.split('/').pop() || 'plans';
+    const path = url.pathname.replace('/functions/v1/subscription-manage', '');
 
-    if (req.method === 'GET') {
-      if (action === 'plans') {
-        const { data, error } = await supabase
-          .from('subscription_plans')
-          .select('*')
-          .eq('active', true)
-          .order('price', { ascending: true });
-        if (error) throw error;
-        return jsonResponse({ plans: data });
-      }
-
-      if (action === 'my') {
-        const { data, error } = await supabase
-          .from('customer_subscriptions')
-          .select('*, subscription_plans(*)')
-          .eq('user_id', user.id)
-          .in('status', ['active', 'trialing'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (error) throw error;
-        return jsonResponse({ subscription: data });
-      }
+    // GET /plans — List all membership plans
+    if (req.method === 'GET' && path === '/plans') {
+      const { data, error } = await supabase
+        .from('membership_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('price', { ascending: true });
+      if (error) throw error;
+      return jsonResponse({ plans: data });
     }
 
-    if (req.method === 'POST') {
+    // GET /my — User's active subscription
+    if (req.method === 'GET' && path === '/my') {
+      const user = await verifyAuth(req);
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('*, membership_plans(*)')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return jsonResponse({ subscription: data });
+    }
+
+    // GET /boost-pricing — Boost pricing
+    if (req.method === 'GET' && path === '/boost-pricing') {
+      const { data, error } = await supabase
+        .from('boost_pricing')
+        .select('*')
+        .eq('is_active', true)
+        .order('price', { ascending: true });
+      if (error) throw error;
+      return jsonResponse({ plans: data });
+    }
+
+    // GET /my-boosts — Worker's active boosts
+    if (req.method === 'GET' && path === '/my-boosts') {
+      const user = await verifyAuth(req);
+      const { data, error } = await supabase
+        .from('worker_boosts')
+        .select('*')
+        .eq('worker_id', user.id)
+        .eq('is_active', true)
+        .gte('expires_at', new Date().toISOString());
+      if (error) throw error;
+      return jsonResponse({ boosts: data });
+    }
+
+    // POST /subscribe
+    if (req.method === 'POST' && path === '/subscribe') {
+      const user = await verifyAuth(req);
       const body = await req.json();
+      const { plan_id } = body;
+      if (!plan_id) return jsonResponse({ error: 'Missing plan_id' }, 400);
 
-      if (action === 'subscribe') {
-        const { plan_id } = body;
-        if (!plan_id) return jsonResponse({ error: 'Missing plan_id' }, 400);
+      const { data: plan } = await supabase
+        .from('membership_plans')
+        .select('*')
+        .eq('id', plan_id)
+        .single();
+      if (!plan) return jsonResponse({ error: 'Plan not found' }, 404);
 
-        const { data: plan } = await supabase
-          .from('subscription_plans')
-          .select('*')
-          .eq('id', plan_id)
-          .single();
-        if (!plan) return jsonResponse({ error: 'Plan not found' }, 404);
+      const endDate = new Date();
+      if (plan.interval === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+      else endDate.setFullYear(endDate.getFullYear() + 1);
 
-        const endDate = new Date();
-        if (plan.interval === 'month') endDate.setMonth(endDate.getMonth() + 1);
-        else if (plan.interval === 'quarter') endDate.setMonth(endDate.getMonth() + 3);
-        else endDate.setFullYear(endDate.getFullYear() + 1);
+      const { data: existing } = await supabase
+        .from('user_subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-        const { data: existing } = await supabase
-          .from('customer_subscriptions')
-          .select('id')
-          .eq('user_id', user.id)
-          .in('status', ['active', 'trialing'])
-          .maybeSingle();
-
-        if (existing) {
-          return jsonResponse({ error: 'Already have an active subscription' }, 409);
-        }
-
-        const { data, error } = await supabase
-          .from('customer_subscriptions')
-          .insert({
-            user_id: user.id,
-            plan_id,
-            status: 'active',
-            start_date: new Date().toISOString(),
-            end_date: endDate.toISOString(),
-          })
-          .select()
-          .single();
-        if (error) throw error;
-        return jsonResponse({ subscription: data }, 201);
+      if (existing) {
+        return jsonResponse({ error: 'Đã có gói đang hoạt động. Hủy gói hiện tại trước.' }, 409);
       }
 
-      if (action === 'cancel') {
-        const { data: sub } = await supabase
-          .from('customer_subscriptions')
-          .select('*')
-          .eq('user_id', user.id)
-          .in('status', ['active', 'trialing'])
-          .maybeSingle();
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_id,
+          status: 'active',
+          started_at: new Date().toISOString(),
+          expires_at: endDate.toISOString(),
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return jsonResponse({ subscription: data }, 201);
+    }
 
-        if (!sub) return jsonResponse({ error: 'No active subscription' }, 404);
+    // POST /cancel
+    if (req.method === 'POST' && path === '/cancel') {
+      const user = await verifyAuth(req);
+      const { data: sub } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-        const { data, error } = await supabase
-          .from('customer_subscriptions')
-          .update({ status: 'canceled', canceled_at: new Date().toISOString() })
-          .eq('id', sub.id)
-          .select()
-          .single();
-        if (error) throw error;
-        return jsonResponse({ subscription: data });
+      if (!sub) return jsonResponse({ error: 'Không có gói đang hoạt động' }, 404);
+
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('id', sub.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return jsonResponse({ subscription: data });
+    }
+
+    // POST /boost — Purchase worker boost
+    if (req.method === 'POST' && path === '/boost') {
+      const user = await verifyAuth(req);
+      const body = await req.json();
+      const { pricing_id, service_type, district } = body;
+
+      if (!pricing_id || !service_type) {
+        return jsonResponse({ error: 'Missing pricing_id or service_type' }, 400);
       }
+
+      const { data: pricing } = await supabase
+        .from('boost_pricing')
+        .select('*')
+        .eq('id', pricing_id)
+        .single();
+      if (!pricing) return jsonResponse({ error: 'Pricing not found' }, 404);
+
+      const expiresAt = new Date(Date.now() + pricing.duration_days * 24 * 60 * 60 * 1000);
+
+      const { data, error } = await supabase
+        .from('worker_boosts')
+        .insert({
+          worker_id: user.id,
+          service_type,
+          district: district || null,
+          starts_at: new Date().toISOString(),
+          expires_at: expiresAt.toISOString(),
+          amount_paid: pricing.price,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return jsonResponse({ boost: data }, 201);
     }
 
     return jsonResponse({ error: 'Not found' }, 404);
   } catch (error: any) {
-    if (error.name === 'AuthError') return jsonResponse({ error: error.message, code: error.code }, 401);
-    if (error.name === 'RateLimitError') return jsonResponse({ error: error.message }, 429);
-    console.error('Subscription error:', error);
+    console.error('[VIFIXA] subscription error:', error);
     return jsonResponse({ error: error.message }, 500);
   }
 });

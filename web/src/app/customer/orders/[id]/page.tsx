@@ -74,6 +74,7 @@ export default function CustomerOrderDetailsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | undefined>();
   const [showReview, setShowReview] = useState(false)
   const [showWarranty, setShowWarranty] = useState(false)
   const [showComplaint, setShowComplaint] = useState(false)
@@ -116,6 +117,12 @@ export default function CustomerOrderDetailsPage() {
       thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
       setIsWarrantyEligible(new Date() <= thirtyDaysLater);
     }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      )
+    }
   }, [order]);
 
   async function payWithVNPay(orderId: string, amount: number) {
@@ -124,7 +131,7 @@ export default function CustomerOrderDetailsPage() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
     try {
-      const res = await fetch(`${supabaseUrl}/functions/v1/payment-process`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/payment-process/create`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -330,7 +337,7 @@ export default function CustomerOrderDetailsPage() {
                       <WorkerTracker
                         orderId={order.id}
                         workerId={order.workers.user_id}
-                        customerLocation={undefined}
+                        customerLocation={userLocation}
                       />
                     </div>
                   )}

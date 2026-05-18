@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { createAICore } from '../_shared/ai-core.ts'
-import { jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { jsonResponse, handleOptions, checkRateLimit } from '../_shared/auth-helper.ts'
 import type { DauVaoOrchestrator, DauRaOrchestrator, BuocXuLy } from '../v4-core/index.ts'
 
 Deno.serve(async (req) => {
@@ -18,6 +18,9 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+    checkRateLimit('v4-orchestrator', ip, { maxRequests: 20, windowMs: 60000 })
 
     const authHeader = req.headers.get('Authorization')
     const token = authHeader?.replace('Bearer ', '')
@@ -56,24 +59,50 @@ Phân tích ý định:`,
 
     switch (hanhDong) {
       case 'xu_ly_chat': {
-        // Proxy to the battle-tested old ai-chat function
+        // Canonical: companion/chat first, fall back to legacy ai-chat, then direct AI
         try {
-          const chatRes = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+          const companionRes = await fetch(`${supabaseUrl}/functions/v1/companion/chat`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${supabaseKey}`,
             },
             body: JSON.stringify({
-              session_id: (nguCanh as any)?.session_id || null,
               message: noiDung,
-              context: nguCanh || {},
+              context: {
+                ...(nguCanh || {}),
+                user_id: userId,
+                persona: (nguCanh as any)?.persona || 'customer',
+              },
             }),
           })
-          if (chatRes.ok) {
-            ketQuaCuoi = await chatRes.json()
+          if (companionRes.ok) {
+            ketQuaCuoi = await companionRes.json()
           } else {
-            // Fallback: use direct AI
+            throw new Error(`companion/chat returned ${companionRes.status}`)
+          }
+        } catch {
+          // Fallback to legacy ai-chat
+          try {
+            const chatRes = await fetch(`${supabaseUrl}/functions/v1/ai-chat`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                session_id: (nguCanh as any)?.session_id || null,
+                message: noiDung,
+                context: nguCanh || {},
+              }),
+            })
+            if (chatRes.ok) {
+              ketQuaCuoi = await chatRes.json()
+            } else {
+              throw new Error(`ai-chat returned ${chatRes.status}`)
+            }
+          } catch {
+            // Last resort: direct AI
             const humanizer = await ai.orchestrateInternal('chat', async () => ({
               systemPrompt: `Bạn là trợ lý Vifixa thân thiện. Trả lời ngắn gọn, tự nhiên, bằng tiếng Việt.
 Trả về JSON: { traLoi: string, yDinhPhatHien: string, canLayThemThongTin: bool }`,
@@ -87,8 +116,6 @@ Trả về JSON: { traLoi: string, yDinhPhatHien: string, canLayThemThongTin: bo
               actions: [],
             }
           }
-        } catch {
-          ketQuaCuoi = { reply: '⚠️ Hệ thống đang bận. Vui lòng thử lại.', session_id: null, state: 'error', session_complete: false, actions: [] }
         }
         break
       }

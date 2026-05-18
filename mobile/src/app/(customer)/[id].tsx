@@ -23,6 +23,7 @@ type Order = {
   before_media?: string[];
   after_media?: string[];
   created_at: string;
+  payment_status?: string;
   workers?: { user_id: string; profiles?: { email: string } };
 };
 
@@ -77,14 +78,12 @@ export default function CustomerOrderDetail() {
               refetch();
               Alert.alert('✅', 'Đã chấp nhận giá. Đang tìm thợ...');
               refetch();
-            },
-          },
-        ],
-      );
-    }
+            } catch (e) {
+              Alert.alert('Lỗi', (e as Error).message);
+            }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -518,6 +517,11 @@ const styles = StyleSheet.create({
   priceLabel: {
     fontSize: 14,
     color: '#666',
+  },
+  priceValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
   },
   estimatedPrice: {
     fontSize: 18,

@@ -12,6 +12,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
   camera: 'Camera', refrigerator: 'Tủ lạnh', washing_machine: 'Máy giặt',
   water_heater: 'Máy nước nóng', appliance: 'Đồ gia dụng', other: 'Khác',
+  cleaning: 'Dọn dẹp', delivery: 'Giao hàng', moving: 'Chuyển nhà',
+  elder_care: 'Chăm sóc', child_care: 'Trông trẻ', pet_care: 'Thú cưng',
+  tutoring: 'Gia sư', massage: 'Massage',
 }
 
 type Device = {
@@ -81,7 +84,7 @@ export default function CustomerDashboard() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/payment-process`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/payment-process/create`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,8 +173,14 @@ export default function CustomerDashboard() {
         {mode === 'manual' && (
           <div className="shrink-0 bg-white border-b p-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase mb-3">📋 Menu dịch vụ</p>
-            <div className="grid grid-cols-4 gap-2 mb-3">
-              {[{ icon: '❄️', name: 'Máy lạnh' }, { icon: '💡', name: 'Điện' }, { icon: '🚿', name: 'Nước' }, { icon: '📷', name: 'Camera' }, { icon: '🔧', name: 'Đồ gia dụng' }, { icon: '🔌', name: 'Điện tử' }, { icon: '🚪', name: 'Cửa/Khóa' }, { icon: '🏠', name: 'Khác' }].map(cat => (
+            <div className="grid grid-cols-5 gap-2 mb-3">
+              {[
+                { icon: '❄️', name: 'Sửa chữa' }, { icon: '🧹', name: 'Dọn dẹp' },
+                { icon: '📦', name: 'Giao hàng' }, { icon: '🚚', name: 'Chuyển nhà' },
+                { icon: '👴', name: 'Chăm sóc' }, { icon: '👶', name: 'Trông trẻ' },
+                { icon: '🐾', name: 'Thú cưng' }, { icon: '📚', name: 'Gia sư' },
+                { icon: '💆', name: 'Massage' }, { icon: '📋', name: 'Khác' },
+              ].map(cat => (
                 <button key={cat.name} onClick={() => router.push('/customer/service-request')}
                   className="flex flex-col items-center p-2.5 bg-gray-50 rounded-xl hover:bg-blue-50 transition">
                   <span className="text-2xl mb-1">{cat.icon}</span>

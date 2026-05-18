@@ -23,8 +23,8 @@ Deno.serve(async (req: Request) => {
     const { data: config } = await supabase
       .from('gateway_configs').select('sandbox_keys').eq('key', 'vnpay').single()
     
-    const hashSecret = config?.sandbox_keys?.hash_secret
-    if (!hashSecret) throw new Error('VNPay hash secret not configured')
+    const secretKey = config?.sandbox_keys?.secretKey
+    if (!secretKey) throw new Error('VNPay secret key not configured')
 
     // Build signature string
     const signData = Object.keys(params)
@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
       .map(k => `${k}=${params[k]}`)
       .join('&')
 
-    const secureHash = createHmac('sha512', hashSecret).update(signData).digest('hex')
+    const secureHash = createHmac('sha512', secretKey).update(signData).digest('hex')
     
     if (secureHash !== params.vnp_SecureHash) {
       logVifixa('vnpay-ipn', 'invalid_signature', {})

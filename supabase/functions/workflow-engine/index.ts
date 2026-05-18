@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyAuth, jsonResponse, handleOptions } from '../_shared/auth-helper.ts'
+import { verifyAuth, jsonResponse, handleOptions, getInternalHeaders, isInternalCall } from '../_shared/auth-helper.ts'
 
 type EventType =
   | 'payment:succeeded'
@@ -78,10 +78,10 @@ async function executeAction(action: string, orderId: string, supabase: any, con
   switch (action) {
     case 'notify_worker': {
       const { data: order } = await supabase.from('orders').select('*, customer:customer_id(*)').eq('id', orderId).single()
-      const workerNotifyUrl = `${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/notify`
+        const workerNotifyUrl = `${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/notify`
       fetch(workerNotifyUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        headers: getInternalHeaders(),
         body: JSON.stringify({
           type: 'new_job',
           order_id: orderId,
@@ -97,7 +97,7 @@ async function executeAction(action: string, orderId: string, supabase: any, con
       if (order) {
         fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/ai-auto-executor`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          headers: getInternalHeaders(),
           body: JSON.stringify({ action: 'auto_match', data: { order_id: orderId, category: order.category, customer_lat: order.location_lat, customer_lng: order.location_lng } }),
         }).catch(e => console.error('[workflow] start_matching failed', e))
       }
@@ -109,7 +109,7 @@ async function executeAction(action: string, orderId: string, supabase: any, con
         const { data: worker } = await supabase.from('workers').select('*, profiles:worker_id(full_name)').eq('id', context?.worker_id).single()
         fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/notify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          headers: getInternalHeaders(),
           body: JSON.stringify({
             type: 'worker_arriving',
             user_id: order.customer_id,
@@ -125,33 +125,35 @@ async function executeAction(action: string, orderId: string, supabase: any, con
       if (order) {
         fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/notify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          headers: getInternalHeaders(),
           body: JSON.stringify({ type: 'worker_eta', user_id: order.customer_id, order_id: orderId }),
         }).catch(e => console.error('[workflow] send_eta failed', e))
       }
       break
     }
     case 'run_quality_check': {
+      const { data: qualityOrder } = await supabase.from('orders').select('worker_id').eq('id', orderId).single()
       fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/ai-quality`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-        body: JSON.stringify({ order_id: orderId }),
+        headers: getInternalHeaders(),
+        body: JSON.stringify({ order_id: orderId, worker_id: qualityOrder?.worker_id || context?.worker_id || '', before_media: [], after_media: [] }),
       }).catch(e => console.error('[workflow] run_quality_check failed', e))
       break
     }
     case 'release_escrow': {
       fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/wallet-manager`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        headers: getInternalHeaders(),
         body: JSON.stringify({ action: 'escrow:release', data: { order_id: orderId } }),
       }).catch(e => console.error('[workflow] release_escrow failed', e))
       break
     }
     case 'activate_warranty': {
+      const { data: warrantyOrder } = await supabase.from('orders').select('customer_id').eq('id', orderId).single()
       fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/ai-warranty`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-        body: JSON.stringify({ order_id: orderId, action: 'activate' }),
+        headers: getInternalHeaders(),
+        body: JSON.stringify({ order_id: orderId, customer_id: warrantyOrder?.customer_id || '', claim_reason: 'auto_activate' }),
       }).catch(e => console.error('[workflow] activate_warranty failed', e))
       break
     }
@@ -165,7 +167,7 @@ async function executeAction(action: string, orderId: string, supabase: any, con
       if (order) {
         fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/notify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          headers: getInternalHeaders(),
           body: JSON.stringify({ type: 'request_review', user_id: order.customer_id, order_id: orderId }),
         }).catch(e => console.error('[workflow] request_review failed', e))
       }
@@ -176,7 +178,7 @@ async function executeAction(action: string, orderId: string, supabase: any, con
       if (order) {
         fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/notify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          headers: getInternalHeaders(),
           body: JSON.stringify({
             type: 'receipt',
             user_id: order.customer_id,
@@ -191,7 +193,7 @@ async function executeAction(action: string, orderId: string, supabase: any, con
     case 'process_refund': {
       fetch(`${Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')}/functions/v1/wallet-manager`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        headers: getInternalHeaders(),
         body: JSON.stringify({ action: 'escrow:refund', data: { order_id: orderId } }),
       }).catch(e => console.error('[workflow] process_refund failed', e))
       break
@@ -212,11 +214,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Server configuration error' }, 500)
     }
 
-    // Allow internal calls (service_role key) in addition to user JWTs
-    const authHeader = req.headers.get('Authorization') || ''
-    const isInternalCall = authHeader === `Bearer ${serviceRoleKey}`
-
-    if (!isInternalCall) {
+    if (!isInternalCall(req)) {
       const user = await verifyAuth(req)
       if (!user) return jsonResponse({ error: 'Unauthorized' }, 401)
     }

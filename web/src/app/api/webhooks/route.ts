@@ -5,7 +5,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!serviceRoleKey) {
@@ -15,7 +14,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify webhook signature (example for Supabase)
     const signature = request.headers.get('x-supabase-signature');
     if (!signature) {
       return NextResponse.json(
@@ -27,21 +25,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const eventType = body.type;
 
-    // Handle different webhook events
     switch (eventType) {
       case 'user.created':
-        console.log('[VIFIXA][webhook] user_created | user_id=' + body.record?.id);
         break;
       case 'order.completed':
-        console.log('[VIFIXA][webhook] order_completed | order_id=' + body.record?.id);
         break;
-      default:
-        console.log('[VIFIXA][webhook] unhandled_event | type=' + eventType);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Webhook error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

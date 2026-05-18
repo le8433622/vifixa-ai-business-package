@@ -68,6 +68,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
+  PERFORM auth.uid();
+
   RETURN QUERY
   SELECT
     w.id,

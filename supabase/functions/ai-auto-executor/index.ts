@@ -124,7 +124,7 @@ async function handleDiagnose(supabase: any, aiCore: any, data: any) {
     success: true,
     action: 'auto_estimate' as string,
     data: { diagnosis, visionResult },
-    message: `🔍 Đã chẩn đoán: ${diagnosis.diagnosis}`,
+    message: `🔍 Đã chẩn đoán: ${diagnosis?.diagnosis || diagnosis?.summary || 'Hoàn thành'}`,
   })
 }
 
@@ -160,7 +160,7 @@ async function handleEstimate(supabase: any, aiCore: any, data: any) {
     success: true,
     action: 'auto_match' as string,
     data: { price },
-    message: `💰 Giá dự kiến: ${price.estimated_price.toLocaleString()}₫`,
+    message: `💰 Giá dự kiến: ${(price?.estimated_price || price?.price || 0).toLocaleString()}₫`,
   })
 }
 
@@ -220,9 +220,15 @@ async function handleKYC(supabase: any, aiCore: any, data: any) {
   const hasIdBack = !!(data.id_back_url || worker.id_back_url)
   const hasSelfie = !!(data.selfie_url || worker.selfie_url)
 
-  // Auto-approve if all 3 docs exist (simple rule)
-  // In production, use Vision AI to verify document authenticity
+  // Verify with Vision AI before auto-approve
+  let visionVerified = false
   if (hasIdFront && hasIdBack && hasSelfie) {
+    try {
+      const visionResult = await aiCore.analyzeImages({ images: [(data.id_front_url || worker.id_front_url), (data.selfie_url || worker.selfie_url)] })
+      visionVerified = visionResult?.isVerified === true || visionResult?.confidence > 0.85
+    } catch { /* fallback to admin review */ }
+  }
+  if (visionVerified) {
     await supabase.from('workers').update({
       verification_status: 'verified',
       is_verified: true,
@@ -243,7 +249,7 @@ async function handleKYC(supabase: any, aiCore: any, data: any) {
       success: true,
       action: 'auto_complete' as string,
       data: { status: 'verified' },
-      message: '✅ Tự động duyệt KYC: đủ 3 loại giấy tờ',
+      message: '✅ Tự động duyệt KYC: Vision AI xác thực thành công',
     })
   }
 
@@ -251,7 +257,9 @@ async function handleKYC(supabase: any, aiCore: any, data: any) {
     success: false,
     action: 'manual_review' as string,
     data: { status: 'pending', missing: { id_front: !hasIdFront, id_back: !hasIdBack, selfie: !hasSelfie } },
-    message: '⏳ Thiếu giấy tờ, chuyển admin duyệt thủ công',
+    message: visionVerified === false && hasIdFront && hasIdBack && hasSelfie
+      ? '⏳ Vision AI không xác thực được, chuyển admin duyệt thủ công'
+      : '⏳ Thiếu giấy tờ, chuyển admin duyệt thủ công',
   })
 }
 
@@ -277,7 +285,8 @@ async function handleDispute(supabase: any, aiCore: any, data: any) {
   })
 
   // Auto-resolve if confidence is high
-  if (resolution.confidence >= 0.8 && resolution.recommended_action !== 'dismiss') {
+  const resolutionConfidence = resolution?.confidence || resolution?.score || 0
+  if (resolutionConfidence >= 0.8 && resolution.recommended_action !== 'dismiss') {
     const actionMap: Record<string, string> = {
       refund: 'refund_full',
       partial_refund: 'refund_partial',

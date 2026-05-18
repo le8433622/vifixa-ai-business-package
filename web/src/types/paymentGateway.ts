@@ -44,7 +44,7 @@ export interface Money {
 
 export interface PaymentIntent {
   id: string
-  gateway_payment_id: string
+  gateway_txn_id: string
   gateway: GatewayName
   order_id?: string
   user_id?: string

@@ -11,6 +11,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   air_conditioning: 'Máy lạnh', electricity: 'Điện', plumbing: 'Nước',
   camera: 'Camera', refrigerator: 'Tủ lạnh', washing_machine: 'Máy giặt',
   water_heater: 'Máy nước nóng', appliance: 'Đồ gia dụng', other: 'Khác',
+  cleaning: 'Dọn dẹp', delivery: 'Giao hàng', moving: 'Chuyển nhà',
+  elder_care: 'Chăm sóc', child_care: 'Trông trẻ', pet_care: 'Thú cưng',
+  tutoring: 'Gia sư', massage: 'Massage',
 }
 
 export default function WorkerDashboard() {

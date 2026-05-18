@@ -23,7 +23,7 @@ export default function AdminLocksScreen() {
     const { data } = await supabase.from('account_locks')
       .select('*, profiles:user_id!inner(full_name, email, role)')
       .is('unlocked_at', tab === 'active' ? null : undefined)
-      .not('unlocked_at', tab === 'active' ? undefined : null)
+      .not('unlocked_at', 'is', tab === 'active' ? undefined : null)
       .order('locked_at', { ascending: false });
     if (data) setLocks(data as unknown as LockRecord[]);
     setLoading(false);

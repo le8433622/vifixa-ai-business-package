@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import WalletDashboard from '../../components/WalletDashboard';
@@ -12,26 +11,49 @@ export default function WorkerEarnings() {
   const [stripeId, setStripeId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
-  const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['worker-earnings'],
-    queryFn: async () => {
+  const [ledgerEntries, setLedgerEntries] = useState<any[]>([]);
+  const [orderMap, setOrderMap] = useState<Map<string, any>>(new Map());
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return []; }
-      const { data } = await supabase.from('orders').select('*')
-        .eq('worker_id', session.user.id).order('created_at', { ascending: false });
-      return data || [];
-    },
-  });
+      if (!session) { router.push('/login'); return; }
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('wallet_type', 'txn')
+        .single();
+      if (!wallet) { setIsLoading(false); return; }
+      const { data: entries } = await supabase
+        .from('ledger')
+        .select('*')
+        .eq('wallet_id', wallet.id)
+        .eq('direction', 'credit')
+        .in('account', ['escrow.held', 'escrow.released'])
+        .order('created_at', { ascending: false });
+      setLedgerEntries(entries || []);
+      const orderIds = [...new Set((entries || []).map((e: any) => e.reference_id).filter(Boolean))];
+      if (orderIds.length > 0) {
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id, category')
+          .in('id', orderIds);
+        if (orders) setOrderMap(new Map(orders.map((o: any) => [o.id, o])));
+      }
+      setIsLoading(false);
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const [wRes, pRes, sRes] = await Promise.all([
-        supabase.from('wallets').select('balance,locked').eq('user_id', session.user.id).single().catch(() => ({ data: null })),
-        supabase.from('payouts').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('workers').select('stripe_account_id, stripe_onboarding_complete').eq('id', session.user.id).single().catch(() => ({ data: null })),
-      ]);
+      let wRes, sRes;
+      try { wRes = await supabase.from('wallets').select('balance,locked').eq('user_id', session.user.id).single(); } catch { wRes = { data: null }; }
+      const pRes = await supabase.from('payouts').select('*').eq('worker_id', session.user.id).order('created_at', { ascending: false }).limit(20);
+      try { sRes = await supabase.from('workers').select('stripe_account_id, stripe_onboarding_complete').eq('id', session.user.id).single(); } catch { sRes = { data: null }; }
       if (wRes.data) setWallet(wRes.data as any);
       if (pRes.data) setPayouts(pRes.data);
       if (sRes.data?.stripe_account_id) {
@@ -53,12 +75,17 @@ export default function WorkerEarnings() {
     setConnecting(false);
   }
 
-  const completed = orders.filter((o: any) => o.status === 'completed');
-  const todayEarned = completed.filter((o: any) => new Date(o.created_at).toDateString() === new Date().toDateString())
-    .reduce((s: number, o: any) => s + (o.estimated_price || 0), 0);
-  const weekEarned = completed.filter((o: any) => (Date.now() - new Date(o.created_at).getTime()) < 7 * 86400000)
-    .reduce((s: number, o: any) => s + (o.estimated_price || 0), 0);
-  const totalEarned = completed.reduce((s: number, o: any) => s + (o.estimated_price || 0), 0);
+  const pendingEarned = ledgerEntries
+    .filter((e: any) => e.account === 'escrow.held')
+    .reduce((s: number, e: any) => s + e.amount, 0);
+  const releasedEntries = ledgerEntries.filter((e: any) => e.account === 'escrow.released');
+  const todayEarned = releasedEntries
+    .filter((e: any) => new Date(e.created_at).toDateString() === new Date().toDateString())
+    .reduce((s: number, e: any) => s + e.amount, 0);
+  const weekEarned = releasedEntries
+    .filter((e: any) => (Date.now() - new Date(e.created_at).getTime()) < 7 * 86400000)
+    .reduce((s: number, e: any) => s + e.amount, 0);
+  const totalEarned = releasedEntries.reduce((s: number, e: any) => s + e.amount, 0);
 
   if (isLoading) return <View style={styles.center}><ActivityIndicator size="large" color="#059669" /></View>;
 
@@ -71,28 +98,39 @@ export default function WorkerEarnings() {
         {[
           { label: 'Hôm nay', value: todayEarned },
           { label: 'Tuần này', value: weekEarned },
+          { label: 'Đang chờ', value: pendingEarned, color: '#d97706' },
           { label: 'Tổng', value: totalEarned },
         ].map(s => (
           <View key={s.label} style={styles.statCard}>
-            <Text style={styles.statNum}>{s.value.toLocaleString()}₫</Text>
+            <Text style={[styles.statNum, s.color ? { color: s.color } : undefined]}>{s.value.toLocaleString()}₫</Text>
             <Text style={styles.statLabel}>{s.label}</Text>
           </View>
         ))}
       </View>
 
       <Text style={styles.sectionTitle}>Giao dịch gần đây</Text>
-      {completed.length === 0 ? (
+      {ledgerEntries.length === 0 ? (
         <Text style={styles.emptyText}>Chưa có giao dịch</Text>
-      ) : completed.slice(0, 10).map((o: any) => (
-        <View key={o.id} style={styles.txRow}>
-          <Text style={styles.txIcon}>✅</Text>
-          <View style={styles.txInfo}>
-            <Text style={styles.txName}>{o.category}</Text>
-            <Text style={styles.txDate}>{new Date(o.created_at).toLocaleDateString()}</Text>
+      ) : (
+        ledgerEntries.slice(0, 10).map((e: any) => {
+          const order = e.reference_id ? orderMap.get(e.reference_id) : null;
+          const isReleased = e.account === 'escrow.released';
+          return (
+          <View key={e.id} style={styles.txRow}>
+            <Text style={styles.txIcon}>{isReleased ? '✅' : '⏳'}</Text>
+            <View style={styles.txInfo}>
+              <Text style={styles.txName}>{order?.category || e.description}</Text>
+              <Text style={styles.txDate}>{new Date(e.created_at).toLocaleDateString('vi-VN')}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.txAmount}>+{e.amount.toLocaleString()}₫</Text>
+              <Text style={[styles.statusBadge, { color: isReleased ? '#059669' : '#d97706', fontSize: 10 }]}>
+                {isReleased ? 'Đã nhận' : 'Đang chờ'}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.txAmount}>+{(o.estimated_price || 0).toLocaleString()}₫</Text>
-        </View>
-      ))}
+        )})
+      )}
 
       {/* Stripe Connect */}
       <View style={styles.section}>

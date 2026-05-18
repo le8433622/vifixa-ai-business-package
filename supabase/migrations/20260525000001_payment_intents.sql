@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at D
 INSERT INTO gateway_configs (key, display_name, description, active, sandbox, sandbox_keys, supported_currencies, supported_methods, priority)
 VALUES
   ('vnpay', 'VNPay', 'Cổng thanh toán VNPay - ATM, QR, Internet Banking', false, true,
-    '{"tmn_code": "YOUR_VNPAY_TMN_CODE", "hash_secret": "YOUR_VNPAY_HASH_SECRET", "url": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"}'::jsonb,
+    '{"tmnCode": "YOUR_VNPAY_TMN_CODE", "secretKey": "YOUR_VNPAY_SECRET_KEY", "returnUrl": "https://your-domain.com/api/payments/vnpay/return", "sandbox": true}'::jsonb,
     '{VND}', '{qr,bank_transfer,atm}', 1),
   ('stripe', 'Stripe', 'Stripe payment gateway - Card, Apple Pay, Google Pay', false, true,
     '{"publishable_key": "YOUR_STRIPE_PUBLISHABLE_KEY", "secret_key": "YOUR_STRIPE_SECRET_KEY"}'::jsonb,

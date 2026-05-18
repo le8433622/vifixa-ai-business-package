@@ -49,8 +49,15 @@ DECLARE
   v_order_lng NUMERIC;
   v_radius_km NUMERIC;
   v_distance_km NUMERIC;
+  v_worker_id UUID;
   v_result JSONB;
 BEGIN
+  -- Verify caller is assigned worker or admin
+  SELECT worker_id INTO v_worker_id FROM orders WHERE id = order_uuid;
+  IF v_worker_id IS NULL OR (v_worker_id != auth.uid() AND NOT public.is_admin_from_jwt()) THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
   -- Get order location and radius
   SELECT location_lat, location_lng, COALESCE(check_in_radius_km, 0.5)
   INTO v_order_lat, v_order_lng, v_radius_km
@@ -103,6 +110,10 @@ BEGIN
   -- Get worker ID from orders
   SELECT worker_id INTO v_worker_id FROM orders WHERE id = order_uuid;
 
+  IF v_worker_id IS NULL OR v_worker_id != auth.uid() THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
   -- Insert check-in event
   INSERT INTO check_in_events (order_id, worker_id, lat, lng, distance_to_job_km, within_radius)
   VALUES (order_uuid, v_worker_id, worker_lat, worker_lng, distance_km, within_radius);
@@ -135,6 +146,10 @@ DECLARE
   v_districts JSONB;
   v_total_orders INT;
 BEGIN
+  IF NOT public.is_admin_from_jwt() THEN
+    RAISE EXCEPTION 'Admin only';
+  END IF;
+
   SELECT COUNT(*) INTO v_total_orders FROM orders WHERE location_lat IS NOT NULL;
 
   -- Group orders by rough district grid (HCMC area)

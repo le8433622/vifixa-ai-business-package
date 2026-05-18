@@ -7,6 +7,7 @@ import AdminCompanionChat from '@/components/companion/AdminCompanionChat'
 import ModeToggle, { type AppMode } from '@/components/common/ModeToggle'
 import WalletDashboard from '@/components/wallet/WalletDashboard'
 import { useAutoMode } from '@/hooks/useAutoMode'
+import AdminWorkforcePlanning from '@/components/admin/AdminWorkforcePlanning'
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -95,6 +96,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Workforce Planning */}
+        <div className="px-3 pt-2">
+          <AdminWorkforcePlanning />
+        </div>
+
         {/* AI Analyst Chat — flex-1, không absolute */}
         <div className="flex-1 min-h-0">
           <AdminCompanionChat onAction={handleAction} />
@@ -135,6 +141,7 @@ export default function AdminDashboard() {
                 { icon: '⚖️', name: 'Khiếu nại', count: stats.disputes, href: '/admin/disputes' },
                 { icon: '📈', name: 'Phân tích', href: '/admin/analytics' },
                 { icon: '🔌', name: 'Tích hợp', href: '/admin/integrations' },
+                { icon: '🤖', name: 'Agent Audit', href: '/admin/agent-audit' },
                 { icon: '⚙️', name: 'Cài đặt', href: '/admin/settings' },
               ].map(item => (
                 <button key={item.name} onClick={() => router.push(item.href)}

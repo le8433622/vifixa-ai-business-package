@@ -60,7 +60,7 @@ export default function AdminOrders() {
           </thead>
           <tbody>
             {filtered.map(o => (
-              <tr key={o.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={() => router.push(`/customer/orders/${o.id}`)}>
+              <tr key={o.id} className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer" onClick={() => router.push(`/admin/orders/${o.id}`)}>
                 <td className="py-3 px-4 font-mono text-xs text-gray-500">{o.id.slice(0, 8)}</td>
                 <td className="py-3 px-4">{o.category}</td>
                 <td className="py-3 px-4">

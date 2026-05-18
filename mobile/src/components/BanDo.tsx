@@ -81,7 +81,7 @@ export default function BanDoMobile({ diem = [], geoJSON, trungTam = [10.77, 106
         source={{ html }}
         style={styles.webview}
         onLoad={() => setLoading(false)}
-        onMessage={(e) => {
+        onMessage={(e: any) => {
           const [id, loai] = e.nativeEvent.data.split('|')
           onMarkerClick?.(id, loai)
         }}

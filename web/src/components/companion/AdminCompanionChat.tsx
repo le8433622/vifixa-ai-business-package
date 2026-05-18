@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAgentOrchestrator } from '@/hooks/useAgentOrchestrator'
+import { useAdminAutoMode } from '@/hooks/useAdminAutoMode'
+import AdminDailyBrief from '@/components/admin/AdminDailyBrief'
+import AdminKycReviewer from '@/components/admin/AdminKycReviewer'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -14,15 +18,45 @@ const ADMIN_ACTIONS = [
   { emoji: '🚨', label: 'Disputes', query: 'Xem khiếu nại cần xử lý' },
 ]
 
+const ACTIONABLE_KEYWORDS = [
+  'tóm tắt', 'daily', 'báo cáo', 'báo cáo ngày', 'dashboard',
+  'kyc', 'duyệt', 'xác minh', 'kyb',
+  'fraud', 'bất thường', 'anomaly', 'cảnh báo',
+  'doanh thu', 'revenue', 'người dùng', 'users',
+  'đơn hàng', 'orders', 'khiếu nại', 'disputes',
+]
+
 export default function AdminCompanionChat({ onAction }: { onAction?: (action: any) => void }) {
   const [messages, setMessages] = useState<{ id: string; role: string; content: string; actions?: any[] }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string>('')
   const [kpi, setKpi] = useState({ users: 0, workers: 0, orders: 0, revenue: 0, disputes: 0 })
   const [showQuick, setShowQuick] = useState(true)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
   const [alertMsg, setAlertMsg] = useState('')
+  const [autoMode, setAutoMode] = useState(true)
+  const [showDailyBrief, setShowDailyBrief] = useState(false)
+  const [showKycReviewer, setShowKycReviewer] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const {
+    invoke,
+    loading: orchestratorLoading,
+  } = useAgentOrchestrator(userId, 'admin')
+
+  const {
+    dailyBrief,
+    pendingKyc,
+    fraudAlerts,
+    loading: adminLoading,
+    error: adminError,
+    loadDailyBrief,
+    approveKyc,
+    rejectKyc,
+  } = useAdminAutoMode(userId)
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
   useEffect(() => { init(); loadKpi() }, [])
@@ -30,13 +64,33 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
   async function init() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const { data: sessions } = await supabase.from('companion_sessions').select('id').eq('user_id', session.user.id).eq('status', 'active').order('created_at', { ascending: false }).limit(1)
+    setUserId(session.user.id)
+
+    const { data: sessions } = await supabase
+      .from('companion_sessions')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+
     if (sessions?.length) {
       setSessionId(sessions[0].id)
-      const { data: msgs } = await supabase.from('companion_messages').select('*').eq('session_id', sessions[0].id).order('created_at', { ascending: true })
-      if (msgs?.length) { setMessages(msgs.map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.metadata?.actions }))); setShowQuick(false); return }
+      const { data: msgs } = await supabase
+        .from('companion_messages')
+        .select('*')
+        .eq('session_id', sessions[0].id)
+        .order('created_at', { ascending: true })
+      if (msgs?.length) {
+        setMessages(msgs.map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.metadata?.actions })))
+        setShowQuick(false)
+        return
+      }
     }
-    setMessages([{ id: 'welcome', role: 'assistant', content: 'Chào admin! 🛡️ Tôi là AI Analyst của bạn.\n\nTôi đang theo dõi:\n• 📈 Doanh thu và KPI hôm nay\n• 🔔 Anomalies trong hệ thống\n• 👥 Hoạt động users và workers\n• ⚠️ Vấn đề cần xử lý\n\nBạn muốn xem gì trước?' }])
+    setMessages([{
+      id: 'welcome', role: 'assistant',
+      content: 'Chào admin! 🛡️ Tôi là AI Analyst của bạn.\n\nTôi đang theo dõi:\n• 📈 Doanh thu và KPI hôm nay\n• 🔔 Anomalies trong hệ thống\n• 👥 Hoạt động users và workers\n• ⚠️ Vấn đề cần xử lý\n\nBạn muốn xem gì trước?',
+    }])
   }
 
   async function loadKpi() {
@@ -53,32 +107,163 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
     if (disputes > 0) setAlertMsg(`🚨 ${disputes} dispute cần xử lý`)
   }
 
+  const isActionableMessage = (msg: string) => {
+    const lower = msg.toLowerCase()
+    return ACTIONABLE_KEYWORDS.some(kw => lower.includes(kw))
+  }
+
   const sendMessage = useCallback(async (text?: string) => {
     const msg = text || input
     if (!msg.trim() || loading) return
-    setInput(''); setShowQuick(false)
+    setInput('')
+    setShowQuick(false)
     setMessages(prev => [...prev, { id: `u-${Date.now()}`, role: 'user', content: msg }])
     setLoading(true)
     const aiId = `ai-${Date.now()}`
     setMessages(prev => [...prev, { id: aiId, role: 'assistant', content: '...' }])
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
+
+      // Auto mode: try agent orchestrator for actionable messages
+      if (autoMode && isActionableMessage(msg) && userId) {
+        const lower = msg.toLowerCase()
+
+        // Daily brief intent
+        if (lower.includes('tóm tắt') || lower.includes('daily') || lower.includes('báo cáo') || lower.includes('dashboard')) {
+          await loadDailyBrief()
+          setShowDailyBrief(true)
+          setShowKycReviewer(false)
+          setMessages(prev => prev.map(m =>
+            m.id === aiId ? { ...m, content: '📊 Đây là tóm tắt hoạt động hôm nay:' } : m
+          ))
+          setLoading(false)
+          return
+        }
+
+        // KYC intent
+        if (lower.includes('kyc') || lower.includes('duyệt') || lower.includes('xác minh')) {
+          setShowKycReviewer(true)
+          setShowDailyBrief(false)
+          setMessages(prev => prev.map(m =>
+            m.id === aiId ? { ...m, content: `🪪 Có ${pendingKyc.length} KYC chờ duyệt. Xem danh sách bên dưới 👇` } : m
+          ))
+          setLoading(false)
+          return
+        }
+
+        // Fraud intent
+        if (lower.includes('fraud') || lower.includes('bất thường') || lower.includes('anomaly') || lower.includes('cảnh báo')) {
+          const plan = await invoke(msg)
+          if (plan) {
+            setMessages(prev => prev.map(m =>
+              m.id === aiId ? { ...m, content: '🚨 AI đang phân tích bất thường...' } : m
+            ))
+            setLoading(false)
+            return
+          }
+        }
+      }
+
+      // Fallback: use companion chat
       const res = await fetch(`${SUPABASE_URL}/functions/v1/companion/chat`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, session_id: sessionId, context: { user_id: session.user.id, persona: 'admin' } }),
+        body: JSON.stringify({
+          message: msg,
+          session_id: sessionId,
+          context: { user_id: session.user.id, persona: 'admin' },
+        }),
       })
       const data = await res.json()
       setSessionId(data.session_id)
-      setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: data.reply || '...', actions: data.actions } : m))
-      if (data.actions) { for (const a of data.actions) { if (['view_users', 'view_orders', 'view_disputes'].includes(a.type)) onAction?.(a) } }
-    } catch { setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: '⚠️ Lỗi kết nối. Vui lòng thử lại.' } : m))
-    } finally { setLoading(false) }
-  }, [input, loading, sessionId, onAction])
+      setMessages(prev => prev.map(m =>
+        m.id === aiId ? { ...m, content: data.reply || '...', actions: data.actions } : m
+      ))
+      if (data.actions) {
+        for (const a of data.actions) {
+          if (['view_users', 'view_orders', 'view_disputes'].includes(a.type)) onAction?.(a)
+        }
+      }
+    } catch {
+      setMessages(prev => prev.map(m =>
+        m.id === aiId ? { ...m, content: '⚠️ Lỗi kết nối. Vui lòng thử lại.' } : m
+      ))
+    } finally {
+      setLoading(false)
+    }
+  }, [input, loading, sessionId, onAction, autoMode, userId, invoke, pendingKyc.length, loadDailyBrief])
+
+  const handleApproveKyc = useCallback(async (kycId: string, score?: number) => {
+    const success = await approveKyc(kycId, score)
+    if (success) {
+      setMessages(prev => [...prev, {
+        id: `sys-${Date.now()}`,
+        role: 'system',
+        content: '✅ KYC đã được duyệt thành công!',
+      }])
+      loadKpi()
+    }
+  }, [approveKyc])
+
+  const handleRejectKyc = useCallback(async (kycId: string, reason: string) => {
+    const success = await rejectKyc(kycId, reason)
+    if (success) {
+      setMessages(prev => [...prev, {
+        id: `sys-${Date.now()}`,
+        role: 'system',
+        content: '❌ KYC đã bị từ chối.',
+      }])
+    }
+  }, [rejectKyc])
+
+  const toggleVoice = useCallback(() => {
+    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
+    if (!SR) { alert('Trình duyệt không hỗ trợ giọng nói'); return }
+
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+
+    const recognition = new SR()
+    recognition.lang = 'vi-VN'
+    recognition.continuous = false
+    recognition.interimResults = false
+
+    recognition.onresult = (event: any) => {
+      setInput(prev => prev + ' ' + event.results[0][0].transcript)
+      setIsListening(false)
+    }
+    recognition.onerror = () => setIsListening(false)
+    recognition.onend = () => setIsListening(false)
+
+    recognitionRef.current = recognition
+    recognition.start()
+    setIsListening(true)
+  }, [isListening])
+
+  const handleQuickAction = useCallback((query: string) => {
+    sendMessage(query)
+  }, [sendMessage])
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
+      {/* Auto/Manual toggle */}
+      <div className="px-3 py-1.5 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+        <span className="text-[10px] text-gray-500 uppercase font-bold">Chế độ AI</span>
+        <button
+          onClick={() => setAutoMode(!autoMode)}
+          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
+            autoMode ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-400'
+          }`}
+        >
+          {autoMode ? '🤖 Auto' : '💬 Manual'}
+        </button>
+      </div>
+
       {/* KPI Cards */}
       <div className="px-3 pt-3">
         <div className="grid grid-cols-5 gap-1.5">
@@ -104,26 +289,91 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 pb-4">
         {messages.map(msg => (
-          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[88%] p-3.5 rounded-2xl ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-sm shadow-md' : 'bg-gray-800 border border-gray-700 rounded-bl-sm shadow-sm'}`}>
-              {msg.role === 'assistant' && <div className="flex items-center gap-1.5 mb-1"><span className="text-lg">🛡️</span><span className="text-[10px] text-indigo-400 font-medium bg-indigo-900/50 px-2 py-0.5 rounded-full">AI Analyst</span></div>}
-              <p className={`text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'text-white' : 'text-gray-200'}`}>{msg.content}</p>
-              {msg.actions?.map((action, i) => (
-                <button key={i} onClick={() => { onAction?.(action); sendMessage(action.label) }}
-                  className={`mt-2 w-full py-2.5 px-4 rounded-xl text-xs font-semibold active:scale-[0.98] ${
-                    action.type === 'view_users' || action.type === 'view_orders' ? 'bg-indigo-500 text-white hover:bg-indigo-600'
-                    : action.type === 'view_payments' ? 'bg-amber-500 text-white hover:bg-amber-600'
-                    : action.type === 'view_disputes' ? 'bg-rose-500 text-white hover:bg-rose-600'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}>{action.label}</button>
-              ))}
-            </div>
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : msg.role === 'system' ? 'justify-center' : 'justify-start'}`}>
+            {msg.role === 'system' ? (
+              <div className="max-w-[90%] py-1.5 px-3 bg-gray-700 rounded-full text-xs text-gray-300">
+                {msg.content}
+              </div>
+            ) : (
+              <div className={`max-w-[88%] p-3.5 rounded-2xl ${
+                msg.role === 'user'
+                  ? 'bg-indigo-600 text-white rounded-br-sm shadow-md'
+                  : 'bg-gray-800 border border-gray-700 rounded-bl-sm shadow-sm'
+              }`}>
+                {msg.role === 'assistant' && (
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-lg">🛡️</span>
+                    <span className="text-[10px] text-indigo-400 font-medium bg-indigo-900/50 px-2 py-0.5 rounded-full">AI Analyst</span>
+                  </div>
+                )}
+                <p className={`text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'text-white' : 'text-gray-200'}`}>{msg.content}</p>
+                {msg.actions?.map((action, i) => (
+                  <button key={i} onClick={() => { onAction?.(action); sendMessage(action.label) }}
+                    className={`mt-2 w-full py-2.5 px-4 rounded-xl text-xs font-semibold active:scale-[0.98] ${
+                      action.type === 'view_users' || action.type === 'view_orders' ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                      : action.type === 'view_payments' ? 'bg-amber-500 text-white hover:bg-amber-600'
+                      : action.type === 'view_disputes' ? 'bg-rose-500 text-white hover:bg-rose-600'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}>{action.label}</button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
+
+        {/* Daily Brief widget */}
+        {showDailyBrief && (
+          <div className="animate-fade-in">
+            <AdminDailyBrief brief={dailyBrief} loading={adminLoading} />
+          </div>
+        )}
+
+        {/* KYC Reviewer widget */}
+        {showKycReviewer && (
+          <div className="animate-fade-in">
+            <AdminKycReviewer
+              applications={pendingKyc}
+              onApprove={handleApproveKyc}
+              onReject={handleRejectKyc}
+              loading={adminLoading}
+            />
+          </div>
+        )}
+
+        {/* Fraud alerts */}
+        {fraudAlerts.length > 0 && (
+          <div className="bg-red-900/30 border border-red-700 rounded-xl p-3">
+            <p className="text-xs text-red-300 font-bold mb-2">🚨 {fraudAlerts.length} cảnh báo fraud</p>
+            {fraudAlerts.slice(0, 3).map(alert => (
+              <div key={alert.id} className="flex items-center gap-2 py-1">
+                <span className={`w-2 h-2 rounded-full ${
+                  alert.severity === 'critical' ? 'bg-red-500' :
+                  alert.severity === 'high' ? 'bg-orange-500' :
+                  alert.severity === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                }`} />
+                <span className="text-xs text-gray-300">{alert.description}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Error */}
+        {adminError && (
+          <div className="flex justify-center">
+            <div className="py-1.5 px-3 bg-red-900/50 rounded-full text-xs text-red-300">
+              ⚠️ {adminError}
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div className="flex justify-start">
             <div className="bg-gray-800 border border-gray-700 rounded-2xl rounded-bl-sm px-4 py-3">
-              <div className="flex gap-1.5"><div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} /><div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} /><div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} /></div>
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
             </div>
           </div>
         )}
@@ -135,7 +385,7 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
         <div className="px-3 pb-2">
           <div className="grid grid-cols-3 gap-1.5">
             {ADMIN_ACTIONS.map(q => (
-              <button key={q.label} onClick={() => sendMessage(q.query)}
+              <button key={q.label} onClick={() => handleQuickAction(q.query)}
                 className="flex items-center gap-1.5 px-2 py-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl transition text-xs font-medium text-gray-300 hover:text-white shadow-sm">
                 <span className="text-base">{q.emoji}</span>
                 <span>{q.label}</span>
@@ -148,13 +398,22 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
       {/* Input */}
       <div className="border-t border-gray-700 bg-gray-800 px-3 py-2.5">
         <div className="flex items-center gap-1.5">
+          <button onClick={toggleVoice}
+            className={`p-2 rounded-xl transition shrink-0 ${isListening ? 'bg-red-900/50 text-red-300 animate-pulse' : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'}`}
+            title="Nhập bằng giọng nói">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </button>
           <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage())}
             placeholder="Nhập lệnh... (VD: Xem doanh thu hôm nay)"
             className="flex-1 px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
           <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
             className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition shrink-0 shadow-sm">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
           </button>
         </div>
       </div>

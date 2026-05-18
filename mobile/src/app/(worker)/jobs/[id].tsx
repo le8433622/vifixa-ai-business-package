@@ -331,7 +331,7 @@ export default function JobDetailScreen() {
               {job.status === 'matched' && (
                 <TouchableOpacity
                   style={[styles.button, styles.primaryButton]}
-                  onPress={() => updateStatus('in_progress')}
+                  onPress={() => handleStart()}
                   disabled={updating}
                 >
                   <Text style={styles.buttonText}>Bắt đầu làm việc</Text>
@@ -348,7 +348,17 @@ export default function JobDetailScreen() {
               )}
               <TouchableOpacity
                 style={[styles.button, styles.secondaryButton]}
-                onPress={() => updateStatus('cancelled')}
+                  onPress={() => {
+                    Alert.alert('Xác nhận hủy', 'Bạn có chắc muốn hủy việc này?', [
+                      { text: 'Không', style: 'cancel' },
+                      { text: 'Hủy việc', style: 'destructive', onPress: async () => {
+                        setUpdating(true)
+                        await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id)
+                        fetchJob()
+                        setUpdating(false)
+                      }},
+                    ])
+                  }}
                 disabled={updating}
               >
                 <Text style={[styles.buttonText, styles.secondaryButtonText]}>Hủy việc</Text>

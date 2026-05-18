@@ -71,10 +71,11 @@ export default function PaymentPage() {
           alert('Số dư không đủ. Vui lòng nạp thêm.')
           setStep('select'); setLoading(false); return
         }
+        if (!workerId) { alert('Chưa có thợ được chỉ định. Vui lòng đợi ghép thợ.'); setStep('select'); setLoading(false); return }
         const res = await fetch(`${SUPABASE_URL}/functions/v1/wallet-manager`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'escrow:hold', orderId, workerId: workerId || 'pending', amount }),
+          body: JSON.stringify({ action: 'escrow:hold', orderId, workerId, amount }),
         })
         const data = await res.json()
         if (data.status === 'pending') {
@@ -84,11 +85,11 @@ export default function PaymentPage() {
         return
       }
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/payment-process`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/payment-process/create`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'create', gateway: selectedGateway,
+          gateway: selectedGateway,
           order_id: orderId, amount,
           return_url: `${window.location.origin}/api/payments/vnpay/return`,
         }),

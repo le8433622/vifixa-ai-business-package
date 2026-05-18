@@ -3,7 +3,7 @@
 // TODO SEC-002: Add verifyAuth() — see agent.md Zero Tolerance Policy
 // Per Step 7: Trust & Quality - Task 7
 
-import { corsHeaders } from '../_shared/cors.ts';
+import { verifyInternalOrUser, jsonResponse, handleOptions, corsHeaders } from '../_shared/auth-helper.ts';
 
 interface WarrantyCheckRequest {
   order_id: string;
@@ -12,19 +12,11 @@ interface WarrantyCheckRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
+    const user = await verifyInternalOrUser(req, { maxRequests: 10, windowMs: 60000 });
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 

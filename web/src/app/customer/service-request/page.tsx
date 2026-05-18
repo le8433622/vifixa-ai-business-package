@@ -70,7 +70,7 @@ export default function ServiceRequestPage() {
       }
     }
 
-    // Create order directly (manual mode — bypass AI)
+    // Create order (manual mode — trigger AI estimate after creation)
     const { data: order, error } = await supabase.from('orders').insert({
       customer_id: session.user.id,
       category,
@@ -80,11 +80,20 @@ export default function ServiceRequestPage() {
       location_lng: lng,
       address,
       estimated_price: 0,
-      status: 'pending',
+      status: 'draft',
       metadata: { time_option: timeOption, scheduled_date: scheduledDate, scheduled_time: scheduledTime },
     }).select().single()
 
     if (error) { alert('Lỗi: ' + error.message); setSubmitting(false); return }
+
+    // Trigger AI diagnosis + estimate
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    fetch(`${supabaseUrl}/functions/v1/ai-auto-executor`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'auto_diagnose', data: { order_id: (order as any).id, category, description, media_urls: mediaUrls } }),
+    }).catch(() => {})
+
     router.push(`/customer/orders/${(order as any).id}`)
   }
 
@@ -93,7 +102,7 @@ export default function ServiceRequestPage() {
     if (!files?.length) return
     for (const f of Array.from(files)) {
       const reader = new FileReader()
-      reader.onload = ev => ev.target?.result && setImages(prev => [...prev, ev.target.result as string])
+      reader.onload = ev => { const t = ev?.target; if (!t?.result) return; setImages(prev => [...prev, t.result as string]) }
       reader.readAsDataURL(f)
     }
   }
