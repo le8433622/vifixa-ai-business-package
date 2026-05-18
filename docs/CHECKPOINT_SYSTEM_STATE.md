@@ -66,8 +66,8 @@
 |---|---|---|
 | Staging deployment smoke test | ✅ Done | Preview URL: https://web-pu1qx9hrf-le8433622-9187s-projects.vercel.app |
 | Supabase migrations on staging | ⚠️ Staging DB has different migration history | Needs repair or recreate |
-| RLS verification on real DB | ✅ 38/38 migrations applied | RLS fix migration `20260618000001` on prod |
-| Full E2E business flow | ⚠️ Framework works (30/32 pass) | 2 login failures — test users need manual creation in Supabase dashboard |
+| RLS verification on real DB | ✅ 110 tables with RLS | Verified via direct DB query on production — all tables covered |
+| Full E2E business flow | ⚠️ Framework works (30/32 pass) | 2 login failures — GoTrue API returns \"Database error saving new user\" — cần check Auth settings (\"Allow signups\" enabled?) trong Supabase dashboard |
 | VNPay sandbox | ✅ Keys received | TmnCode: 9PCXHWJ9, sandbox URL configured |
 | Stripe sandbox | ✅ Keys received | pk_test_ + sk_test_ received |
 | Sentry dashboard event | ❌ Sentry DSN not configured | Missing from Vercel env |
