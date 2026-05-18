@@ -59,6 +59,23 @@ export default function WorkerProfile() {
     if (!session) return
     await (supabase as any).from('profiles').update({ full_name: name, phone }).eq('id', session.user.id)
     await (supabase as any).from('workers').upsert({ id: session.user.id, skills, service_areas: areas, updated_at: new Date().toISOString() })
+    if (servicePolygon && servicePolygon.length >= 3) {
+      const geometry = {
+        type: 'Polygon',
+        coordinates: [[...servicePolygon.map(p => [p[1], p[0]]), [servicePolygon[0][1], servicePolygon[0][0]]]],
+      }
+      const centerLat = servicePolygon.reduce((s, p) => s + p[0], 0) / servicePolygon.length
+      const centerLng = servicePolygon.reduce((s, p) => s + p[1], 0) / servicePolygon.length
+      const fnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/service-area`
+      await fetch(`${fnUrl}/save`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ geometry, center_lat: centerLat, center_lng: centerLng, radius_km: 10 }),
+      })
+    }
     setSaving(false)
   }
 

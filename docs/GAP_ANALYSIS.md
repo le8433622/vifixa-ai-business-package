@@ -60,7 +60,7 @@ AI CORE (13 funcs)        MAP CORE (6 components)    PAYMENT CORE (VMD+USD)
 | ID | Gap |
 |----|-----|
 | GAP-P2-01 | Map marker clustering trên số lượng lớn (1000+) — (RESOLVED) MapWithClustering component exists ✅ |
-| GAP-P2-02 | Service area polygon containment trong matching |
+| GAP-P2-02 | Service area polygon containment trong matching | (RESOLVED) point_in_polygon RPC + service-area EF + ServiceAreaDrawer wires to DB ✅ |
 | GAP-P2-03 | Voice-first auto mode: nói thay vì gõ |
 | GAP-P2-04 | Multi-language VI → EN cho expansion — (RESOLVED) i18n EN dictionary expanded ✅ |
 | GAP-P2-05 | MCP Server: expose actions as MCP tools — (RESOLVED) mcp-server Edge Function ✅ |
@@ -145,17 +145,19 @@ AI CORE (13 funcs)        MAP CORE (6 components)    PAYMENT CORE (VMD+USD)
 | GAP-P2-06 | B2B dashboard | Phase 22 ✅ | /b2b page |
 | GAP-P2-07 | Invoice PDF | Phase 23 ✅ | invoice-generator Edge Function |
 | GAP-P2-08 | Dark mode | Phase 23 ✅ | ThemeProvider + animations |
-| GAP-P1-10 | Animations | Phase 23 ✅ | CSS animations in globals.css |
+| GAP-P1-10 | Animations | Phase 23 ✅ | CSS micro-animations in globals.css (page transitions still missing) |
+| GAP-P2-02 | Service area polygon | Phase 24 ✅ | ServiceAreaDrawer wires polygon to service-area EF → DB |
 
 ---
 
 ## Kết Luận
 
 - **10 P0 agentic gaps** — ✅ All resolved
-- **11 P1 gaps** — ✅ 10 resolved, 1 remaining (P1-10 animations)
-- **1 P1 remaining:** Animations (P1-10)
-- **8 P2 gaps** — ✅ 7 resolved, 1 remaining (P2-02 service area polygon, P2-03 voice)
+- **11 P1 gaps** — ✅ 10 resolved, 1 remaining (P1-10 page transition animations — CSS micro-animations done, full page transitions missing)
+- **1 P1 remaining:** Page transitions (P1-10)
+- **8 P2 gaps** — ✅ 7 resolved, 1 remaining (P2-03 voice-first auto mode)
+- **1 P2 remaining:** Voice-first auto mode (P2-03)
 - **6 P3 gaps** — Global expansion (Phase 23+)
-- **40 resolved gaps** — Agent OS → Dark Mode complete
+- **41 resolved gaps** — Agent OS → Service Area Polygon complete
 
-**Trạng thái:** Phases 17-22 (Agent OS → Monetization) implementation complete. Chuyển sang Phase 23: Global Platform.
+**Trạng thái:** Phases 17-22 (Agent OS → Monetization) implementation complete. GAP-P2-02 (service area polygon) resolved. P1-10 (page transitions) and P2-03 (voice-first auto mode) remain for next phase.
