@@ -1,6 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
+import { SkeletonTable } from '@/components/ui/Skeleton'
 
 interface LedgerEntry {
   id?: string
@@ -24,10 +25,8 @@ export default function TransactionList({ entries, loading, currency = 'VND' }: 
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-12 bg-gray-200 rounded" />
-        ))}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <SkeletonTable rows={5} cols={3} />
       </div>
     )
   }

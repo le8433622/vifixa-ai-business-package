@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Skeleton from '@/components/ui/Skeleton'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
@@ -80,7 +81,7 @@ export default function AISettings() {
   }
 
   if (loading) {
-    return <div className="max-w-5xl mx-auto"><div className="animate-pulse h-96 bg-gray-100 rounded-lg" /></div>
+    return <div className="max-w-5xl mx-auto"><Skeleton variant="rect" height="384px" className="rounded-lg" /></div>
   }
 
   return (

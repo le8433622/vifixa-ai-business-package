@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Skeleton from '@/components/ui/Skeleton'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import type { FeatureFlag } from '@/types/featureFlags'
@@ -107,9 +108,9 @@ export default function FeaturesSettings() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Feature Flags</h1>
         </div>
-        <div className="animate-pulse space-y-4">
+        <div className="space-y-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-20 rounded-lg" />
+            <Skeleton key={i} variant="rect" height="80px" className="rounded-lg" />
           ))}
         </div>
       </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import Skeleton from '@/components/ui/Skeleton'
+
 interface VFCData {
   balance: number
   tier: string
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export default function VFCBadge({ data, loading }: Props) {
-  if (loading) return <div className="animate-pulse h-16 bg-gray-100 rounded-xl" />
+  if (loading) return <div className="h-16"><Skeleton variant="rect" height="64px" className="rounded-xl" /></div>
   if (!data) return null
 
   const tier = TIER_CONFIG[data.tier] || TIER_CONFIG.bronze

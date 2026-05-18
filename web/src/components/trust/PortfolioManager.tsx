@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Skeleton from '@/components/ui/Skeleton'
 
 interface PortfolioItem {
   id: string
@@ -86,7 +87,7 @@ export default function PortfolioManager({ workerId }: Props) {
     load()
   }
 
-  if (loading) return <div className="animate-pulse h-20 bg-gray-100 rounded-xl" />
+  if (loading) return <Skeleton variant="rect" height="80px" className="rounded-xl" />
 
   return (
     <div className="space-y-4">

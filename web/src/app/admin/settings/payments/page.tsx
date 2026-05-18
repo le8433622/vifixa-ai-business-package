@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import Skeleton from '@/components/ui/Skeleton'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import type { GatewayConfig } from '@/types/paymentGateway'
@@ -82,9 +83,9 @@ export default function PaymentsSettings() {
             ← Back to Settings
           </Link>
         </div>
-        <div className="animate-pulse space-y-3">
+        <div className="space-y-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="bg-gray-200 h-20 rounded-lg" />
+            <Skeleton key={i} variant="rect" height="80px" className="rounded-lg" />
           ))}
         </div>
       </div>

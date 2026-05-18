@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Skeleton, { SkeletonTable } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/Toast'
 import type { GatewayConfig, GatewayKeys } from '@/types/paymentGateway'
 
@@ -155,9 +156,9 @@ export default function GatewayConfig() {
     switch (key) {
       case 'vnpay':
         return [
-          { key: 'tmn_code', label: 'TMN Code' },
-          { key: 'secret_key', label: 'Secret Key' },
-          { key: 'return_url', label: 'Return URL' },
+          { key: 'tmnCode', label: 'TMN Code' },
+          { key: 'secretKey', label: 'Secret Key' },
+          { key: 'returnUrl', label: 'Return URL' },
         ]
       case 'momo':
         return [
@@ -185,13 +186,11 @@ export default function GatewayConfig() {
     return (
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <div className="h-8 bg-gray-200 rounded w-64 animate-pulse" />
-          <div className="h-8 bg-gray-200 rounded w-32 animate-pulse" />
+          <Skeleton variant="text" width="256px" className="h-8" />
+          <Skeleton variant="text" width="128px" className="h-8" />
         </div>
         <div className="bg-white rounded-lg shadow p-6 space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 bg-gray-200 rounded animate-pulse" />
-          ))}
+          <SkeletonTable rows={3} cols={1} />
         </div>
       </div>
     )

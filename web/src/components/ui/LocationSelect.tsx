@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Skeleton from '@/components/ui/Skeleton'
 
 interface Division {
   code: string
@@ -125,7 +126,7 @@ export default function LocationSelect({ value, onChange, showWard = true, disab
   }
 
   if (loading) {
-    return <div className="h-10 bg-gray-100 rounded animate-pulse" />
+    return <Skeleton variant="rect" height="40px" className="rounded" />
   }
 
   return (

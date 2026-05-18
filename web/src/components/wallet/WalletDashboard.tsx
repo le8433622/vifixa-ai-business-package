@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Skeleton from '@/components/ui/Skeleton'
 import DepositModal from './DepositModal'
 import WithdrawModal from './WithdrawModal'
 import TransactionHistory from './TransactionHistory'
@@ -64,7 +65,7 @@ export default function WalletDashboard({ userId, role }: { userId: string; role
     if (result.projectedRate) setProjectedRate(result.projectedRate)
   }
 
-  if (loading) return <div className="animate-pulse h-32 bg-gray-800 rounded-xl" />
+  if (loading) return <Skeleton variant="rect" height="128px" className="rounded-xl !bg-gray-800" />
 
   const wallets = data?.wallets || { txn: 0, stake: 0, reward: 0, treasury: 0 }
   const vfc = data?.vfc || { balance: 0, tier: 'bronze', multiplier: 1.0 }

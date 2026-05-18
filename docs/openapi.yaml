@@ -1,0 +1,139 @@
+openapi: "3.0.3"
+info:
+  title: Vifixa AI API
+  description: API for Vifixa AI — companion, payment, map, and worker management
+  version: "1.0.0"
+servers:
+  - url: https://api.vifixa.ai/v1
+    description: Production
+  - url: https://staging.api.vifixa.ai/v1
+    description: Staging
+paths:
+  /companion/chat:
+    post:
+      summary: Send a chat message to AI companion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                session_id:
+                  type: string
+                persona:
+                  type: string
+                  enum: [customer, worker, admin]
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: string
+                  actions:
+                    type: array
+                    items:
+                      type: object
+                  plan_preview:
+                    type: object
+  /companion/memory:
+    post:
+      summary: Save a memory entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key:
+                  type: string
+                value:
+                  type: string
+                category:
+                  type: string
+      responses:
+        "200":
+          description: Memory saved
+  /pricing-surge:
+    post:
+      summary: Calculate dynamic surge pricing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                service_type:
+                  type: string
+                district:
+                  type: string
+                currency:
+                  type: string
+                  default: VND
+      responses:
+        "200":
+          description: Surge price calculation
+  /geo/match:
+    post:
+      summary: Match workers to a location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                lng:
+                  type: number
+                service_type:
+                  type: string
+                radius_km:
+                  type: number
+      responses:
+        "200":
+          description: Matched workers list
+  /wallet/balance:
+    get:
+      summary: Get wallet balance
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wallet balance
+  /service-area/check:
+    post:
+      summary: Check if location is in service area
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                lng:
+                  type: number
+      responses:
+        "200":
+          description: In-service check result
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy

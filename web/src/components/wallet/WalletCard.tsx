@@ -1,5 +1,7 @@
 'use client'
 
+import Skeleton from '@/components/ui/Skeleton'
+
 interface WalletCardProps {
   balance: number
   locked: number
@@ -14,10 +16,10 @@ export default function WalletCard({ balance, locked, available, currency = 'VND
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-24 mb-4" />
-        <div className="h-8 bg-gray-200 rounded w-40 mb-3" />
-        <div className="h-4 bg-gray-200 rounded w-32" />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <Skeleton variant="text" width="96px" className="mb-4" />
+        <Skeleton variant="rect" width="160px" height="32px" className="mb-3 rounded" />
+        <Skeleton variant="text" width="128px" />
       </div>
     )
   }

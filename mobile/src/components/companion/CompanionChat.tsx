@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import AvailableWorkersMap from '@/components/map/AvailableWorkersMap';
+import VoiceButton from './VoiceButton';
 
 interface Message {
   id: string;
@@ -312,6 +313,7 @@ export default function CompanionChat({ persona, onAction, placeholder, onPerson
           >
             <Text style={styles.imageButtonText}>📷</Text>
           </TouchableOpacity>
+          <VoiceButton onTranscript={(t) => setInput(t)} disabled={loading} />
           <TextInput
             style={styles.textInput}
             value={input}

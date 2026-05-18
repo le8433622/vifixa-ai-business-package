@@ -4,6 +4,7 @@
 'use client'
 
 import { useFeatureFlag } from '@/hooks/useFeatureFlag'
+import Skeleton from '@/components/ui/Skeleton'
 import type { FeatureFlagGuardProps } from '@/types/featureFlags'
 
 export function FeatureGuard({ flag, fallback, children }: FeatureFlagGuardProps) {
@@ -12,8 +13,8 @@ export function FeatureGuard({ flag, fallback, children }: FeatureFlagGuardProps
   // Loading state
   if (loading) {
     return (
-      <div className="animate-pulse bg-gray-100 rounded p-4 text-center text-gray-400">
-        Loading...
+      <div className="bg-gray-100 rounded p-4 text-center text-gray-400">
+        <Skeleton variant="text" width="60%" className="mx-auto" />
       </div>
     )
   }

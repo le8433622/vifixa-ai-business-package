@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import Skeleton from '@/components/ui/Skeleton'
 import { useToast } from '@/components/Toast'
 
 interface AppSetting {
@@ -101,9 +102,9 @@ export default function GeneralSettings() {
     return (
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">General Settings</h1>
-        <div className="animate-pulse space-y-4">
+        <div className="space-y-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-gray-200 h-16 rounded-lg" />
+            <Skeleton key={i} variant="rect" height="64px" className="rounded-lg" />
           ))}
         </div>
       </div>

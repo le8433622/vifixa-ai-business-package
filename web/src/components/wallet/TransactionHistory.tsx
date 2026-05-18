@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import Skeleton from '@/components/ui/Skeleton'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -33,7 +34,7 @@ export default function TransactionHistory() {
     setLoading(false)
   }
 
-  if (loading) return <div className="animate-pulse h-20 bg-gray-100 rounded-xl" />
+  if (loading) return <Skeleton variant="rect" height="80px" className="rounded-xl" />
 
   return (
     <div>

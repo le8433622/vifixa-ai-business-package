@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Activity
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import VoiceButton from './VoiceButton';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
@@ -91,6 +92,7 @@ export default function WorkerCompanionChat({ onAction }: { onAction?: (action: 
         </View>
       )}
       <View style={styles.inputBar}>
+        <VoiceButton onTranscript={(t) => setInput(t)} disabled={loading} />
         <TextInput value={input} onChangeText={setInput} placeholder="VD: Có job nào không?" style={styles.input}
           onSubmitEditing={() => sendMessage()} />
         <TouchableOpacity onPress={() => sendMessage()} disabled={loading || !input.trim()} style={[styles.sendBtn, (loading || !input.trim()) && { opacity: 0.5 }]}>
