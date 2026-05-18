@@ -15,8 +15,6 @@ import {
 
 // Import all gateways to register them
 import '../_shared/gateways/vnpay.ts'
-import '../_shared/gateways/momo.ts'
-import '../_shared/gateways/zalopay.ts'
 import '../_shared/gateways/stripe.ts'
 import '../_shared/gateways/mock.ts'
 import {
@@ -64,32 +62,33 @@ Deno.serve(async (req: Request) => {
 
   // Route handling based on path
   const url = new URL(req.url)
-  const path = url.pathname.replace('/functions/v1/payment-process', '')
+  const path = url.pathname
   
   try {
     // POST /create - Create a payment
-    if (path === '/create' && req.method === 'POST') {
+    if (path.includes('/create') && req.method === 'POST') {
       return await handleCreatePayment(req, supabase)
     }
 
     // POST /webhook/:gateway - Handle webhook
-    if (path.startsWith('/webhook/') && req.method === 'POST') {
-      const gatewayName = path.split('/')[2]
+    if (path.includes('/webhook') && req.method === 'POST') {
+      const parts = path.split('/')
+      const gatewayName = parts[parts.indexOf('webhook') + 1] || parts[parts.length - 1]
       return await handleWebhook(req, supabase, gatewayName)
     }
 
     // GET /status - Get payment status
-    if (path === '/status' && req.method === 'GET') {
+    if (path.includes('/status') && req.method === 'GET') {
       return await handleGetStatus(req, supabase)
     }
 
     // POST /refund - Refund payment
-    if (path === '/refund' && req.method === 'POST') {
+    if (path.includes('/refund') && req.method === 'POST') {
       return await handleRefund(req, supabase)
     }
 
     // GET /gateways - List available gateways (admin only)
-    if (path === '/gateways' && req.method === 'GET') {
+    if (path.includes('/gateways') && req.method === 'GET') {
       return await handleListGateways(req, supabase)
     }
 

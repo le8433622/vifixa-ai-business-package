@@ -3,7 +3,7 @@
 // Inspired by Stripe API, Adyen unified API, PayStack plugin pattern
 
 // ========== CORE TYPES ==========
-export type GatewayName = 'vnpay' | 'momo' | 'zalopay' | 'stripe' | 'mock'
+export type GatewayName = 'vnpay' | 'stripe' | 'mock'
 
 export interface Money {
   amount: number       // smallest unit (VND: 1000 = 1000, USD: cents)
@@ -67,7 +67,7 @@ export interface CreatePaymentResponse {
   status: PaymentStatus
   redirectUrl?: string       // URL to redirect user to gateway
   qrCode?: string            // QR code data (for QR payment)
-  deepLink?: string          // Mobile app deep link (MoMo)
+  deepLink?: string          // Mobile app deep link
   raw: any                    // Full response from gateway (debug)
 }
 

@@ -1,7 +1,7 @@
 // TypeScript types and interfaces for Payment Gateway System
 
 // ========== Gateway Configuration ==========
-export type GatewayName = 'vnpay' | 'momo' | 'zalopay' | 'stripe' | 'mock'
+export type GatewayName = 'vnpay' | 'stripe' | 'mock'
 
 export interface GatewayKeys {
   [key: string]: string

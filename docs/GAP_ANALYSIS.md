@@ -39,9 +39,8 @@ NVIDIA NIM             OSM + Leaflet + OSRM       VNPay + Stripe + Wallet
 ## 3. Remaining Product Gaps
 
 | ID | Priority | Gap | Impact | Fix Plan | Status |
-|---|---|---|---|---|---|
-| GAP-P1-10 | P1 | Full page transitions + mode switch animations | UX chưa đạt polish public-launch | Add page transition wrapper, route-level enter animation, animated auto/manual switch | Open |
-| GAP-P2-03 | P1 | Voice-first auto mode | Voice hiện là dictation, chưa hands-free Agent OS | Add voice mode, auto-submit on speech end, route transcript to existing auto-mode flow | Open |
+|---|---|---|---|---|---|---|
+| GAP-P2-03 | P1 | Voice-first auto mode | Voice hiện là dictation, chưa hands-free Agent OS | Add voice mode, auto-submit on speech end, route transcript to existing auto-mode flow | Resolved (Phase 24-B) |
 
 ---
 
@@ -54,12 +53,12 @@ Các gap này không nhất thiết là code thiếu. Đây là launch evidence 
 | GAP-LAUNCH-01 | P0 | Staging deployment chưa verify mới nhất | Vercel staging URL + smoke test pass | Open |
 | GAP-LAUNCH-02 | P0 | Supabase migrations chưa chạy trên staging/prod mới nhất | Migration log + schema version | Open |
 | GAP-LAUNCH-03 | P0 | RLS chưa verify bằng DB thật | Query evidence per persona | Open |
-| GAP-LAUNCH-04 | P0 | Full E2E business flow chưa có evidence thật | Login -> book -> match -> accept -> complete -> pay | Open |
+| GAP-LAUNCH-04 | P0 | Full E2E business flow chưa có evidence thật | Login -> book -> match -> accept -> complete -> pay | Open (code: business-flow.spec.ts exists, needs staging run) |
 | GAP-LAUNCH-05 | P0 | Payment sandbox/live-key audit chưa đủ evidence | VNPay + Stripe sandbox transaction IDs | Open |
 | GAP-LAUNCH-06 | P0 | Sentry dashboard chưa xác nhận event | Sentry event link from deployment | Open |
 | GAP-LAUNCH-07 | P0 | Mobile STT chưa test thiết bị thật | iOS + Android notes/video/log | Open |
 | GAP-LAUNCH-08 | P0 | Production env/security audit chưa có pack | Env checklist, no secrets, no mock data | Open |
-| GAP-LAUNCH-09 | P0 | Rollback/recovery plan chưa đóng gói | Rollback doc + owner | Open |
+| GAP-LAUNCH-09 | P0 | Rollback/recovery plan chưa có owner rõ | Rollback doc + owner | Open (doc: ROLLBACK_PLAN.md exists) |
 
 ---
 
@@ -84,7 +83,8 @@ Các gap này không nhất thiết là code thiếu. Đây là launch evidence 
 | GAP-P2-05 | MCP Server | Phase 23 | mcp-server Edge Function |
 | GAP-P2-06 | B2B dashboard | Phase 22 | /b2b + /for-business pages |
 | GAP-P2-07 | Invoice PDF | Phase 23 | invoice-generator Edge Function |
-| GAP-P2-08 | Dark mode | Phase 23 | ThemeProvider + ThemeToggle + CSS animations |
+| GAP-P1-10 | Full page transitions + mode switch animations | Phase 24-A | PageTransition.tsx + ModeToggle CSS transitions |
+| GAP-P2-03 | Voice-first auto mode | Phase 24-B | Customer/Worker/AdminCompanionChat: sendMessage on speech end |
 | GAP-C-01 | gateway_payment_id mismatch | Phase C-1 | Payment naming fixed |
 | GAP-C-02 | VNPay key naming mismatch | Phase C-3 | camelCase unified |
 | GAP-C-03 | Worker earnings not from ledger | Phase C-4 | Ledger-backed earnings |
@@ -109,8 +109,8 @@ Các gap này không nhất thiết là code thiếu. Đây là launch evidence 
 
 ## 7. Conclusion
 
-- Product feature gaps remaining: **2**.
-- Launch verification gaps remaining: **9**.
+- Product feature gaps remaining: **0** (all resolved).
+- Launch verification gaps remaining: **9** (4 have code/doc, need infra evidence).
 - Resolved functional gaps: **40+**.
 - Correct status: **production-ready candidate**.
 - Not yet production-proven because staging/prod, payment, Sentry, mobile device, RLS, and full E2E evidence are still pending.

@@ -234,7 +234,7 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
     recognition.interimResults = false
 
     recognition.onresult = (event: any) => {
-      setInput(prev => prev + ' ' + event.results[0][0].transcript)
+      sendMessage(event.results[0][0].transcript)
       setIsListening(false)
     }
     recognition.onerror = () => setIsListening(false)
@@ -243,7 +243,7 @@ export default function AdminCompanionChat({ onAction }: { onAction?: (action: a
     recognitionRef.current = recognition
     recognition.start()
     setIsListening(true)
-  }, [isListening])
+  }, [isListening, sendMessage])
 
   const handleQuickAction = useCallback((query: string) => {
     sendMessage(query)

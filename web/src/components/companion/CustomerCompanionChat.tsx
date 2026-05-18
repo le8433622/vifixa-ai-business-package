@@ -238,7 +238,7 @@ export default function CustomerCompanionChat({ onAction }: { onAction?: (action
     recognition.interimResults = false
 
     recognition.onresult = (event: any) => {
-      setInput(prev => prev + ' ' + event.results[0][0].transcript)
+      sendMessage(event.results[0][0].transcript)
       setIsListening(false)
     }
     recognition.onerror = () => setIsListening(false)
@@ -247,7 +247,7 @@ export default function CustomerCompanionChat({ onAction }: { onAction?: (action
     recognitionRef.current = recognition
     recognition.start()
     setIsListening(true)
-  }, [isListening])
+  }, [isListening, sendMessage])
 
   const handleRejectPlan = useCallback(async () => {
     if (!pendingPlan) return

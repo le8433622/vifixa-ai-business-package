@@ -23,7 +23,7 @@ Deno.serve(async (req: Request) => {
     const { data: config } = await supabase
       .from('gateway_configs').select('sandbox_keys').eq('key', 'vnpay').single()
     
-    const secretKey = config?.sandbox_keys?.secretKey
+    const secretKey = config?.sandboxKeys?.secretKey
     if (!secretKey) throw new Error('VNPay secret key not configured')
 
     // Build signature string

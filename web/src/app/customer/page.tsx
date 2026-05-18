@@ -46,18 +46,25 @@ export default function CustomerDashboard() {
   }, [])
 
   async function init() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-    setUserId(session.user.id)
+      setUserId(session.user.id)
 
-    const [profileRes, devicesRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-      supabase.from('device_profiles').select('*').eq('user_id', session.user.id),
-    ])
-    setProfile(profileRes.data)
-    setDevices((devicesRes.data || []) as Device[])
-    setLoading(false)
+      const [profileRes, devicesRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+        supabase.from('device_profiles').select('*').eq('user_id', session.user.id),
+      ])
+      if (profileRes.error) console.error('Profile fetch error:', profileRes.error)
+      if (devicesRes.error) console.error('Devices fetch error:', devicesRes.error)
+      setProfile(profileRes.data)
+      setDevices((devicesRes.data || []) as Device[])
+    } catch (err) {
+      console.error('CustomerDashboard init failed:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ─── DERIVED ────────────────────────────────────────────

@@ -24,10 +24,13 @@
 |-------|--------|
 | Next.js build (72 routes) | ✅ 0 errors |
 | Deno tests (71 tests) | ✅ 71/71 pass |
-| SQL migrations | 32 committed |
+| Vitest (web) | ✅ 33/33 pass |
+| Mobile tsc | ✅ 0 errors |
+| SQL migrations | 38 committed (37 on remote) |
 | RLS | ✅ All tables |
+| Vercel deploy | ✅ https://web-eta-ochre-99.vercel.app |
+| Supabase prod | ✅ lipjakzhzosrhttsltwo.supabase.co |
 | P0 resolved | 21/21 |
-| CI/CD | ✅ All green |
 
 ## Gap Analysis
 - Source of truth: `docs/GAP_ANALYSIS.md`, `docs/FLOWCHART.md`
@@ -60,6 +63,7 @@
 23. Dark Mode — ThemeProvider + ThemeToggle + CSS animations
 24. Invoice Generator — PDF invoice for orders
 25. Pricing Surge — Dynamic pricing based on demand vs supply
+26. Production Launch — Supabase migrations (37/37), Vercel deploy, RLS 100%, page transitions, E2E business flow, rollback plan
 
 ## References
 - `vifixa-ai-v4` repo = backup archive (don't modify)

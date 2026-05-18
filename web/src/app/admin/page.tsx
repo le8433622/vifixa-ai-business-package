@@ -21,31 +21,35 @@ export default function AdminDashboard() {
   useEffect(() => { loadStats() }, [])
 
   async function loadStats() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-    setUserId(session.user.id)
+      setUserId(session.user.id)
 
-    const [uRes, wRes, oRes, dRes] = await Promise.all([
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('workers').select('id', { count: 'exact', head: true }),
-      supabase.from('orders').select('estimated_price,status'),
-      supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-    ])
+      const [uRes, wRes, oRes, dRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('workers').select('id', { count: 'exact', head: true }),
+        supabase.from('orders').select('estimated_price,status'),
+        supabase.from('complaints').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      ])
 
-    const orders = (oRes.data || []) as any[]
-    const revenue = orders.filter((o: any) => o.status === 'completed')
-      .reduce((s: number, o: any) => s + (o.estimated_price || 0), 0)
+      const orders = (oRes.data || []) as any[]
+      const revenue = orders.filter((o: any) => o.status === 'completed')
+        .reduce((s: number, o: any) => s + (o.estimated_price || 0), 0)
 
-    setStats({
-      users: uRes.count || 0,
-      workers: wRes.count || 0,
-      orders: orders.length,
-      revenue,
-      disputes: dRes.count || 0,
-    })
-
-    setLoading(false)
+      setStats({
+        users: uRes.count || 0,
+        workers: wRes.count || 0,
+        orders: orders.length,
+        revenue,
+        disputes: dRes.count || 0,
+      })
+    } catch (err) {
+      console.error('AdminDashboard loadStats failed:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleAction = useCallback((action: any) => {

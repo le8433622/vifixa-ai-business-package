@@ -165,18 +165,6 @@ export default function GatewayConfig() {
           { key: 'secretKey', label: 'Secret Key' },
           { key: 'returnUrl', label: 'Return URL' },
         ]
-      case 'momo':
-        return [
-          { key: 'partner_code', label: 'Partner Code' },
-          { key: 'access_key', label: 'Access Key' },
-          { key: 'secret_key', label: 'Secret Key' },
-        ]
-      case 'zalopay':
-        return [
-          { key: 'app_id', label: 'App ID' },
-          { key: 'key1', label: 'Key 1' },
-          { key: 'key2', label: 'Key 2' },
-        ]
       case 'stripe':
         return [
           { key: 'publishable_key', label: 'Publishable Key' },

@@ -16,7 +16,7 @@ interface CurrencyContextType {
   currency: CurrencyCode
   setCurrency: (c: CurrencyCode) => void
   rates: Record<string, number>
-  convert: (amount: number, from: CurrencyCode) => number
+  convert: (amount: number, from?: CurrencyCode) => number
   format: (amount: number, target?: CurrencyCode) => string
   availableCurrencies: CurrencyCode[]
 }

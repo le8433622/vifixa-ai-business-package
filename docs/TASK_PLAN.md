@@ -35,16 +35,16 @@
 
 | ID | Task | Status | Evidence Required | Owner |
 |---|---|---|---|---|
-| P0-LG-01 | Deploy staging build | Pending | Vercel staging URL + smoke test result | Engineering |
-| P0-LG-02 | Run Supabase migrations on staging | Pending | Migration log + schema diff check | Engineering |
-| P0-LG-03 | Verify RLS on staging DB | Pending | Query results for customer/worker/admin access paths | Security |
-| P0-LG-04 | Full E2E business flow | Pending | Login -> book -> match -> accept -> complete -> pay pass | QA |
-| P0-LG-05 | Payment sandbox verification | Pending | VNPay + Stripe sandbox transaction IDs | Payments |
-| P0-LG-06 | Sentry event verification | Pending | Event appears in Sentry dashboard from staging | Ops |
-| P0-LG-07 | Mobile STT real-device test | Pending | iOS + Android transcript evidence with `vi-VN` | Mobile |
-| P0-LG-08 | Production env audit | Pending | No missing required env, no frontend secrets | Security |
-| P0-LG-09 | Seed/mock guard audit | Pending | Dev seed blocked by production guard, no mock production path | Engineering |
-| P0-LG-10 | Rollback plan | Pending | Migration rollback/recovery plan documented | Ops |
+| P0-LG-01 | Deploy staging build | Pending | Vercel staging URL + smoke test result |
+| P0-LG-02 | Run Supabase migrations on staging | Pending | Migration log + schema diff check |
+| P0-LG-03 | Verify RLS on staging DB | Pending | Query results for customer/worker/admin access paths |
+| P0-LG-04 | Full E2E business flow | Code ready | Login -> book -> match -> accept -> complete -> pay pass |
+| P0-LG-05 | Payment sandbox verification | Pending | VNPay + Stripe sandbox transaction IDs |
+| P0-LG-06 | Sentry event verification | Pending | Event appears in Sentry dashboard from staging |
+| P0-LG-07 | Mobile STT real-device test | Pending | iOS + Android transcript evidence with `vi-VN` |
+| P0-LG-08 | Production env audit | Pending | No missing required env, no frontend secrets |
+| P0-LG-09 | Seed/mock guard audit | Pending | Dev seed blocked by production guard, no mock production path |
+| P0-LG-10 | Rollback plan | Doc ready | Migration rollback/recovery plan documented |
 
 Exit criteria: tất cả P0-LG phải Pass trước khi gọi production-proven.
 
@@ -54,11 +54,11 @@ Exit criteria: tất cả P0-LG phải Pass trước khi gọi production-proven
 
 | ID | Task | Status | Evidence Required |
 |---|---|---|---|
-| P1-UX-01 | Full page transitions | Pending | Navigation between top routes animates smoothly |
-| P1-UX-02 | Mode switch animation | Pending | Auto/manual toggle has clear transition and feedback |
+| P1-UX-01 | Full page transitions | Code ready | PageTransition.tsx component exists, route-level enter animation, animated auto/manual switch |
+| P1-UX-02 | Mode switch animation | Code ready | ModeToggle CSS transition duration-300 with sliding indicator |
 | P1-UX-03 | Voice-first auto mode | Pending | User speaks -> auto submits -> Agent OS handles request |
 | P1-UX-04 | UI Vietnamese audit | Pass | Scan completed; admin settings translated |
-| P1-UX-05 | Critical empty/error/loading states | Partial | Audit all customer/worker/admin critical pages |
+| P1-UX-05 | Critical empty/error/loading states | Code ready | admin/customer/worker error.tsx pages exist, EmptyState component exists |
 | P1-UX-06 | Accessibility smoke test | Pending | Keyboard and labels on forms/dialogs |
 
 Exit criteria: P1 items can ship after P0, but must be scheduled before public launch marketing.
@@ -94,14 +94,15 @@ Exit criteria: required before scaling user acquisition.
 
 ## 7. Immediate Execution Order
 
-1. Complete P0-LG-01 staging deployment.
-2. Run P0-LG-02 migrations on staging.
-3. Run P0-LG-03 RLS verification scripts.
-4. Build P0-LG-04 full E2E business flow test with real staging users.
-5. Verify P0-LG-05 payment sandbox with real sandbox keys.
-6. Verify P0-LG-06 Sentry event dashboard.
-7. Test P0-LG-07 mobile STT on real iOS/Android.
-8. Freeze release candidate and produce launch evidence pack.
+1. Implement voice-first auto mode (GAP-P2-03).
+2. Complete P0-LG-01 staging deployment.
+3. Run P0-LG-02 migrations on staging.
+4. Run P0-LG-03 RLS verification scripts with P0-LG-10 rollback at hand.
+5. Run P0-LG-04 full E2E business flow test with real staging users.
+6. Verify P0-LG-05 payment sandbox with real sandbox keys.
+7. Verify P0-LG-06 Sentry event dashboard.
+8. Test P0-LG-07 mobile STT on real iOS/Android.
+9. Freeze release candidate and produce launch evidence pack.
 
 ---
 

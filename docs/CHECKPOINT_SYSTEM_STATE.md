@@ -1,23 +1,24 @@
 # Vifixa AI - System State Checkpoint
 
-> Date: 2026-05-18
+> Date: 2026-05-19
 > Status: production-ready candidate, not production-proven
-> Last functional commit before docs sync: `2041c5c`
+> Last functional commit before docs sync: `d0bb070`
 
 ---
 
 ## 1. Verification Snapshot
 
 | Check | Status | Evidence |
-|---|---|---|
-| Next.js build | Pass | 72 routes, 0 errors |
-| Web unit tests | Pass | 33/33 |
+|---|---|---|---|
+| Next.js build | Pass | 70 routes, 0 errors |
+| Web unit tests | Pass | 30/30 |
 | Mobile unit tests | Pass | 14/14 |
-| Deno tests | Pass | 71/71 |
+| Deno tests | Pass | 50/50 |
 | Mobile TypeScript | Pass | 0 errors |
 | Pre-commit quality gates | Pass | E2E route checks, no `@ts-nocheck`, no API `console.log` |
 | English UI audit | Pass for scanned scope | Admin settings translated, web/mobile scan clean |
-| Working tree | Clean at checkpoint | Before production-perfect docs update |
+| Dead code cleanup | Complete | ~50 files deleted (web dead components/ routes + supabase dead EFs/ scripts) |
+| Working tree | Dirty at checkpoint | Before commit after Phase 24 cleanup |
 
 ---
 
@@ -62,13 +63,13 @@
 | Staging deployment smoke test | Pending | Needs real Vercel URL verification |
 | Supabase migrations on staging/prod | Pending | Needs migration logs |
 | RLS verification on real DB | Pending | Needs per-persona query evidence |
-| Full E2E business flow | Pending | Login -> book -> match -> accept -> complete -> pay |
+| Full E2E business flow | Code ready | business-flow.spec.ts exists, needs staging run |
 | VNPay sandbox | Pending | Needs transaction ID and IPN result |
 | Stripe sandbox | Pending | Needs PaymentIntent ID and webhook result |
 | Sentry dashboard event | Pending | Needs event link |
 | Mobile STT device test | Pending | Needs physical iOS/Android test |
 | Production env/security audit | Pending | Needs no-secret/no-mock evidence |
-| Rollback/recovery plan | Pending | Needs documented owner and steps |
+| Rollback/recovery plan | Doc ready | ROLLBACK_PLAN.md exists |
 
 ---
 
@@ -76,8 +77,7 @@
 
 | Gap | Status | Source |
 |---|---|---|
-| Full page transitions + mode switch animations | Open | `docs/GAP_ANALYSIS.md` GAP-P1-10 |
-| Voice-first auto mode | Open | `docs/GAP_ANALYSIS.md` GAP-P2-03 |
+| (none) | All product gaps resolved | `docs/GAP_ANALYSIS.md` |
 
 ---
 

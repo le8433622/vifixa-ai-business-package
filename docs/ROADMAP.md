@@ -43,11 +43,11 @@
 > Goal: close remaining product-quality gaps before production verification.
 
 | Task | Status | Acceptance Criteria |
-|---|---|---|
-| Full page transitions | Pending | Route transitions visible on customer/worker/admin top paths |
-| Mode switch animations | Pending | Auto/manual toggle gives animated state feedback |
-| Voice-first auto mode | Pending | User speaks, transcript auto-submits, Agent OS handles through existing policy flow |
-| Critical page UX audit | Pending | Loading/empty/error states verified for top pages |
+|---|---|---|---|
+| Full page transitions | Code ready | PageTransition.tsx wraps app layout |
+| Mode switch animations | Code ready | ModeToggle has animated sliding indicator |
+| Voice-first auto mode | Code ready | User speaks, transcript auto-submits via sendMessage(), Agent OS handles through existing policy flow |
+| Critical page UX audit | Code ready | admin/customer/worker error.tsx + EmptyState component exist |
 | Accessibility smoke test | Pending | Forms/dialogs/buttons keyboard and label path verified |
 
 Exit criteria: P1 UX gaps either closed or explicitly accepted as post-launch.

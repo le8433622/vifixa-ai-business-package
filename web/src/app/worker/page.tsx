@@ -29,14 +29,20 @@ export default function WorkerDashboard() {
   useEffect(() => { init() }, [])
 
   async function init() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-    setUserId(session.user.id)
+      setUserId(session.user.id)
 
-    const p = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
-    setProfile(p.data)
-    setLoading(false)
+      const p = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+      if (p.error) console.error('Profile fetch error:', p.error)
+      setProfile(p.data)
+    } catch (err) {
+      console.error('WorkerDashboard init failed:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const activeJob = activeOrders.find(o => o.status === 'in_progress')

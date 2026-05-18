@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS public.commissions (
 
 ALTER TABLE public.commissions ENABLE ROW LEVEL SECURITY;
 
+-- Add columns if table already existed without them
+ALTER TABLE public.commissions ADD COLUMN IF NOT EXISTS worker_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE;
+ALTER TABLE public.commissions ADD COLUMN IF NOT EXISTS collected_at TIMESTAMPTZ;
+
 -- Commission rates by service type
 CREATE TABLE IF NOT EXISTS public.commission_rates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -81,7 +85,8 @@ CREATE TRIGGER trigger_calculate_commission
 
 -- ========== 2. Membership Plans ==========
 
-CREATE TABLE IF NOT EXISTS public.membership_plans (
+DROP TABLE IF EXISTS public.membership_plans CASCADE;
+CREATE TABLE public.membership_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,

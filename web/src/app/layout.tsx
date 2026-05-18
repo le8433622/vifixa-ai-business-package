@@ -7,6 +7,7 @@ import { FeatureFlagProvider } from "@/components/FeatureFlagProvider";
 import { ThemeProvider } from "@/components/common/ThemeProvider";
 import { CurrencyProvider } from "@/components/common/CurrencyProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import PageTransition from "@/components/common/PageTransition";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +38,7 @@ export default function RootLayout({
               <ToastProvider>
                 <FeatureFlagProvider>
                   <ErrorBoundary>
-                    {children}
+                    <PageTransition>{children}</PageTransition>
                   </ErrorBoundary>
                 </FeatureFlagProvider>
               </ToastProvider>
