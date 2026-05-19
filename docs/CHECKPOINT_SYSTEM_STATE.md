@@ -20,7 +20,8 @@
 | English UI audit | Pass | Scan clean |
 | Dead code cleanup | Complete | 10,267 dòng xoá (web + supabase) |
 | Vercel production deploy | ✅ | `https://web-eta-ochre-99.vercel.app` (latest code) |
-| Supabase prod migrations | ✅ | 38/38 match (gồm RLS fix) |
+| Supabase prod migrations | ✅ | 39/39 match (gồm auth signup fix) |
+| E2E tests | ✅ | 32/32 pass on production |
 | CI/CD workflows | ✅ | Fixed deploy-supabase.yml + ci.yml (xoá refs dead code) |
 | Working tree | Dirty | Awaiting final commit |
 
@@ -67,7 +68,7 @@
 | Staging deployment smoke test | ✅ Done | Preview URL: https://web-pu1qx9hrf-le8433622-9187s-projects.vercel.app |
 | Supabase migrations on staging | ⚠️ Staging DB has different migration history | Needs repair or recreate |
 | RLS verification on real DB | ✅ 110 tables with RLS | Verified via direct DB query on production — all tables covered |
-| Full E2E business flow | ⚠️ Framework works (30/32 pass) | 2 login failures — GoTrue API returns \"Database error saving new user\" — cần check Auth settings (\"Allow signups\" enabled?) trong Supabase dashboard |
+| Full E2E business flow | ✅ 32/32 pass | Login -> create order -> worker accept -> complete -> pay — all green on production |
 | VNPay sandbox | ✅ Keys received | TmnCode: 9PCXHWJ9, sandbox URL configured |
 | Stripe sandbox | ✅ Keys received | pk_test_ + sk_test_ received |
 | Sentry dashboard event | ❌ Sentry DSN not configured | Missing from Vercel env |
