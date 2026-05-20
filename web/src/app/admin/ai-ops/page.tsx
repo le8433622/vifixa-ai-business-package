@@ -76,18 +76,13 @@ export default function AdminAIOpsPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Session expired. Please sign in again.')
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(body),
+    const { data, error } = await supabase.functions.invoke<GatewayResponse<T>>(functionName, {
+      body,
     })
 
-    const payload = await response.json() as GatewayResponse<T>
-    if (!response.ok || !payload.success) throw new Error(payload.error || `${functionName} request failed`)
-    return payload.data as T
+    if (error) throw new Error(error.message || `${functionName} request failed`)
+    if (!data?.success) throw new Error(data?.error || `${functionName} request failed`)
+    return data.data as T
   }, [])
 
   const loadData = useCallback(async () => {
