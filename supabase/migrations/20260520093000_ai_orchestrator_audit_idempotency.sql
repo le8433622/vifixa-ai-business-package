@@ -30,6 +30,7 @@ create index if not exists idx_ai_orchestrator_audit_logs_action_created
 
 alter table public.ai_orchestrator_audit_logs enable row level security;
 
+drop policy if exists "Users can read their own AI orchestrator audit logs" on public.ai_orchestrator_audit_logs;
 create policy "Users can read their own AI orchestrator audit logs"
   on public.ai_orchestrator_audit_logs
   for select
@@ -54,6 +55,7 @@ create index if not exists idx_ai_orchestrator_idempotency_user_expires
 
 alter table public.ai_orchestrator_idempotency_keys enable row level security;
 
+drop policy if exists "Users can read their own AI orchestrator idempotency keys" on public.ai_orchestrator_idempotency_keys;
 create policy "Users can read their own AI orchestrator idempotency keys"
   on public.ai_orchestrator_idempotency_keys
   for select
@@ -62,6 +64,7 @@ create policy "Users can read their own AI orchestrator idempotency keys"
 create or replace function public.set_ai_orchestrator_idempotency_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();
