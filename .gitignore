@@ -1,5 +1,56 @@
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build outputs
 .next/
-.env.local
+out/
+dist/
+build/
+.vercel/
+.turbo/
+coverage/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+
+# Supabase local runtime
+supabase/.branches/
+supabase/.temp/
+supabase/.cache/
+
+# Environment files
 .env
-*.lock
+.env.*
+!.env.example
+!.env.production.example
+!.env.staging.example
+web/.env.local
+web/.env.*.local
+mobile/.env
+mobile/.env.*
+
+# Logs and temp files
+*.log
+logs/
+.cache/
+.tmp/
+tmp/
+temp/
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Lock files policy
+# Keep package-lock.json files when intentionally committed.
