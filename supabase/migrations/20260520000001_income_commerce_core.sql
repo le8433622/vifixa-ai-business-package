@@ -163,6 +163,7 @@ CREATE OR REPLACE FUNCTION public.is_admin_from_jwt()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SET search_path = ''
 AS $$
   SELECT COALESCE(auth.jwt() ->> 'role', '') = 'admin'
      OR COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '') = 'admin'
@@ -201,6 +202,22 @@ CREATE POLICY "Admins manage matches" ON public.commerce_matches
 CREATE POLICY "Owners manage experiments" ON public.commerce_experiments
   FOR ALL USING (auth.uid() = owner_id OR public.is_admin_from_jwt())
   WITH CHECK (auth.uid() = owner_id OR public.is_admin_from_jwt());
+
+CREATE POLICY "Owners manage experiment variants" ON public.commerce_experiment_variants
+  FOR ALL USING (
+    public.is_admin_from_jwt()
+    OR EXISTS (
+      SELECT 1 FROM public.commerce_experiments e
+      WHERE e.id = experiment_id AND e.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    public.is_admin_from_jwt()
+    OR EXISTS (
+      SELECT 1 FROM public.commerce_experiments e
+      WHERE e.id = experiment_id AND e.owner_id = auth.uid()
+    )
+  );
 
 CREATE POLICY "Owners manage profit records" ON public.profit_records
   FOR ALL USING (auth.uid() = owner_id OR public.is_admin_from_jwt())
