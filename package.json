@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Test suite for Vifixa AI Business Package",
   "scripts": {
-    "test:supabase": "cd supabase/functions && for dir in */; do if [ -f \"$dir/test.ts\" ]; then echo \"Testing $dir...\"; /Users/lha/.deno/bin/deno test \"$dir/test.ts\" --allow-net --allow-env --no-check; fi; done",
+    "build": "cd web && npm install && npm run build",
+    "vercel-build": "cd web && npm install && npm run build",
+    "test:supabase": "cd supabase/functions && for dir in */; do if [ -f \"$dir/test.ts\" ]; then echo \"Testing $dir...\"; deno test \"$dir/test.ts\" --allow-net --allow-env --no-check; fi; done",
     "test:mobile": "cd mobile && npm test",
     "test:web": "cd web && npm test",
     "test:all": "npm run test:supabase && npm run test:mobile && npm run test:web",
@@ -12,7 +14,12 @@
     "deploy:mobile:ios": "cd mobile && eas build --platform ios",
     "deploy:mobile:android": "cd mobile && eas build --platform android",
     "deploy:all": "npm run deploy:supabase && npm run deploy:web",
-    "prepare": "husky"
+    "prepare": "command -v husky >/dev/null 2>&1 && husky || true"
+  },
+  "dependencies": {
+    "next": "16.2.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "deno": "^1.40.0",
