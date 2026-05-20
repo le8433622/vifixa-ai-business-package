@@ -55,12 +55,13 @@ export default function AdminAIReviewPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   const pendingCount = useMemo(() => requests.filter((request) => request.status === 'pending').length, [requests])
+  const approvedCount = useMemo(() => requests.filter((request) => request.status === 'approved').length, [requests])
 
-  const callApprovalGateway = useCallback(async <T,>(body: Record<string, unknown>) => {
+  const callGateway = useCallback(async <T,>(functionName: 'ai-approval' | 'ai-commerce-executor', body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) throw new Error('Session expired. Please sign in again.')
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-approval`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${functionName}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,9 +71,17 @@ export default function AdminAIReviewPage() {
     })
 
     const payload = await response.json() as GatewayResponse<T>
-    if (!response.ok || !payload.success) throw new Error(payload.error || 'AI approval gateway request failed')
+    if (!response.ok || !payload.success) throw new Error(payload.error || `${functionName} request failed`)
     return payload.data as T
   }, [])
+
+  const callApprovalGateway = useCallback(async <T,>(body: Record<string, unknown>) => {
+    return callGateway<T>('ai-approval', body)
+  }, [callGateway])
+
+  const callCommerceExecutor = useCallback(async <T,>(body: Record<string, unknown>) => {
+    return callGateway<T>('ai-commerce-executor', body)
+  }, [callGateway])
 
   const loadRequests = useCallback(async () => {
     try {
@@ -115,7 +124,7 @@ export default function AdminAIReviewPage() {
           decision_reason: reason,
         },
       })
-      setMessage(decision === 'approve_action_request' ? 'Request approved. Execution is still disabled.' : 'Request rejected.')
+      setMessage(decision === 'approve_action_request' ? 'Request approved. It can now be executed through the bounded commerce executor.' : 'Request rejected.')
       await loadRequests()
     } catch (err: any) {
       setError(err.message || 'Failed to update request')
@@ -123,6 +132,33 @@ export default function AdminAIReviewPage() {
       setActingId(null)
     }
   }, [callApprovalGateway, loadRequests])
+
+  const executeRequest = useCallback(async (requestId: string) => {
+    const confirmed = window.confirm('Execute this approved commerce request now? This will write to commerce tables, but not payment, wallet, ledger, refund, order, or admin mutation.')
+    if (!confirmed) return
+
+    const reason = window.prompt('Execution reason', 'Executed approved commerce proposal from admin review queue.')
+    if (!reason) return
+
+    try {
+      setActingId(requestId)
+      setError(null)
+      setMessage(null)
+      await callCommerceExecutor<unknown>({
+        action: 'execute_approved_request',
+        payload: {
+          request_id: requestId,
+          reason,
+        },
+      })
+      setMessage('Approved commerce request executed successfully.')
+      await loadRequests()
+    } catch (err: any) {
+      setError(err.message || 'Failed to execute request')
+    } finally {
+      setActingId(null)
+    }
+  }, [callCommerceExecutor, loadRequests])
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-8 text-slate-100">
@@ -133,11 +169,11 @@ export default function AdminAIReviewPage() {
               <p className="text-sm font-medium uppercase tracking-[0.3em] text-cyan-300">AI Approval Policy</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Admin AI Review Queue</h1>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-                Review AI proposal-only commerce actions before they can move to a later bounded execution phase.
-                This screen approves or rejects requests only; it does not execute write actions.
+                Review AI proposal-only commerce actions, approve or reject them, then execute only approved commerce requests through the bounded executor.
+                Payment, wallet, ledger, refund, order, and admin mutations remain out of scope.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm md:min-w-64">
+            <div className="grid grid-cols-3 gap-3 text-sm md:min-w-96">
               <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
                 <p className="text-slate-400">Loaded</p>
                 <p className="mt-1 text-2xl font-semibold text-white">{requests.length}</p>
@@ -145,6 +181,10 @@ export default function AdminAIReviewPage() {
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
                 <p className="text-amber-200">Pending</p>
                 <p className="mt-1 text-2xl font-semibold text-amber-100">{pendingCount}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <p className="text-emerald-200">Executable</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-100">{approvedCount}</p>
               </div>
             </div>
           </div>
@@ -203,7 +243,7 @@ export default function AdminAIReviewPage() {
                   {request.decision_reason ? <p className="mt-3 text-sm leading-6 text-slate-300">{request.decision_reason}</p> : null}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     disabled={request.status !== 'pending' || actingId === request.id}
@@ -219,6 +259,14 @@ export default function AdminAIReviewPage() {
                     className="rounded-full bg-red-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Reject
+                  </button>
+                  <button
+                    type="button"
+                    disabled={request.status !== 'approved' || actingId === request.id}
+                    onClick={() => void executeRequest(request.id)}
+                    className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Execute
                   </button>
                 </div>
               </div>
