@@ -74,10 +74,18 @@ export default function AdminDashboard() {
             </p>
           </div>
         </div>
-        {stats.disputes > 0 && (
-          <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-rose-900/50 text-rose-300 animate-pulse">🚨 {stats.disputes} dispute</span>
-        )}
-        <ModeToggle mode={mode} onChange={setMode} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/admin/ai-ops')}
+            className="hidden rounded-full bg-cyan-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-500/25 sm:inline-flex"
+          >
+            AI Ops
+          </button>
+          {stats.disputes > 0 && (
+            <span className="text-[10px] font-medium px-2 py-1 rounded-full bg-rose-900/50 text-rose-300 animate-pulse">🚨 {stats.disputes} dispute</span>
+          )}
+          <ModeToggle mode={mode} onChange={setMode} />
+        </div>
       </div>
 
       {/* Main — Flow Layout (KHÔNG absolute) */}
@@ -139,6 +147,8 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-4 gap-2">
               {[
                 { icon: '📊', name: 'Dashboard', href: '/admin' },
+                { icon: '🧠', name: 'AI Ops', href: '/admin/ai-ops' },
+                { icon: '✅', name: 'AI Review', href: '/admin/ai-review' },
                 { icon: '👥', name: 'Người dùng', count: stats.users, href: '/admin/users' },
                 { icon: '📋', name: 'Đơn hàng', count: stats.orders, href: '/admin/orders' },
                 { icon: '💳', name: 'Thanh toán', href: '/admin/payments' },
