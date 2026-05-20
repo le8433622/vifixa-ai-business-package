@@ -22,6 +22,19 @@ const SAFE_ACTION_CATALOG = [
   { id: 'payment.list_my_transactions', domain: 'payment-ledger', mode: 'read_only', risk: 'low', personas: ['customer', 'worker', 'admin'] },
 ] as const
 
+type CatalogActionId = typeof SAFE_ACTION_CATALOG[number]['id']
+
+type Persona = z.infer<typeof PersonaSchema>
+
+const ReadonlyToolSchema = z.enum([
+  'service.detect',
+  'service.collect_slots',
+  'payment.list_my_payment_intents',
+  'payment.get_my_wallets',
+  'payment.list_my_ledger_entries',
+  'payment.list_my_transactions',
+])
+
 const RequestSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('healthcheck'),
@@ -63,6 +76,14 @@ const RequestSchema = z.discriminatedUnion('action', [
       action_ids: z.array(z.string().min(1)).min(1).max(20),
     }),
   }),
+  z.object({
+    action: z.literal('execute_readonly_tool'),
+    payload: z.object({
+      persona: PersonaSchema.default('customer'),
+      tool: ReadonlyToolSchema,
+      input: z.record(z.unknown()).default({}),
+    }),
+  }),
 ])
 
 function json(data: unknown, status = 200) {
@@ -86,7 +107,7 @@ function redact(value: unknown): unknown {
   return value
 }
 
-function getCatalogForPersona(persona: z.infer<typeof PersonaSchema>) {
+function getCatalogForPersona(persona: Persona) {
   return SAFE_ACTION_CATALOG.filter((item) => item.personas.includes(persona))
 }
 
@@ -100,7 +121,7 @@ function classifyIntent(message: string) {
   return 'general_chat'
 }
 
-function suggestActions(intent: string, persona: z.infer<typeof PersonaSchema>) {
+function suggestActions(intent: string, persona: Persona) {
   const catalog = getCatalogForPersona(persona)
   const allow = (ids: string[]) => catalog.filter((item) => ids.includes(item.id))
 
@@ -111,7 +132,7 @@ function suggestActions(intent: string, persona: z.infer<typeof PersonaSchema>) 
   return allow(['service.detect', 'service.collect_slots'])
 }
 
-function evaluatePolicy(actionId: string, persona: z.infer<typeof PersonaSchema>) {
+function evaluatePolicy(actionId: string, persona: Persona) {
   const action = SAFE_ACTION_CATALOG.find((item) => item.id === actionId)
   if (!action) {
     return {
@@ -142,7 +163,19 @@ function evaluatePolicy(actionId: string, persona: z.infer<typeof PersonaSchema>
   }
 }
 
-function buildReadonlyPlan(message: string, persona: z.infer<typeof PersonaSchema>, maxSteps: number) {
+function requireReadonlyTool(tool: CatalogActionId, persona: Persona) {
+  const policy = evaluatePolicy(tool, persona)
+  if (!policy.allowed || policy.mode !== 'read_only') {
+    return {
+      ok: false,
+      policy,
+      error: 'Only read-only tools can be executed in AI-Orchestrator v2.',
+    }
+  }
+  return { ok: true, policy }
+}
+
+function buildReadonlyPlan(message: string, persona: Persona, maxSteps: number) {
   const intent = classifyIntent(message)
   const suggested = suggestActions(intent, persona)
   const steps = suggested.slice(0, maxSteps).map((action, index) => ({
@@ -161,6 +194,76 @@ function buildReadonlyPlan(message: string, persona: z.infer<typeof PersonaSchem
     confidence: steps.length > 0 ? 0.72 : 0.45,
     steps,
   }
+}
+
+function detectService(query: string) {
+  const text = query.toLowerCase()
+  if (/(máy lạnh|điều hòa|air conditioner|ac)/i.test(text)) return [{ id: 'air_conditioner', confidence: 0.88, reason: 'Cooling/HVAC intent detected' }]
+  if (/(điện|ổ cắm|đèn|electric)/i.test(text)) return [{ id: 'electrical', confidence: 0.82, reason: 'Electrical intent detected' }]
+  if (/(nước|ống|rò|plumb)/i.test(text)) return [{ id: 'plumbing', confidence: 0.82, reason: 'Plumbing intent detected' }]
+  if (/(phòng|booking|đặt phòng|homestay|hotel)/i.test(text)) return [{ id: 'room_booking', confidence: 0.84, reason: 'Room booking intent detected' }]
+  if (/(tour|du lịch|travel|cửa lò)/i.test(text)) return [{ id: 'tour_local', confidence: 0.8, reason: 'Local tour intent detected' }]
+  return [{ id: 'general_service', confidence: 0.45, reason: 'Generic service fallback' }]
+}
+
+function collectSlots(serviceId: string) {
+  const base = [
+    { key: 'location', label: 'Địa điểm', required: true },
+    { key: 'time_window', label: 'Thời gian mong muốn', required: true },
+    { key: 'budget', label: 'Ngân sách dự kiến', required: false },
+  ]
+  if (serviceId === 'room_booking') return [...base, { key: 'guests', label: 'Số người', required: true }, { key: 'nights', label: 'Số đêm', required: true }]
+  if (serviceId === 'air_conditioner') return [...base, { key: 'symptom', label: 'Triệu chứng máy lạnh', required: true }]
+  return base
+}
+
+function mapPaymentTool(tool: z.infer<typeof ReadonlyToolSchema>, input: Record<string, unknown>) {
+  if (tool === 'payment.list_my_payment_intents') return { action: 'list_my_payment_intents', payload: input }
+  if (tool === 'payment.get_my_wallets') return { action: 'get_my_wallets', payload: input }
+  if (tool === 'payment.list_my_ledger_entries') return { action: 'list_my_ledger_entries', payload: input }
+  if (tool === 'payment.list_my_transactions') return { action: 'list_my_transactions', payload: input }
+  throw new Error(`Unsupported payment tool: ${tool}`)
+}
+
+async function callGateway(req: Request, path: string, body: unknown) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  if (!supabaseUrl) return json({ success: false, error: 'Missing Supabase env' }, 500)
+  const auth = req.headers.get('authorization') || ''
+  const response = await fetch(`${supabaseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: auth,
+    },
+    body: JSON.stringify(body),
+  })
+  const raw = await response.text()
+  return new Response(raw, {
+    status: response.status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+async function executeReadonlyTool(req: Request, tool: z.infer<typeof ReadonlyToolSchema>, persona: Persona, input: Record<string, unknown>) {
+  const policyResult = requireReadonlyTool(tool, persona)
+  if (!policyResult.ok) {
+    return json({ success: false, action: 'execute_readonly_tool', error: policyResult.error, policy: policyResult.policy }, 403)
+  }
+
+  if (tool === 'service.detect') {
+    return json({ success: true, action: 'execute_readonly_tool', data: detectService(String(input.query || input.message || '')), policy: policyResult.policy })
+  }
+
+  if (tool === 'service.collect_slots') {
+    return json({ success: true, action: 'execute_readonly_tool', data: collectSlots(String(input.service_id || 'general_service')), policy: policyResult.policy })
+  }
+
+  if (tool.startsWith('payment.')) {
+    const payload = mapPaymentTool(tool, input)
+    return await callGateway(req, '/functions/v1/payment-ledger', payload)
+  }
+
+  return json({ success: false, action: 'execute_readonly_tool', error: 'Unsupported read-only tool' }, 400)
 }
 
 Deno.serve(async (req) => {
@@ -192,8 +295,9 @@ Deno.serve(async (req) => {
         request_id: requestId,
         data: {
           gateway: 'ai-orchestrator',
-          version: 'v1-readonly',
+          version: 'v2-readonly-execute',
           readonly: true,
+          execute_readonly_tool: true,
           latency_ms: Date.now() - startedAt,
         },
       })
@@ -269,6 +373,10 @@ Deno.serve(async (req) => {
           decisions: parsed.payload.action_ids.map((id) => evaluatePolicy(id, parsed.payload.persona)),
         },
       })
+    }
+
+    if (parsed.action === 'execute_readonly_tool') {
+      return await executeReadonlyTool(req, parsed.payload.tool, parsed.payload.persona, parsed.payload.input)
     }
 
     return json({ success: false, error: 'Unsupported action' }, 400)
